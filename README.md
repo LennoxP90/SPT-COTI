@@ -1,103 +1,92 @@
-# COTI — Clip-On Thermal Imager
+# COTI — 클립온 열화상 장비
 
-*[한국어](README.ko.md)*
+SPT 4.0.13용 클립온 열화상 장비(clip-on thermal imager)입니다. 나이트비전 장치의 대물렌즈에 장착되어 **튜브 원 안쪽에** 열화상 오버레이를 입혀줍니다. 그래서 열원은 도드라져 보이면서도 나머지 부분은 그대로 나이트비전 화면이 보이는, 실제 퓨전형 클립온 장비와 같은 방식으로 동작합니다 — 화면 전체를 열화상으로 바꿔버리는 방식이 아닙니다.
 
-A clip-on thermal imager for SPT 4.0.13. It clamps to the objective of a night vision device and
-injects a thermal overlay **into the tube's circle**, so heat signatures stand out while the night
-vision image shows through everywhere else — the way a real fused clip-on works, rather than
-replacing your view with a thermal one.
-
-Modelled on the Safran DSI AN/PAS-29B.
+Safran DSI AN/PAS-29B를 모델링했습니다.
 
 ---
 
-## What it does
+## 변경 사항 (SPT 4.1 → 4.0.13)
 
-- **Fused, not switched.** The thermal image is added inside the night vision circle only. Anything
-  cooler than the heat threshold contributes exactly nothing, so the tube image stays readable.
-- **Its own power.** `Ctrl+N` toggles the imager independently of the goggles, like the real device's
-  own button. The night vision stays on when the thermal goes off.
-- **Mounts to four devices** — PVS-14, N-15, GPNVG-18 and PVS-31A — each with its own tuned position.
-- **Other players see it on you.** It renders on your head in third person and is hidden from your
-  own first-person view, using the game's own mechanism for worn gear.
-- **Found where night vision is found.** It spawns in the same containers and loose-loot positions
-  as the goggles it clips to, at a fraction of their rate, and is sold by Peacekeeper.
+이 모드는 원래 SPT 4.1 기준으로 작성되었다가, 더 널리 쓰이는 **SPT 4.0.13**으로 대상 버전을 낮췄습니다. 서버 쪽(`Coti.Server`)이 참조하는 `SPTarkov.*` NuGet 패키지를 `4.1.0`에서 `4.0.13`으로 바꾸면서, 그 사이에 바뀐 API에 맞춰 코드를 수정했습니다.
 
-## Requirements
+- 대상 프레임워크를 `net10.0`에서 `net9.0`으로 변경 (4.0.13 패키지가 net9.0을 타겟팅).
+- `ISptLogger<T>`, `CustomItemService`, `ModHelper`의 네임스페이스가 이동되어 `using` 정리.
+- 4.1에 있던 `TemplateTable` / `LocationTable` / `TradersTable` / `LocaleTable` 직접 주입 방식이 4.0.13에는 없어서, `DatabaseServer.GetTables()`로 테이블에 접근하도록 변경.
+- `IOnLoad.OnLoadAsync(CancellationToken)` → `IOnLoad.OnLoad()`로 인터페이스 시그니처 변경.
+- `OnLoadOrder.Preload` / `OnLoadOrder.PostLoad`가 `PreSptModLoader` / `PostSptModLoader`로 이름이 바뀌었고, 그 사이에 새로 생긴 `Database` 단계 이후로 아이템 생성 순서를 조정 (`PostDBModLoader`).
+- `IModMetadata` 인터페이스가 `AbstractModMetadata` 추상 레코드로 바뀜.
+- `NewItemFromCloneDetails` / `CreateItemResult`의 필드 구성이 일부 달라짐.
+
+`Coti.Client`(BepInEx 클라이언트 플러그인)는 이번 API 변경과 무관한 코드만 사용하고 있어 함께 호환됩니다.
+
+---
+
+## 하는 일
+
+- **전환식이 아니라 융합식.** 열화상 이미지는 나이트비전 원 안쪽에만 더해집니다. 발열 임계값보다 차가운 것은 화면에 전혀 기여하지 않으므로 튜브 화면은 계속 잘 보입니다.
+- **독자적인 전원.** `Ctrl+N`으로 고글과 별개로 장비를 껐다 켤 수 있습니다. 실제 장비의 자체 버튼처럼요. 열화상을 꺼도 나이트비전은 계속 켜져 있습니다.
+- **4가지 장치에 장착** — PVS-14, N-15, GPNVG-18, PVS-31A — 각각 별도로 튜닝된 위치에 장착됩니다.
+- **다른 플레이어에게도 보입니다.** 3인칭 시점에서는 머리에 렌더링되고, 1인칭 시점(본인)에서는 게임 자체의 착용 장비 숨김 메커니즘을 이용해 보이지 않습니다.
+- **나이트비전이 나오는 곳에서 함께 등장.** 이 장비가 장착되는 고글과 같은 컨테이너·루즈 루트 위치에, 그보다 훨씬 낮은 확률로 스폰되며, 피스키퍼(Peacekeeper)가 판매합니다.
+
+## 요구 사항
 
 - **SPT 4.0.13**
-- **Borkel's Realistic NVGs — recommended, not required.** Nothing here depends on it. It is
-  recommended because it gives night vision the masked, feathered tube the overlay is designed to sit
-  inside; on vanilla night vision the effect still works but sits in a plainer picture.
+- **Borkel's Realistic NVGs — 권장 사항이며 필수는 아닙니다.** 이 모드는 해당 모드에 의존하지 않습니다. 다만 나이트비전에 마스킹되고 페더링된 튜브를 제공해줘서, 오버레이가 원래 의도한 모습으로 보이도록 도와줍니다. 바닐라 나이트비전에서도 효과는 동작하지만 화면이 더 밋밋합니다.
 
-## Installing
+## 설치
 
-Server half → `SPT_Runtime/user/mods/LennoxP90-COTI/`
-Client half → `BepInEx/plugins/LennoxP90-COTI/`
+서버 쪽 → `SPT_Runtime/user/mods/LennoxP90-COTI/`
+클라이언트 쪽 → `BepInEx/plugins/LennoxP90-COTI/`
 
-Both are needed: the server registers the item, its slot on each night vision device, and the trader
-offer; the client does the rendering.
+둘 다 필요합니다: 서버는 아이템, 각 나이트비전 장치의 슬롯, 트레이더 판매 항목을 등록하고, 클라이언트는 실제 렌더링을 담당합니다.
 
-## Building
+## 빌드
 
 ```
-msbuild SPT-COTI.slnx -p:Configuration=Release -p:SptRoot=<path to your SPT client>
+msbuild SPT-COTI.slnx -p:Configuration=Release -p:SptRoot=<SPT 클라이언트 경로>
 ```
 
-`SptRoot` is the folder holding `EscapeFromTarkov.exe`; the client half references the game's
-assemblies from `EscapeFromTarkov_Data\Managed` and `BepInEx\plugins\spt` beneath it. The server
-half needs no game install.
+`SptRoot`는 `EscapeFromTarkov.exe`가 있는 폴더입니다. 클라이언트 쪽은 그 아래의 `EscapeFromTarkov_Data\Managed`와 `BepInEx\plugins\spt`에서 게임 어셈블리를 참조합니다. 서버 쪽은 게임 설치가 필요 없습니다.
 
-Both projects stage themselves into `dist\<Configuration>\`, laid out so the contents drop straight
-into an SPT folder. `bundles\` holds the prebuilt Unity artifacts; the Unity project that produces
-them is not part of this repository, since the model it embeds is licensed rather than free.
+두 프로젝트 모두 `dist\<Configuration>\`에 결과물을 정리해서, 그대로 SPT 폴더에 넣으면 되도록 구성되어 있습니다. `bundles\`에는 미리 빌드된 Unity 결과물이 들어 있습니다 — 이를 만드는 Unity 프로젝트는 이 저장소에 포함되어 있지 않은데, 여기 들어가는 모델이 무료가 아니라 라이선스가 있는 자산이기 때문입니다.
 
-## Settings
+## 설정
 
-Image and control settings are on the **F12** page. What the item costs and how often it turns up
-are server-side, in `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json` — a server restart applies them.
+이미지·조작 설정은 **F12** 페이지에 있습니다. 아이템 가격과 등장 빈도는 서버 쪽 설정으로, `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json`에 있으며 서버를 재시작해야 적용됩니다.
 
-| Setting | |
+| 설정 | |
 |---|---|
-| `trader.loyaltyLevel` / `priceUsd` / `buyLimit` | Peacekeeper's offer. Defaults to LL4, $2000, three per profile. |
-| `loot.enabled` | Turn off to make the trader the only source. |
-| `loot.weightFraction` | Spawn weight relative to the night vision already at each spot. `0.25` makes it a quarter as likely as the goggles themselves. |
+| `trader.loyaltyLevel` / `priceUsd` / `buyLimit` | 피스키퍼 판매 조건. 기본값은 LL4, $2000, 프로필당 3개입니다. |
+| `loot.enabled` | 끄면 트레이더만이 유일한 획득 경로가 됩니다. |
+| `loot.weightFraction` | 각 지점의 기존 나이트비전 대비 상대 스폰 가중치입니다. `0.25`면 고글 자체보다 4분의 1 확률이 됩니다. |
 
-The F12 page:
+F12 페이지:
 
-| Section | Setting | |
+| 구분 | 설정 | |
 |---|---|---|
-| **Image** | Enabled | Master switch. Safe to toggle any time, including mid-raid. |
-| | Heat Threshold | How hot something must be before it shows. Raise it if the overlay washes the picture out; lower it to pick up cooler things. |
-| | Overlay Intensity | Brightness of the heat that does show. Lower it if bodies read as solid white blobs rather than shapes. |
-| | Outline Mix | 0 is solid hot shapes, 1 is edge-only contours. |
-| **Controls** | Power Toggle | Click and press the combination you want. Default `Ctrl+N`. Keep a modifier — EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
-| **Debug** | Verbose Logging | Off for normal play. Writes detailed diagnostics to the BepInEx log if you are reporting a problem. |
+| **이미지** | Enabled | 마스터 스위치. 레이드 중을 포함해 언제든 켜고 꺼도 안전합니다. |
+| | Heat Threshold | 얼마나 뜨거워야 표시되는지 정합니다. 오버레이가 화면을 하얗게 뒤덮으면 올리고, 더 차가운 것도 잡고 싶으면 내리세요. |
+| | Overlay Intensity | 표시되는 열의 밝기입니다. 사람 형체가 그냥 하얀 덩어리로 보이면 낮추세요. |
+| | Outline Mix | 0이면 형체가 꽉 찬 열화상, 1이면 윤곽선만 보이는 컨투어입니다. |
+| **조작** | Power Toggle | 클릭 후 원하는 키 조합을 누르세요. 기본값은 `Ctrl+N`입니다. 반드시 조합키(modifier)를 포함하세요 — EFT는 자체 바인딩과 정확히 겹치지 않아도 되기 때문에, 단순히 `N`만 쓰면 고글도 같이 토글됩니다. |
+| **디버그** | Verbose Logging | 평소 플레이에서는 꺼두세요. 문제를 리포트할 때 BepInEx 로그에 자세한 진단 정보를 남깁니다. |
 
-Deliberately not exposed: the thermal camera's resolution and refresh, the per-device mask geometry,
-and the mount poses. Those are not preferences, they are measured values — exposing them mostly
-offers a way to break the effect.
+의도적으로 노출하지 않은 항목: 열화상 카메라의 해상도·주사율, 장치별 마스크 지오메트리, 마운트 위치(pose)입니다. 이는 취향의 문제가 아니라 실측값이라, 노출해봐야 대부분 효과를 망가뜨리는 수단이 될 뿐입니다.
 
-## Performance
+## 성능
 
-The imager renders the scene a second time, off-screen at 768x576, and composites the result inside
-the tube. That second pass runs only while the device is powered on and clipped to a host — it is
-switched off with the device, not merely hidden.
+이 장비는 씬을 768x576 해상도로 화면 밖에서 한 번 더 렌더링한 뒤, 그 결과를 튜브 안에 합성합니다. 이 두 번째 렌더 패스는 장비가 켜져 있고 호스트에 장착되어 있을 때만 동작합니다 — 단순히 숨겨지는 게 아니라 장비와 함께 실제로 꺼집니다.
 
-There is nothing to tune for frames, and the settings that look like performance levers are not:
-`hz` is the sensor's refresh rate, driving a frame hold that is purely cosmetic, and the render
-target is small enough that its size is not the bottleneck.
+프레임을 위해 조정할 만한 항목은 없으며, 성능 레버처럼 보이는 설정들도 사실은 그렇지 않습니다: `hz`는 센서의 주사율로, 순전히 화면 표현용 프레임 홀드를 결정할 뿐이고, 렌더 타겟 크기도 충분히 작아서 병목이 되지 않습니다.
 
-## Credits
+## 크레딧
 
-**3D model by [3DMA — 3D Military Assets](https://www.3dmilitaryassets.com/)**, used under their
-Extended Licence.
+**3D 모델 제작: [3DMA — 3D Military Assets](https://www.3dmilitaryassets.com/)**, Extended Licence 하에 사용.
 
-Thanks to Eukyre for pointing out that worn gear wants a dress script — that turned out to be
-exactly how the device is hidden from the wearer's own view.
+착용 장비에는 dress 스크립트가 필요하다는 걸 알려준 Eukyre에게 감사드립니다 — 덕분에 장비를 착용자 본인 시점에서 숨기는 방법을 정확히 찾을 수 있었습니다.
 
-## Licence
+## 라이선스
 
-The mod's own code is free to use. The 3D model is **not** — it is licensed from 3DMA and is
-redistributed only in compiled form inside the asset bundle, as their licence permits. Do not
-extract, redistribute, or reuse the model, its mesh or its textures.
+이 모드 자체의 코드는 자유롭게 사용할 수 있습니다. 3D 모델은 **그렇지 않습니다** — 3DMA로부터 라이선스를 받은 것으로, 해당 라이선스가 허용하는 범위 내에서 에셋 번들 안에 컴파일된 형태로만 재배포됩니다. 모델, 메시, 텍스처를 추출·재배포·재사용하지 마세요.
