@@ -30,13 +30,13 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( ThermalVisionItemClass ), nameof( ThermalVisionItemClass.SetMaterialProperties ) );
+      return AccessTools.Method( typeof( ThermalVision ), nameof( ThermalVision.SetMaterialProperties ) );
     }
 
     [PatchPostfix]
-    private static void Postfix( ThermalVisionItemClass __instance )
+    private static void Postfix( ThermalVision __instance )
     {
-      // Runs for every ThermalVisionItemClass in the game. Unfiltered, a thermal weapon optic takes the
+      // Runs for every ThermalVision in the game. Unfiltered, a thermal weapon optic takes the
       // clip-on's tuning and keeps it - _wasActive is one flag, so only one instance ever restores.
       if( !CotiThermalCamera.Owns( __instance ) )
         return;
@@ -66,7 +66,7 @@ namespace Coti.Client.Patches
       }
     }
 
-    private static void ApplyCotiValues( ThermalVisionItemClass instance )
+    private static void ApplyCotiValues( ThermalVision instance )
     {
       if( CotiState.Host == null )
         return;
@@ -140,7 +140,7 @@ namespace Coti.Client.Patches
     /// so this is the actual control over whether the image reads as a uniformly bright disc or
     /// dark-with-hot-highlights (see CotiNvgHostConfig.Palette for the full rationale).
     ///
-    /// <see cref="ThermalVisionItemClass.GetRampTexture"/> walks
+    /// <see cref="ThermalVision.GetRampTexture"/> walks
     /// <c>ThermalVisionUtilities.RampTexPalletteConnectors</c> and returns null if none of them
     /// match <c>CurrentRampPalette</c> - a null ramp texture handed to the material could break
     /// the thermal image entirely. So a connector for the requested palette must be confirmed to
@@ -206,7 +206,7 @@ namespace Coti.Client.Patches
           $"[{string.Join( ", ", available )}] - leaving current palette unchanged" );
     }
 
-    private static void RestorePristineValues( ThermalVisionItemClass instance )
+    private static void RestorePristineValues( ThermalVision instance )
     {
       try
       {

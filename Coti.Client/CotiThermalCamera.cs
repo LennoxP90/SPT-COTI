@@ -11,7 +11,7 @@ namespace Coti.Client
   /// <summary>
   /// The COTI's own off-screen thermal camera.
   ///
-  /// ThermalVisionItemClass is a render-mode switch, not an image effect: it raises a GLOBAL shader value in
+  /// ThermalVision is a render-mode switch, not an image effect: it raises a GLOBAL shader value in
   /// OnPreCull and lowers it in OnPostRender, so it thermalises whichever camera it sits on, for the
   /// whole render span. On Camera.main that span is the player's view, so the effect cannot be
   /// masked to a circle - the first implementation turned the entire screen thermal.
@@ -23,7 +23,7 @@ namespace Coti.Client
   internal static class CotiThermalCamera
   {
     /// <summary>
-    /// BSG's optic-camera prefab. Instantiated rather than hand-built: ThermalVisionItemClass carries
+    /// BSG's optic-camera prefab. Instantiated rather than hand-built: ThermalVision carries
     /// serialized material and ramp-texture references, so a bare AddComponent yields a component
     /// with null guts that cannot render.
     /// </summary>
@@ -48,7 +48,7 @@ namespace Coti.Client
 
       // Scope-lens cosmetics, visible in the first working thermal dump as a bright radial
       // halo and rounded distortion. NOT stripped: ChromaticAberration and
-      // VolumetricLightRenderer, which ThermalVisionItemClass.Awake dereferences without a null check.
+      // VolumetricLightRenderer, which ThermalVision.Awake dereferences without a null check.
       "Fisheye",
       "CC_FastVignette",
       "UltimateBloom",
@@ -62,15 +62,15 @@ namespace Coti.Client
     };
 
     /// <summary>
-    /// ThermalVisionItemClass.OnPreCull dereferences this without a null guard, so a clone missing it
+    /// ThermalVision.OnPreCull dereferences this without a null guard, so a clone missing it
     /// throws once per frame. Private and cached during Awake, hence reflection.
     /// </summary>
     private static readonly FieldInfo VolumetricLightRendererField =
-        AccessTools.Field( typeof( ThermalVisionItemClass ), "_volumetricLightRenderer" );
+        AccessTools.Field( typeof( ThermalVision ), "_volumetricLightRenderer" );
 
     private static GameObject _go;
     private static Camera _cam;
-    private static ThermalVisionItemClass _tv;
+    private static ThermalVision _tv;
     private static RenderTexture _rt;
     private static Transform _followed;
 
@@ -99,10 +99,10 @@ namespace Coti.Client
     internal static RenderTexture Output => _rt;
 
     /// <summary>
-    /// Whether a ThermalVisionItemClass is our camera's own. Patches of SetMaterialProperties must ask, since
+    /// Whether a ThermalVision is our camera's own. Patches of SetMaterialProperties must ask, since
     /// it runs for every instance in the game.
     /// </summary>
-    internal static bool Owns( ThermalVisionItemClass candidate )
+    internal static bool Owns( ThermalVision candidate )
     {
       return candidate != null && ReferenceEquals( candidate, _tv );
     }
@@ -197,7 +197,7 @@ namespace Coti.Client
       StripScopeComponents( _go );
 
       _cam = _go.GetComponent<Camera>();
-      _tv = _go.GetComponent<ThermalVisionItemClass>();
+      _tv = _go.GetComponent<ThermalVision>();
 
       if( _cam == null || _tv == null )
       {
@@ -212,7 +212,7 @@ namespace Coti.Client
 
       EnsureVolumetricLightRenderer();
 
-      // ThermalVisionItemClass gates its own Update on _camera.enabled, so this must stay true: a disabled
+      // ThermalVision gates its own Update on _camera.enabled, so this must stay true: a disabled
       // camera still renders when driven by hand, but silently produces an ordinary lit image.
       _cam.enabled = true;
       _tv.On = true;
@@ -315,10 +315,10 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// The sensor's refresh, via ThermalVisionItemClass's own frame hold: it captures the target at this rate
+    /// The sensor's refresh, via ThermalVision's own frame hold: it captures the target at this rate
     /// and re-blits the held copy in between, which is what a low-refresh core looks like.
     ///
-    /// Not a render cap. Skipping renders means disabling the camera, and ThermalVisionItemClass gates its
+    /// Not a render cap. Skipping renders means disabling the camera, and ThermalVision gates its
     /// Update on camera.enabled - a disabled camera driven by manual Render() calls produces an
     /// ordinary lit image with no thermal at all.
     /// </summary>
@@ -350,7 +350,7 @@ namespace Coti.Client
 
       Plugin.Log.LogWarning(
           "[COTI] Thermal camera prefab had no VolumetricLightRenderer - added one, since " +
-          "ThermalVisionItemClass.OnPreCull dereferences it without a null check" );
+          "ThermalVision.OnPreCull dereferences it without a null check" );
     }
 
     /// <summary>
@@ -520,7 +520,7 @@ namespace Coti.Client
         File.WriteAllBytes( path, readback.EncodeToPNG() );
 
         // The command-buffer counts are the diagnostic that would have found the disabled
-        // component immediately. ThermalVisionItemClass attaches one buffer to each of
+        // component immediately. ThermalVision attaches one buffer to each of
         // BeforeForwardAlpha and AfterForwardAlpha in its Awake, and fills them from
         // OnPreCull - a message only an ENABLED component receives. Counts of 1/1 mean the
         // chain is wired; 0/0 means Awake never ran on this camera.
