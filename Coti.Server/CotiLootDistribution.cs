@@ -1,11 +1,10 @@
 using Coti.Shared;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
-using SPTarkov.Server.Core.Models.Enums;
-using SPTarkov.Server.Core.Models.Spt.Tables;
+using SPTarkov.Server.Core.Models.Utils;
+using SPTarkov.Server.Core.Servers;
 
 namespace Coti.Server;
 
@@ -13,14 +12,13 @@ namespace Coti.Server;
 /// Spawns the COTI wherever night vision already spawns, at a fraction of its weight. NVGs come from
 /// the item database, not <see cref="CotiNvgHosts"/>, so modded ones count too.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 60 )]
+[Injectable( TypePriority = OnLoadOrder.PostSptModLoader + 60 )]
 public class CotiLootDistribution(
     ISptLogger<CotiLootDistribution> logger,
     CotiServerConfig config,
-    TemplateTable templateTable,
-    LocationTable locationTable ) : IOnLoad
+    DatabaseServer databaseServer ) : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  public Task OnLoad()
   {
     if( !config.Loot.Enabled || config.Loot.WeightFraction <= 0 )
     {
@@ -37,7 +35,7 @@ public class CotiLootDistribution(
 
     var cotiTpl = new MongoId( CotiItemFactory.CotiTplId );
 
-    foreach( var entry in locationTable.GetDictionary() )
+    foreach( var entry in databaseServer.GetTables().Locations.GetDictionary() )
     {
       AddToStaticLoot( entry.Key, entry.Value, nightVisionTpls, cotiTpl );
       AddToLooseLoot( entry.Key, entry.Value, nightVisionTpls, cotiTpl );
@@ -52,9 +50,9 @@ public class CotiLootDistribution(
 
   private HashSet<MongoId> GetNightVisionTpls()
   {
-    var nightVision = new MongoId( BaseClasses.NIGHT_VISION );
+    var nightVision = BaseClasses.NIGHT_VISION;
 
-    return templateTable.Items.Values
+    return databaseServer.GetTables().Templates.Items.Values
         .Where( item => item.Parent == nightVision )
         .Select( item => item.Id )
         .ToHashSet();

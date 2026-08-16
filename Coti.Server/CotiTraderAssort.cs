@@ -1,10 +1,10 @@
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
-using SPTarkov.Server.Core.Models.Spt.Tables;
+using SPTarkov.Server.Core.Models.Utils;
+using SPTarkov.Server.Core.Servers;
 
 namespace Coti.Server;
 
@@ -12,17 +12,17 @@ namespace Coti.Server;
 /// Adds the COTI to Peacekeeper's assort. Loyalty level, price and purchase limit come from
 /// config/config.json. Runs after CotiItemFactory so the COTI template already exists.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 30 )]
+[Injectable( TypePriority = OnLoadOrder.PostSptModLoader + 30 )]
 public class CotiTraderAssort(
     ISptLogger<CotiTraderAssort> logger,
     CotiServerConfig config,
-    TradersTable tradersTable ) : IOnLoad
+    DatabaseServer databaseServer ) : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  public Task OnLoad()
   {
-    if( !tradersTable.TryGetValue( Traders.PEACEKEEPER, out var peacekeeper ) )
+    if( !databaseServer.GetTables().Traders.TryGetValue( Traders.PEACEKEEPER, out var peacekeeper ) )
     {
-      logger.Error( "[COTI] Peacekeeper not found in TradersTable - assort not added" );
+      logger.Error( "[COTI] Peacekeeper not found in the trader database - assort not added" );
       return Task.CompletedTask;
     }
 

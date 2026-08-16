@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -13,10 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="SPTarkov.Common" Version="4.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="SPTarkov.DI" Version="4.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="SPTarkov.Reflection" Version="4.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="SPTarkov.Server.Core" Version="4.1.0" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTarkov.Common" Version="4.0.13" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTarkov.DI" Version="4.0.13" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTarkov.Reflection" Version="4.0.13" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTarkov.Server.Core" Version="4.0.13" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>

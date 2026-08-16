@@ -1,6 +1,6 @@
 # COTI — Clip-On Thermal Imager
 
-A clip-on thermal imager for SPT 4.1. It clamps to the objective of a night vision device and
+A clip-on thermal imager for SPT 4.0.13. It clamps to the objective of a night vision device and
 injects a thermal overlay **into the tube's circle**, so heat signatures stand out while the night
 vision image shows through everywhere else — the way a real fused clip-on works, rather than
 replacing your view with a thermal one.
@@ -23,7 +23,7 @@ Modelled on the Safran DSI AN/PAS-29B.
 
 ## Requirements
 
-- **SPT 4.1**
+- **SPT 4.0.13**
 - **Borkel's Realistic NVGs — recommended, not required.** Nothing here depends on it. It is
   recommended because it gives night vision the masked, feathered tube the overlay is designed to sit
   inside; on vanilla night vision the effect still works but sits in a plainer picture.
