@@ -29,11 +29,6 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof(GClass926), nameof(GClass926.GetItemIcon ) );
-    }
-
-    [PatchPrefix]
-    private static void Prefix(GClass926 __instance, Item item )
       return AccessTools.Method( typeof( GClass926 ), nameof( GClass926.GetItemIcon ) );
     }
 

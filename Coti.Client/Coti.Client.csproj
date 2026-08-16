@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <SptRoot Condition="'$(SptRoot)' == ''">C:\patch workspace\spt\target_4.0.13</SptRoot>
+    <SptRoot Condition="'$(SptRoot)' == ''">F:\Games\SPT-4.0.13\SPT-4.0.13-client</SptRoot>
     <SptManaged>$(SptRoot)\EscapeFromTarkov_Data\Managed</SptManaged>
     <SptPlugins>$(SptRoot)\BepInEx\plugins</SptPlugins>
     <SptSptPlugins>$(SptRoot)\BepInEx\plugins\spt</SptSptPlugins>
