@@ -1,0 +1,12 @@
+{
+    "manifest": [
+        {
+            "key": "coti/nvg_coti_clip_on_thermal.bundle",
+            "dependencyKeys": [
+                "assets/commonassets/physics/physicsmaterials.bundle",
+                "cubemaps",
+                "shaders"
+            ]
+        }
+    ]
+}

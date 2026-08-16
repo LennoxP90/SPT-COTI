@@ -1,0 +1,100 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>Coti.Client</AssemblyName>
+    <Description>ECOTI client plugin - F12 config, runtime mask generation, headless no-op</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>$(DefineConstants);COTI_DEV</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SptRoot Condition="'$(SptRoot)' == ''">F:\Games\SPT-4.1\SPT-4.1-client</SptRoot>
+    <SptManaged>$(SptRoot)\EscapeFromTarkov_Data\Managed</SptManaged>
+    <SptPlugins>$(SptRoot)\BepInEx\plugins</SptPlugins>
+    <SptSptPlugins>$(SptRoot)\BepInEx\plugins\spt</SptSptPlugins>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Comfort">
+      <HintPath>$(SptManaged)\Comfort.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(SptManaged)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(SptManaged)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(SptManaged)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(SptManaged)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(SptManaged)\UnityEngine.AssetBundleModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(SptManaged)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.Postprocessing.Runtime">
+      <HintPath>$(SptManaged)\Unity.Postprocessing.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(SptManaged)\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="spt-common">
+      <HintPath>$(SptSptPlugins)\spt-common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="spt-reflection">
+      <HintPath>$(SptSptPlugins)\spt-reflection.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\slot_mod_coti.png" />
+    <EmbeddedResource Include="Assets\coti-defaults.json" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <CotiShaderBundlePath>$(MSBuildProjectDirectory)\..\bundles\coti_shaders</CotiShaderBundlePath>
+    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\BepInEx\plugins\LennoxP90-COTI</CotiDist>
+  </PropertyGroup>
+
+  <Target Name="StageCotiClient" AfterTargets="Build">
+    <Warning Text="No coti_shaders in bundles/ - the overlay will not draw. Rebuild it with Unity (COTI &gt; Build Everything)."
+             Condition="!Exists('$(CotiShaderBundlePath)')" />
+
+    <Copy SourceFiles="$(TargetPath);$(CotiShaderBundlePath)"
+          DestinationFolder="$(CotiDist)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(CotiShaderBundlePath)')" />
+  </Target>
+
+</Project>

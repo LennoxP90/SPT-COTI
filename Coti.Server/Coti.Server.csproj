@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SPTarkov.Common" Version="4.1.0" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTarkov.DI" Version="4.1.0" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTarkov.Reflection" Version="4.1.0" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTarkov.Server.Core" Version="4.1.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="bundles.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Content Update="config\config.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\SPT_Runtime\user\mods\LennoxP90-COTI</CotiDist>
+  </PropertyGroup>
+
+  <Target Name="StageCotiServer" AfterTargets="Build">
+    <ItemGroup>
+      <CotiModelBundle Include="$(MSBuildProjectDirectory)\..\bundles\coti\**\*" Exclude="**\*.manifest" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(CotiModelBundle)"
+          DestinationFolder="$(OutDir)bundles\coti\%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="'@(CotiModelBundle)' != ''" />
+
+    <Warning Text="No COTI model bundle in bundles/coti - the item will render as the donor rail mount. Rebuild it with Unity (COTI > Build Everything)."
+             Condition="'@(CotiModelBundle)' == ''" />
+
+    <Copy SourceFiles="$(TargetPath);$(OutDir)$(AssemblyName).deps.json;bundles.json"
+          DestinationFolder="$(CotiDist)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="@(CotiModelBundle)"
+          DestinationFolder="$(CotiDist)\bundles\coti\%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="'@(CotiModelBundle)' != ''" />
+
+    <Copy SourceFiles="config\config.json"
+          DestinationFolder="$(CotiDist)\config"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

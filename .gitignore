@@ -1,0 +1,13 @@
+bin/
+obj/
+*.user
+.vs/
+.superpowers/
+
+# Purchased third-party model source. Licence forbids redistributing raw files; only the
+# compiled AssetBundle may ship. Keep these local.
+unity/blender/purchased/
+
+# VS generates this for the Web SDK the server mod builds against; it is not used.
+**/Properties/launchSettings.json
+dist/

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Coti.Client/Coti.Client.csproj" />
+  <Project Path="Coti.Server/Coti.Server.csproj" />
+</Solution>

@@ -1,0 +1,11 @@
+{
+  "trader": {
+    "loyaltyLevel": 4,
+    "priceUsd": 2000,
+    "buyLimit": 3
+  },
+  "loot": {
+    "enabled": true,
+    "weightFraction": 0.25
+  }
+}
