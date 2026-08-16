@@ -41,6 +41,7 @@ namespace Coti.Client
                 Object.Destroy(texture);
                 return;
             }
+      CacheResourcesPopAbstractClass.Dictionary_0[CacheKey] = _sprite;
 
             // Resampled to the cell size rather than used at its authored resolution. ModSlotView
             // draws this background at the sprite's native size, so a 128px image overflowed a 64px

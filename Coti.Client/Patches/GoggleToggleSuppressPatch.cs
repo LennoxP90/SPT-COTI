@@ -27,6 +27,8 @@ namespace Coti.Client.Patches
                 nameof(Player.method_15));
         }
         
+      return AccessTools.Method( typeof( Player ), nameof( Player.method_15 ) );
+    }
 
         [PatchPrefix]
         private static bool Prefix(Player __instance)

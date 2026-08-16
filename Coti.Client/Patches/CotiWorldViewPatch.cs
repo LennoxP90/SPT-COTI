@@ -17,6 +17,37 @@ namespace Coti.Client.Patches
     public class CotiWorldViewPatch : ModulePatch
     {
         private const string CotiModSlotName = CotiIds.ModSlotName;
+  /// <summary>
+  /// Rebinds the shader and starts the visibility mirror for item views built for the WORLD.
+  /// CotiAttachReportPatch does the same off ContainerCollectionView.SlotView, which is inventory UI
+  /// only, so in raid neither ran.
+  /// </summary>
+  public class CotiWorldViewPatch : ModulePatch
+  {
+    private const string CotiModSlotName = CotiIds.ModSlotName;
+
+    protected override MethodBase GetTargetMethod()
+    {
+      return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.CreateItemAsync ) );
+    }
+
+    /// <summary>
+    /// The GameObject does not exist until the returned task completes, so the postfix replaces the
+    /// task with one that awaits it first: a postfix on an async method sees the Task handle, not
+    /// the value it will eventually produce.
+    ///
+    /// Positional (__0), not by name: CreateItemAsync's own parameter name doesn't survive
+    /// obfuscation, so Harmony can only bind this by position.
+    /// </summary>
+    [PatchPostfix]
+    private static void Postfix( Item __0, ref Task<GameObject> __result )
+    {
+      var item = __0;
+
+      if( item == null || __result == null )
+        return;
+      if( !ContainsCoti( item ) )
+        return;
 
         protected override MethodBase GetTargetMethod()
         {
@@ -82,6 +113,47 @@ namespace Coti.Client.Patches
         }
 
         private static bool ContainsCoti(Item item)
+    /// <summary>
+    /// Re-equipping goggles reattaches to the pooled view instead of building a new one, so
+    /// CreateItemAsync never runs and both faults came back. CotiMountBonePatch prefixes this same
+    /// method to create the bone; this is the other half, after the mods are on it.
+    /// </summary>
+    public class OnAttachMods : ModulePatch
+    {
+      protected override MethodBase GetTargetMethod()
+      {
+        return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.method_3 ) );
+      }
+
+      // Positional (__0/__1), not by name: method_3's own parameter names don't survive
+      // obfuscation, so Harmony can only bind these by position.
+      [PatchPostfix]
+      private static void Postfix( GClass3248 __0, GClass768 __1, ref Task __result )
+      {
+        var containerCollection = __0;
+        var collectionView = __1;
+
+        if( containerCollection == null || collectionView == null || __result == null )
+          return;
+        if( collectionView.GameObject == null || !HasCotiSlot( containerCollection ) )
+          return;
+
+        __result = DressWhenReady( __result, collectionView.GameObject );
+      }
+
+      private static async Task DressWhenReady( Task inner, GameObject view )
+      {
+        await inner;
+
+        if( view == null )
+          return;
+
+        Dress( view, viewIsDevice: false );
+      }
+
+      private static bool HasCotiSlot( GClass3248 containerCollection )
+      {
+        foreach( var container in containerCollection.Containers )
         {
             foreach (var child in item.GetAllItems())
             {

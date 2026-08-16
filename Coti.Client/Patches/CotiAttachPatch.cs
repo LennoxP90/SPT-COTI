@@ -35,6 +35,21 @@ namespace Coti.Client.Patches
 
             if (itemView == null)
                 return;
+      // Nested type, so it cannot be named directly - AccessTools.Inner finds SlotView (GClass769)
+      // inside ContainerCollectionView (GClass768).
+      var slotView = AccessTools.Inner( typeof( GClass768 ), "GClass769" );
+      return AccessTools.Method( slotView, "InsertItem" );
+    }
+
+    // Positional (__0/__1), not by name: InsertItem's own parameter names don't survive
+    // obfuscation, so Harmony can only bind these by position.
+    [PatchPostfix]
+    private static void Postfix( Item __0, GameObject __1 )
+    {
+      var itemView = __1;
+
+      if( itemView == null )
+        return;
 
             var bone = itemView.transform.parent;
             if (bone == null || bone.name != CotiModSlotName)

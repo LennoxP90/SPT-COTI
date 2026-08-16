@@ -34,6 +34,10 @@
       <HintPath>$(SptManaged)\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="AnimationSystem.Types">
+      <HintPath>$(SptManaged)\AnimationSystem.Types.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(SptManaged)\UnityEngine.dll</HintPath>
       <Private>false</Private>
