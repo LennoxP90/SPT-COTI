@@ -1,5 +1,7 @@
 # COTI — Clip-On Thermal Imager
 
+*[한국어](README.ko.md)*
+
 A clip-on thermal imager for SPT 4.0.13. It clamps to the objective of a night vision device and
 injects a thermal overlay **into the tube's circle**, so heat signatures stand out while the night
 vision image shows through everywhere else — the way a real fused clip-on works, rather than
