@@ -1,15 +1,15 @@
 using Coti.Shared;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Spt.Mod;
-using SPTarkov.Server.Core.Services.Modding.Custom;
+using SPTarkov.Server.Core.Models.Utils;
+using SPTarkov.Server.Core.Services.Mod;
 
 namespace Coti.Server;
 
-[Injectable( TypePriority = OnLoadOrder.Preload )]
+[Injectable( TypePriority = OnLoadOrder.PostDBModLoader )]
 public class CotiItemFactory(
     ISptLogger<CotiItemFactory> logger,
     CustomItemService customItemService ) : IOnLoad
@@ -39,20 +39,16 @@ public class CotiItemFactory(
   /// </summary>
   public const string ModelBundleKey = "coti/nvg_coti_clip_on_thermal.bundle";
 
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  public Task OnLoad()
   {
     var result = customItemService.CreateItemFromClone( new NewItemFromCloneDetails
     {
       ItemTplToClone = new MongoId( DonorTplId ),
-      NewId = new MongoId( CotiTplId ),
-      ParentId = new MongoId( MountItemClassId ),
-      NewItemName = "anpas29b_coti_clip_on_thermal_imager",
+      NewId = CotiTplId,
+      ParentId = MountItemClassId,
       HandbookParentId = HandbookParentId,
       HandbookPriceRoubles = 250000,
       FleaPriceRoubles = 250000,
-      AddToHandbook = true,
-      AddToFleaPriceDb = true,
-      AddToWeaponShelf = false,
       OverrideProperties = new TemplateItemProperties
       {
         Name = "AN/PAS-29B ECOTI enhanced clip-on thermal imager",
@@ -101,7 +97,7 @@ public class CotiItemFactory(
       }
     } );
 
-    if( !result.Success )
+    if( result.Success != true )
     {
       // The slot filter, the assort and the loot entries all point at this id.
       logger.Error(

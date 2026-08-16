@@ -1,9 +1,8 @@
 using Coti.Shared;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
-using SPTarkov.Server.Core.Models.Spt.Mod;
-using SPTarkov.Server.Core.Models.Spt.Tables;
+using SPTarkov.Server.Core.Models.Utils;
+using SPTarkov.Server.Core.Servers;
 
 namespace Coti.Server;
 
@@ -13,13 +12,14 @@ namespace Coti.Server;
 /// no entry. Registered for every installed language, since the fallback would show through on any
 /// locale we skipped.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 30 )]
+[Injectable( TypePriority = OnLoadOrder.PostSptModLoader + 30 )]
 public class CotiSlotLocale(
     ISptLogger<CotiSlotLocale> logger,
-    LocaleTable locales ) : IOnLoad
+    DatabaseServer databaseServer ) : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  public Task OnLoad()
   {
+    var locales = databaseServer.GetTables().Locales;
     var added = 0;
 
     foreach( var language in locales.Languages )

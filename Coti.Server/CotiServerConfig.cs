@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
-using SPTarkov.Server.Core.Helpers.Server;
+using SPTarkov.Server.Core.Helpers;
+using SPTarkov.Server.Core.Models.Utils;
 
 namespace Coti.Server;
 

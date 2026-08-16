@@ -1,11 +1,11 @@
 using Coti.Shared;
 using System.Linq;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
-using SPTarkov.Server.Core.Models.Spt.Tables;
+using SPTarkov.Server.Core.Models.Utils;
+using SPTarkov.Server.Core.Servers;
 
 namespace Coti.Server;
 
@@ -13,14 +13,14 @@ namespace Coti.Server;
 /// Runs deliberately late. Other mods rewrite NVG templates (AttachmentBackport,
 /// Tarkov-1.0-Backport both touch mounts) and a slot added before they run can be discarded.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 20 )]
+[Injectable( TypePriority = OnLoadOrder.PostSptModLoader + 20 )]
 public class CotiSlotInjector(
     ISptLogger<CotiSlotInjector> logger,
-    TemplateTable templateTable ) : IOnLoad
+    DatabaseServer databaseServer ) : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  public Task OnLoad()
   {
-    var items = templateTable.Items;
+    var items = databaseServer.GetTables().Templates.Items;
     var added = 0;
     var notInstalled = 0;
 
