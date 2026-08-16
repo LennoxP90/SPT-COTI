@@ -52,7 +52,7 @@ namespace Coti.Client.Patches
       // and if the pose were only applied at creation, a config change would appear to do
       // nothing until the pool happened to hand out a fresh instance. Re-applying every time
       // makes mount tuning a config edit rather than a client relaunch.
-      var existing = TransformTools.FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
+      var existing = TransformHelperClass.FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
 
       CotiDevTools.ReportHostBones( containerCollection.TemplateId, root );
 
@@ -120,7 +120,7 @@ namespace Coti.Client.Patches
       if( host == null || string.IsNullOrEmpty( host.MountAnchorBone ) )
         return root;
 
-      var anchor = TransformTools.FindTransformRecursive( root, host.MountAnchorBone, ignoreCase: true );
+      var anchor = TransformHelperClass.FindTransformRecursive( root, host.MountAnchorBone, ignoreCase: true );
       if( anchor != null )
         return anchor;
 
