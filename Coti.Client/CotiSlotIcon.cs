@@ -55,7 +55,7 @@ namespace Coti.Client
         return;
       }
 
-      ResourcesCache._storage[CacheKey] = _sprite;
+      CacheResourcesPopAbstractClass._storage[CacheKey] = _sprite;
 
       Plugin.Log.LogInfo( $"[COTI] Slot icon installed ({SlotPixelSize}x{SlotPixelSize} from a {texture.width}px master)" );
     }

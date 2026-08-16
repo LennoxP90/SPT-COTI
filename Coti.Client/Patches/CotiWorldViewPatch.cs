@@ -20,7 +20,7 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( ObjectsFactory ), nameof( ObjectsFactory.CreateItemAsync ) );
+      return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.CreateItemAsync ) );
     }
 
     /// <summary>
@@ -94,12 +94,12 @@ namespace Coti.Client.Patches
     {
       protected override MethodBase GetTargetMethod()
       {
-        return AccessTools.Method( typeof( ObjectsFactory ), nameof( ObjectsFactory.AttachMods ) );
+        return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.AttachMods ) );
       }
 
       [PatchPostfix]
-      private static void Postfix( ContainerCollection containerCollection,
-          ContainerCollectionView collectionView, ref Task __result )
+      private static void Postfix( GClass3248 containerCollection,
+          GClass768 collectionView, ref Task __result )
       {
         if( containerCollection == null || collectionView == null || __result == null )
           return;
@@ -119,7 +119,7 @@ namespace Coti.Client.Patches
         Dress( view, viewIsDevice: false );
       }
 
-      private static bool HasCotiSlot( ContainerCollection containerCollection )
+      private static bool HasCotiSlot( GClass3248 containerCollection )
       {
         foreach( var container in containerCollection.Containers )
         {

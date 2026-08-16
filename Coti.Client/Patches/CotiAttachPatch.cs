@@ -22,9 +22,9 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      // Nested type, so it cannot be named directly - AccessTools.Inner finds SlotView inside
-      // ContainerCollectionView.
-      var slotView = AccessTools.Inner( typeof( ContainerCollectionView ), "SlotView" );
+      // Nested type, so it cannot be named directly - AccessTools.Inner finds SlotView (GClass769)
+      // inside ContainerCollectionView (GClass768).
+      var slotView = AccessTools.Inner( typeof( GClass768 ), "GClass769" );
       return AccessTools.Method( slotView, "InsertItem" );
     }
 

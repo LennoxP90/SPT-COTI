@@ -25,7 +25,7 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( ObjectsFactory ), nameof( ObjectsFactory.AttachMods ) );
+      return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.AttachMods ) );
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ namespace Coti.Client.Patches
     /// needed: this work is synchronous and only has to finish before AttachMods' first loop.
     /// </summary>
     [PatchPrefix]
-    private static void Prefix( ContainerCollection containerCollection, ContainerCollectionView collectionView )
+    private static void Prefix( GClass3248 containerCollection, GClass768 collectionView )
     {
       if( containerCollection == null || collectionView == null )
         return;
@@ -88,7 +88,7 @@ namespace Coti.Client.Patches
       }
     }
 
-    private static bool HasCotiSlot( ContainerCollection containerCollection )
+    private static bool HasCotiSlot( GClass3248 containerCollection )
     {
       foreach( var container in containerCollection.Containers )
       {
