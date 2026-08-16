@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\SPT_Runtime\user\mods\LennoxP90-COTI</CotiDist>
+    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\SPT\user\mods\LennoxP90-COTI</CotiDist>
   </PropertyGroup>
 
   <Target Name="StageCotiServer" AfterTargets="Build">

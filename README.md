@@ -37,7 +37,7 @@ Safran DSI AN/PAS-29B를 모델링했습니다.
 
 ## 설치
 
-서버 쪽 → `SPT_Runtime/user/mods/LennoxP90-COTI/`
+서버 쪽 → `SPT/user/mods/LennoxP90-COTI/`
 클라이언트 쪽 → `BepInEx/plugins/LennoxP90-COTI/`
 
 둘 다 필요합니다: 서버는 아이템, 각 나이트비전 장치의 슬롯, 트레이더 판매 항목을 등록하고, 클라이언트는 실제 렌더링을 담당합니다.
@@ -54,7 +54,7 @@ msbuild SPT-COTI.slnx -p:Configuration=Release -p:SptRoot=<SPT 클라이언트 �
 
 ## 설정
 
-이미지·조작 설정은 **F12** 페이지에 있습니다. 아이템 가격과 등장 빈도는 서버 쪽 설정으로, `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json`에 있으며 서버를 재시작해야 적용됩니다.
+이미지·조작 설정은 **F12** 페이지에 있습니다. 아이템 가격과 등장 빈도는 서버 쪽 설정으로, `SPT/user/mods/LennoxP90-COTI/config/config.json`에 있으며 서버를 재시작해야 적용됩니다.
 
 | 설정 | |
 |---|---|
