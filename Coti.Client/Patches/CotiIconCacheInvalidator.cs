@@ -29,23 +29,23 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( ItemIconCreator ), nameof( ItemIconCreator.GetItemIcon ) );
+      return AccessTools.Method( typeof(GClass926), nameof(GClass926.GetItemIcon ) );
     }
 
     [PatchPrefix]
-    private static void Prefix( ItemIconCreator __instance, Item item )
+    private static void Prefix(GClass926 __instance, Item item )
     {
       if( item == null )
         return;
       if( !ContainsCoti( item ) )
         return;
 
-      var hash = IconsHash.GetItemHash( item );
+      var hash = GClass928.GetItemHash( item );
       if( !Invalidated.Add( hash ) )
         return;
 
-      var hadFile = __instance._fileCacheIndex.Remove( hash );
-      var hadMemory = __instance._memoryCacheIndex.Remove( hash );
+      var hadFile = __instance.Dictionary_1.Remove( hash );
+      var hadMemory = __instance.Dictionary_0.Remove( hash );
 
       if( !hadFile && !hadMemory )
         return;
