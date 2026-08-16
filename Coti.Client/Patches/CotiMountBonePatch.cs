@@ -1,4 +1,5 @@
 using Coti.Shared;
+using System;
 using System.Reflection;
 using Coti.Client.Dev;
 using EFT;
@@ -25,16 +26,22 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.AttachMods ) );
+      return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.method_3 ) );
     }
 
     /// <summary>
     /// A prefix on an async method runs before the state machine starts, which is the window
     /// needed: this work is synchronous and only has to finish before AttachMods' first loop.
+    ///
+    /// Positional (__0/__1), not by name: method_3's own parameter names don't survive
+    /// obfuscation, so Harmony can only bind these by position.
     /// </summary>
     [PatchPrefix]
-    private static void Prefix( GClass3248 containerCollection, GClass768 collectionView )
+    private static void Prefix( GClass3248 __0, GClass768 __1 )
     {
+      var containerCollection = __0;
+      var collectionView = __1;
+
       if( containerCollection == null || collectionView == null )
         return;
 
@@ -52,7 +59,7 @@ namespace Coti.Client.Patches
       // and if the pose were only applied at creation, a config change would appear to do
       // nothing until the pool happened to hand out a fresh instance. Re-applying every time
       // makes mount tuning a config edit rather than a client relaunch.
-      var existing = TransformHelperClass.FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
+      var existing = FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
 
       CotiDevTools.ReportHostBones( containerCollection.TemplateId, root );
 
@@ -76,6 +83,34 @@ namespace Coti.Client.Patches
             $"(host {containerCollection.TemplateId}) under '{anchor.name}' " +
             $"at {bone.transform.localPosition}" );
       }
+    }
+
+    /// <summary>
+    /// Own implementation, not a call into the game's equivalent utility: that utility's own name
+    /// is obfuscated in 4.0.13 and not worth chasing down when the search itself is this small.
+    /// </summary>
+    private static Transform FindTransformRecursive( Transform root, string name, bool ignoreCase = false )
+    {
+      if( root == null )
+        return null;
+
+      for( var i = 0; i < root.childCount; i++ )
+      {
+        var child = root.GetChild( i );
+
+        var matches = ignoreCase
+            ? string.Equals( child.name, name, StringComparison.InvariantCultureIgnoreCase )
+            : child.name == name;
+
+        if( matches )
+          return child;
+
+        var found = FindTransformRecursive( child, name, ignoreCase );
+        if( found != null )
+          return found;
+      }
+
+      return null;
     }
 
     private static void SetLayerRecursively( GameObject target, int layer )
@@ -120,7 +155,7 @@ namespace Coti.Client.Patches
       if( host == null || string.IsNullOrEmpty( host.MountAnchorBone ) )
         return root;
 
-      var anchor = TransformHelperClass.FindTransformRecursive( root, host.MountAnchorBone, ignoreCase: true );
+      var anchor = FindTransformRecursive( root, host.MountAnchorBone, ignoreCase: true );
       if( anchor != null )
         return anchor;
 

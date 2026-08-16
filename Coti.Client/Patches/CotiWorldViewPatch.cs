@@ -27,10 +27,15 @@ namespace Coti.Client.Patches
     /// The GameObject does not exist until the returned task completes, so the postfix replaces the
     /// task with one that awaits it first: a postfix on an async method sees the Task handle, not
     /// the value it will eventually produce.
+    ///
+    /// Positional (__0), not by name: CreateItemAsync's own parameter name doesn't survive
+    /// obfuscation, so Harmony can only bind this by position.
     /// </summary>
     [PatchPostfix]
-    private static void Postfix( Item item, ref Task<GameObject> __result )
+    private static void Postfix( Item __0, ref Task<GameObject> __result )
     {
+      var item = __0;
+
       if( item == null || __result == null )
         return;
       if( !ContainsCoti( item ) )
@@ -94,13 +99,17 @@ namespace Coti.Client.Patches
     {
       protected override MethodBase GetTargetMethod()
       {
-        return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.AttachMods ) );
+        return AccessTools.Method( typeof( PoolManagerClass ), nameof( PoolManagerClass.method_3 ) );
       }
 
+      // Positional (__0/__1), not by name: method_3's own parameter names don't survive
+      // obfuscation, so Harmony can only bind these by position.
       [PatchPostfix]
-      private static void Postfix( GClass3248 containerCollection,
-          GClass768 collectionView, ref Task __result )
+      private static void Postfix( GClass3248 __0, GClass768 __1, ref Task __result )
       {
+        var containerCollection = __0;
+        var collectionView = __1;
+
         if( containerCollection == null || collectionView == null || __result == null )
           return;
         if( collectionView.GameObject == null || !HasCotiSlot( containerCollection ) )

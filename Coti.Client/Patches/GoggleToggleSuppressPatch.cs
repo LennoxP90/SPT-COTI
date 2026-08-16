@@ -22,7 +22,7 @@ namespace Coti.Client.Patches
   {
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( Player ), nameof( Player.ToggleGoggles ) );
+      return AccessTools.Method( typeof( Player ), nameof( Player.method_15 ) );
     }
 
     [PatchPrefix]

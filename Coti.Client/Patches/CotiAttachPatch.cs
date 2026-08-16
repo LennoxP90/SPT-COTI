@@ -28,9 +28,13 @@ namespace Coti.Client.Patches
       return AccessTools.Method( slotView, "InsertItem" );
     }
 
+    // Positional (__0/__1), not by name: InsertItem's own parameter names don't survive
+    // obfuscation, so Harmony can only bind these by position.
     [PatchPostfix]
-    private static void Postfix( Item item, GameObject itemView )
+    private static void Postfix( Item __0, GameObject __1 )
     {
+      var itemView = __1;
+
       if( itemView == null )
         return;
 

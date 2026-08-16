@@ -44,8 +44,8 @@ namespace Coti.Client.Patches
       if( !Invalidated.Add( hash ) )
         return;
 
-      var hadFile = __instance._fileCacheIndex.Remove( hash );
-      var hadMemory = __instance._memoryCacheIndex.Remove( hash );
+      var hadFile = __instance.Dictionary_1.Remove( hash );
+      var hadMemory = __instance.Dictionary_0.Remove( hash );
 
       if( !hadFile && !hadMemory )
         return;

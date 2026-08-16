@@ -195,7 +195,7 @@ namespace Coti.Client
       if( denominator <= 0.001f )
         return 1f;
 
-      var current = nightVision.CurrentColor;
+      var current = nightVision.Color_0;
       var ratio = ( current.r + current.g + current.b ) / denominator;
 
       // CurrentColor goes NEGATIVE past the midpoint of the flash, since the formula is
