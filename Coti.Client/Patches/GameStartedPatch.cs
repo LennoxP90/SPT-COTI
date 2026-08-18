@@ -17,13 +17,16 @@ namespace Coti.Client.Patches
     [PatchPostfix]
     private static void Postfix()
     {
-      // Patches are only ever Enabled from the non-headless branch of Plugin.Awake, so this
-      // can never actually run on the headless - guarded anyway, matching Update()'s own
-      // belt-and-braces IsHeadless check, since a per-tick NRE on that box is not cosmetic.
-      if( Plugin.IsHeadless )
-        return;
+      CotiPatchGuard.Run( "GameStartedPatch", () =>
+      {
+        // Patches are only ever Enabled from the non-headless branch of Plugin.Awake, so this
+        // can never actually run on the headless - guarded anyway, matching Update()'s own
+        // belt-and-braces IsHeadless check, since a per-tick NRE on that box is not cosmetic.
+        if( Plugin.IsHeadless )
+          return;
 
-      CotiState.ResetPerRaidLogging();
+        CotiState.ResetPerRaidLogging();
+      } );
     }
   }
 }

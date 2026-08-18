@@ -1,9 +1,7 @@
 using Coti.Shared;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Spt.Mod;
-using SPTarkov.Server.Core.Models.Spt.Tables;
 
 namespace Coti.Server;
 
@@ -13,12 +11,40 @@ namespace Coti.Server;
 /// no entry. Registered for every installed language, since the fallback would show through on any
 /// locale we skipped.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 30 )]
-public class CotiSlotLocale(
-    ISptLogger<CotiSlotLocale> logger,
-    LocaleTable locales ) : IOnLoad
+[Injectable( TypePriority = CotiLoadOrder.PostLoad + 30 )]
+public class CotiSlotLocale : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  private readonly ISptLogger<CotiSlotLocale> logger;
+
+#if SPT40
+  private readonly DatabaseServer databaseServer;
+  // GetTables() throws until DatabaseImporter has run, and DI builds this object long
+  // before that - so the table is resolved on use, inside OnLoad, never in the constructor.
+  private CotiLocaleTable locales => databaseServer.GetTables().Locales;
+
+  public CotiSlotLocale( ISptLogger<CotiSlotLocale> logger, DatabaseServer databaseServer )
+  {
+    this.logger = logger;
+    this.databaseServer = databaseServer;
+  }
+#else
+  private readonly CotiLocaleTable locales;
+
+  public CotiSlotLocale( ISptLogger<CotiSlotLocale> logger, CotiLocaleTable locales )
+  {
+    this.logger = logger;
+    this.locales = locales;
+  }
+#endif
+
+  // The interface member differs between versions; the work does not.
+#if SPT40
+  public Task OnLoad() => LoadAsync( CancellationToken.None );
+#else
+  public Task OnLoadAsync( CancellationToken cancellationToken ) => LoadAsync( cancellationToken );
+#endif
+
+  private Task LoadAsync( CancellationToken cancellationToken )
   {
     var added = 0;
 

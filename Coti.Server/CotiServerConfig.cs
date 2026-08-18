@@ -1,7 +1,5 @@
 using System.Text.Json.Serialization;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
-using SPTarkov.Server.Core.Helpers.Server;
 
 namespace Coti.Server;
 
@@ -55,7 +53,9 @@ public class CotiTraderSettings
   [JsonPropertyName( "priceUsd" )]
   public int PriceUsd { get; set; } = 2000;
 
-  /// <summary>Purchases per profile before the trader stops offering it.</summary>
+  /// <summary>
+  /// Purchases per profile before the trader stops offering it.
+  /// </summary>
   [JsonPropertyName( "buyLimit" )]
   public int BuyLimit { get; set; } = 3;
 }
@@ -65,7 +65,9 @@ public class CotiLootSettings
   [JsonPropertyName( "enabled" )]
   public bool Enabled { get; set; } = true;
 
-  /// <summary>Spawn weight relative to the night vision at each spot. 0 disables it.</summary>
+  /// <summary>
+  /// Spawn weight relative to the night vision at each spot. 0 disables it.
+  /// </summary>
   [JsonPropertyName( "weightFraction" )]
   public double WeightFraction { get; set; } = 0.25;
 }

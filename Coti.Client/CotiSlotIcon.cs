@@ -1,13 +1,19 @@
 ﻿using System.IO;
 using System.Reflection;
-using EFT.Utilities;
+using Coti.Shared;
 using UnityEngine;
 
 namespace Coti.Client
 {
   public static class CotiSlotIcon
   {
-    private const string CacheKey = "Slots/mod_coti";
+    /// <summary>
+    /// Derived rather than spelled out: the game keys slot icons by slot name, so this and the
+    /// transform the mount patch creates are the same identifier wearing two hats. Written out
+    /// separately they could drift, and the symptom would be a slot with no icon rather than
+    /// anything that names the cause.
+    /// </summary>
+    private const string CacheKey = "Slots/" + CotiIds.ModSlotName;
 
     /// <summary>
     /// A 1x1 slot, matching ItemViewFactory.GetCellPixelSize(1,1) = 1 * 63 + 1. The COTI occupies
@@ -55,7 +61,7 @@ namespace Coti.Client
         return;
       }
 
-      ResourcesCache._storage[CacheKey] = _sprite;
+      EftCompat.CacheSprite( CacheKey, _sprite );
 
       Plugin.Log.LogInfo( $"[COTI] Slot icon installed ({SlotPixelSize}x{SlotPixelSize} from a {texture.width}px master)" );
     }

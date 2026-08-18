@@ -38,7 +38,13 @@ namespace Coti.Client.Patches
     {
       // Runs for every ThermalVision in the game. Unfiltered, a thermal weapon optic takes the
       // clip-on's tuning and keeps it - _wasActive is one flag, so only one instance ever restores.
-      if( !CotiThermalCamera.Owns( __instance ) )
+      //
+      // BOTH of this mod's cameras qualify, so the magnified image cannot be tuned differently from
+      // the 1x one it sits inside. The single _wasActive latch survives that: both write identical
+      // values from CotiState.Host, and the pristine snapshot is the shared prefab's own defaults, so
+      // whichever instance restores first restores the right numbers. The magnified camera is also
+      // destroyed when the feature goes off rather than left holding COTI values.
+      if( !CotiThermalCamera.Owns( __instance ) && !CotiOpticThermalCamera.Owns( __instance ) )
         return;
 
       try

@@ -67,7 +67,9 @@ namespace Coti.Client
       return null;
     }
 
-    /// <summary>After the game has set the host's mode for this frame, not before.</summary>
+    /// <summary>
+    /// After the game has set the host's mode for this frame, not before.
+    /// </summary>
     private void LateUpdate()
     {
       if( _host == null || _coti == null )

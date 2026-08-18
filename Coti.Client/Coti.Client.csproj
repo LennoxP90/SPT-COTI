@@ -14,11 +14,36 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <SptTarget Condition="'$(SptTarget)' == ''">4.1</SptTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SptTarget)' == '4.0'">
+    <DefineConstants>$(DefineConstants);SPT40</DefineConstants>
+    <SptRoot Condition="'$(SptRoot)' == ''">F:\Games\SPT-4.0\Clean</SptRoot>
+    <BaseOutputPath>bin\spt-4.0\</BaseOutputPath>
+    <CotiDistRoot>spt-4.0</CotiDistRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SptTarget)' == '4.1'">
+    <DefineConstants>$(DefineConstants);SPT41</DefineConstants>
+    <BaseOutputPath>bin\spt-4.1\</BaseOutputPath>
+    <CotiDistRoot>spt-4.1</CotiDistRoot>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <SptRoot Condition="'$(SptRoot)' == ''">F:\Games\SPT-4.1\SPT-4.1-client</SptRoot>
     <SptManaged>$(SptRoot)\EscapeFromTarkov_Data\Managed</SptManaged>
     <SptPlugins>$(SptRoot)\BepInEx\plugins</SptPlugins>
     <SptSptPlugins>$(SptRoot)\BepInEx\plugins\spt</SptSptPlugins>
   </PropertyGroup>
+
+  <Target Name="CheckEftRefs" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(SptTarget)' != '4.0' AND '$(SptTarget)' != '4.1'"
+           Text="SptTarget must be 4.0 or 4.1, but was '$(SptTarget)'. Build with /p:SptTarget=4.0 or /p:SptTarget=4.1." />
+
+    <Error Condition="!Exists('$(SptManaged)\Assembly-CSharp.dll')"
+           Text="EFT assemblies not found at $(SptManaged) for SptTarget=$(SptTarget). Set SptRoot to that install." />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="BepInEx.Core" Version="5.*" />
@@ -74,7 +99,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <Compile Include="..\Coti.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -84,14 +109,18 @@
 
   <PropertyGroup>
     <CotiShaderBundlePath>$(MSBuildProjectDirectory)\..\bundles\coti_shaders</CotiShaderBundlePath>
-    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\BepInEx\plugins\LennoxP90-COTI</CotiDist>
+    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\$(CotiDistRoot)\BepInEx\plugins\LennoxP90-COTI</CotiDist>
   </PropertyGroup>
 
   <Target Name="StageCotiClient" AfterTargets="Build">
     <Warning Text="No coti_shaders in bundles/ - the overlay will not draw. Rebuild it with Unity (COTI &gt; Build Everything)."
              Condition="!Exists('$(CotiShaderBundlePath)')" />
 
-    <Copy SourceFiles="$(TargetPath);$(CotiShaderBundlePath)"
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(CotiDist)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(CotiShaderBundlePath)"
           DestinationFolder="$(CotiDist)"
           SkipUnchangedFiles="true"
           Condition="Exists('$(CotiShaderBundlePath)')" />

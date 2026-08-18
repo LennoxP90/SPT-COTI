@@ -1,15 +1,13 @@
 using Coti.Shared;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Spt.Mod;
-using SPTarkov.Server.Core.Services.Modding.Custom;
 
 namespace Coti.Server;
 
-[Injectable( TypePriority = OnLoadOrder.Preload )]
+[Injectable( TypePriority = CotiLoadOrder.Preload )]
 public class CotiItemFactory(
     ISptLogger<CotiItemFactory> logger,
     CustomItemService customItemService ) : IOnLoad
@@ -39,25 +37,68 @@ public class CotiItemFactory(
   /// </summary>
   public const string ModelBundleKey = "coti/nvg_coti_clip_on_thermal.bundle";
 
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  /// <summary>
+  /// Shared across both #if branches below so a price change cannot land in only one of them.
+  /// </summary>
+  private const int PriceRoubles = 250000;
+
+  /// <summary>
+  /// Hoisted for the same reason PriceRoubles was, and it is the more dangerous case: these appear
+  /// TWICE per build, once in OverrideProperties and once in the English locale, and it is the
+  /// locale copy the player actually reads. Editing one and not the other produces an item whose
+  /// template and displayed name disagree - which looks like nothing at all went wrong.
+  /// </summary>
+  private const string ItemName = "AN/PAS-29B ECOTI enhanced clip-on thermal imager";
+
+  private const string ItemShortName = "ECOTI";
+
+  private const string ItemDescription =
+      "Enhanced clip-on thermal imager by Safran Defense & Space (Optics 1). Uncooled LWIR " +
+      "microbolometer, 640x480 at 17 um pixel pitch, 8-12 um sensitivity, 1x optical unity " +
+      "magnification, 30 degree circular field of view at f/1.15. Clips to the objective of a " +
+      "PVS-14 style night vision device and injects an outline-mode thermal overlay into the " +
+      "tube. Runs 3.5 hours on a single CR123A.";
+
+  // The interface member differs between versions; the work does not.
+#if SPT40
+  public Task OnLoad() => LoadAsync( CancellationToken.None );
+#else
+  public Task OnLoadAsync( CancellationToken cancellationToken ) => LoadAsync( cancellationToken );
+#endif
+
+  private Task LoadAsync( CancellationToken cancellationToken )
   {
-    var result = customItemService.CreateItemFromClone( new NewItemFromCloneDetails
+#if SPT40
+    // 4.0 takes plain strings for the ids, has no NewItemName, and has none of the
+    // AddToHandbook / AddToFleaPriceDb / AddToWeaponShelf switches - it always adds. The
+    // item's internal name comes from the cloned donor template instead.
+    var details = new NewItemFromCloneDetails
+    {
+      ItemTplToClone = new MongoId( DonorTplId ),
+      NewId = CotiTplId,
+      ParentId = MountItemClassId,
+      HandbookParentId = HandbookParentId,
+      HandbookPriceRoubles = PriceRoubles,
+      FleaPriceRoubles = PriceRoubles,
+#else
+    var details = new NewItemFromCloneDetails
     {
       ItemTplToClone = new MongoId( DonorTplId ),
       NewId = new MongoId( CotiTplId ),
       ParentId = new MongoId( MountItemClassId ),
       NewItemName = "anpas29b_coti_clip_on_thermal_imager",
       HandbookParentId = HandbookParentId,
-      HandbookPriceRoubles = 250000,
-      FleaPriceRoubles = 250000,
+      HandbookPriceRoubles = PriceRoubles,
+      FleaPriceRoubles = PriceRoubles,
       AddToHandbook = true,
       AddToFleaPriceDb = true,
       AddToWeaponShelf = false,
+#endif
       OverrideProperties = new TemplateItemProperties
       {
-        Name = "AN/PAS-29B ECOTI enhanced clip-on thermal imager",
-        ShortName = "ECOTI",
-        Description = "Enhanced clip-on thermal imager by Safran Defense & Space (Optics 1). Uncooled LWIR microbolometer, 640x480 at 17 um pixel pitch, 8-12 um sensitivity, 1x optical unity magnification, 30 degree circular field of view at f/1.15. Clips to the objective of a PVS-14 style night vision device and injects an outline-mode thermal overlay into the tube. Runs 3.5 hours on a single CR123A.",
+        Name = ItemName,
+        ShortName = ItemShortName,
+        Description = ItemDescription,
         Weight = 0.108,
 
         // Explicit, not inherited. The donor is a rail mount and carries -1, which showed up
@@ -94,14 +135,16 @@ public class CotiItemFactory(
       {
         ["en"] = new LocaleDetails
         {
-          Name = "AN/PAS-29B ECOTI enhanced clip-on thermal imager",
-          ShortName = "ECOTI",
-          Description = "Enhanced clip-on thermal imager by Safran Defense & Space (Optics 1). Uncooled LWIR microbolometer, 640x480 at 17 um pixel pitch, 8-12 um sensitivity, 1x optical unity magnification, 30 degree circular field of view at f/1.15. Clips to the objective of a PVS-14 style night vision device and injects an outline-mode thermal overlay into the tube. Runs 3.5 hours on a single CR123A."
+          Name = ItemName,
+          ShortName = ItemShortName,
+          Description = ItemDescription
         }
       }
-    } );
+    };
 
-    if( !result.Success )
+    var result = customItemService.CreateItemFromClone( details );
+
+    if( result.Success != true )
     {
       // The slot filter, the assort and the loot entries all point at this id.
       logger.Error(

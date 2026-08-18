@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\Coti.Client\Assets\coti-defaults.json" Link="Assets\coti-defaults.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Coti.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <Compile Include="..\Coti.Client\CotiActivation.cs" Link="Client\CotiActivation.cs" />
+    <Compile Include="..\Coti.Client\CotiOpticFusion.cs" Link="Client\CotiOpticFusion.cs" />
+    <Compile Include="..\Coti.Client\CotiOverlayScale.cs" Link="Client\CotiOverlayScale.cs" />
+    <Compile Include="..\Coti.Client\CotiSensorResolutions.cs" Link="Client\CotiSensorResolutions.cs" />
+    <Compile Include="..\Coti.Client\CotiMaskResolver.cs" Link="Client\CotiMaskResolver.cs" />
+    <Compile Include="..\Coti.Client\CotiConfig.cs" Link="Client\CotiConfig.cs" />
+    <Compile Include="..\Coti.Client\MaskGeometry.cs" Link="Client\MaskGeometry.cs" />
+  </ItemGroup>
+</Project>

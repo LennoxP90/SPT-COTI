@@ -25,7 +25,7 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( ObjectsFactory ), nameof( ObjectsFactory.AttachMods ) );
+      return EftCompat.AttachModsMethod();
     }
 
     /// <summary>
@@ -33,28 +33,35 @@ namespace Coti.Client.Patches
     /// needed: this work is synchronous and only has to finish before AttachMods' first loop.
     /// </summary>
     [PatchPrefix]
-    private static void Prefix( ContainerCollection containerCollection, ContainerCollectionView collectionView )
+    private static void Prefix( object containerCollection, object collectionView )
+    {
+      CotiPatchGuard.Run( "CotiMountBonePatch", () => Mount( containerCollection, collectionView ) );
+    }
+
+    private static void Mount( object containerCollection, object collectionView )
     {
       if( containerCollection == null || collectionView == null )
         return;
 
-      var root = collectionView.GameObject == null ? null : collectionView.GameObject.transform;
+      var gameObject = EftCompat.ViewGameObject( collectionView );
+      var root = gameObject == null ? null : gameObject.transform;
       if( root == null )
         return;
 
       if( !HasCotiSlot( containerCollection ) )
         return;
 
-      var host = GetNvgHostConfig( containerCollection.TemplateId );
+      var templateId = EftCompat.ContainerTemplateId( containerCollection );
+      var host = GetNvgHostConfig( templateId );
 
       // An existing bone is REUSED AND REPOSITIONED rather than skipped. Host GameObjects come
       // from an object pool, so a bone created earlier outlives the item view it was made for -
       // and if the pose were only applied at creation, a config change would appear to do
       // nothing until the pool happened to hand out a fresh instance. Re-applying every time
       // makes mount tuning a config edit rather than a client relaunch.
-      var existing = TransformTools.FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
+      var existing = EftCompat.FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
 
-      CotiDevTools.ReportHostBones( containerCollection.TemplateId, root );
+      CotiDevTools.ReportHostBones( templateId, root );
 
       var anchor = ResolveAnchor( root, host );
 
@@ -67,13 +74,13 @@ namespace Coti.Client.Patches
       SetLayerRecursively( bone, anchor.gameObject.layer );
 
       CotiMountPose.Apply( bone.transform, host );
-      CotiDevTools.OnMountPosed( bone.transform, host, containerCollection.TemplateId, collectionView.GameObject.name );
+      CotiDevTools.OnMountPosed( bone.transform, host, templateId, gameObject.name );
 
       if( Plugin.Config != null && Plugin.Config.VerboseLogging )
       {
         Plugin.Log.LogInfo(
-            $"[COTI] Created {CotiModSlotName} on {collectionView.GameObject.name} " +
-            $"(host {containerCollection.TemplateId}) under '{anchor.name}' " +
+            $"[COTI] Created {CotiModSlotName} on {gameObject.name} " +
+            $"(host {templateId}) under '{anchor.name}' " +
             $"at {bone.transform.localPosition}" );
       }
     }
@@ -88,9 +95,9 @@ namespace Coti.Client.Patches
       }
     }
 
-    private static bool HasCotiSlot( ContainerCollection containerCollection )
+    private static bool HasCotiSlot( object containerCollection )
     {
-      foreach( var container in containerCollection.Containers )
+      foreach( var container in EftCompat.Containers( containerCollection ) )
       {
         if( container is Slot slot && slot.ID == CotiModSlotName )
           return true;
@@ -120,7 +127,7 @@ namespace Coti.Client.Patches
       if( host == null || string.IsNullOrEmpty( host.MountAnchorBone ) )
         return root;
 
-      var anchor = TransformTools.FindTransformRecursive( root, host.MountAnchorBone, ignoreCase: true );
+      var anchor = EftCompat.FindTransformRecursive( root, host.MountAnchorBone, ignoreCase: true );
       if( anchor != null )
         return anchor;
 

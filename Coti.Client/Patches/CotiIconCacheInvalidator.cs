@@ -29,23 +29,27 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( ItemIconCreator ), nameof( ItemIconCreator.GetItemIcon ) );
+      return EftCompat.GetItemIconMethod();
     }
 
     [PatchPrefix]
-    private static void Prefix( ItemIconCreator __instance, Item item )
+    private static void Prefix( object __instance, Item item )
+    {
+      CotiPatchGuard.Run( "CotiIconCacheInvalidator", () => Invalidate( __instance, item ) );
+    }
+
+    private static void Invalidate( object __instance, Item item )
     {
       if( item == null )
         return;
       if( !ContainsCoti( item ) )
         return;
 
-      var hash = IconsHash.GetItemHash( item );
+      var hash = EftCompat.GetItemHash( item );
       if( !Invalidated.Add( hash ) )
         return;
 
-      var hadFile = __instance._fileCacheIndex.Remove( hash );
-      var hadMemory = __instance._memoryCacheIndex.Remove( hash );
+      var ( hadFile, hadMemory ) = EftCompat.RemoveFromIconCaches( __instance, hash );
 
       if( !hadFile && !hadMemory )
         return;

@@ -1,23 +1,71 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <Compile Include="..\Coti.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="SPTarkov.Common" Version="4.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="SPTarkov.DI" Version="4.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="SPTarkov.Reflection" Version="4.1.0" ExcludeAssets="runtime" />
-    <PackageReference Include="SPTarkov.Server.Core" Version="4.1.0" ExcludeAssets="runtime" />
+  <PropertyGroup>
+    <SptRef40Dir>F:\Games\SPT-4.0\Clean\SPT</SptRef40Dir>
+    <SptRef41Dir>F:\Games\SPT-4.1\SPT-4.1-Clean\SPT_Runtime</SptRef41Dir>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <DefineConstants>$(DefineConstants);SPT40</DefineConstants>
+    <SptRefDir>$(SptRef40Dir)</SptRefDir>
+    <SptPackageVersion>4.0.13</SptPackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <DefineConstants>$(DefineConstants);SPT41</DefineConstants>
+    <SptRefDir>$(SptRef41Dir)</SptRefDir>
+    <SptPackageVersion>4.1.2</SptPackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SptRefsPresent>false</SptRefsPresent>
+    <SptRefsPresent Condition="Exists('$(SptRefDir)\SPTarkov.Server.Core.dll')">true</SptRefsPresent>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(SptRefsPresent)' != 'true'">
+    <PackageReference Include="SPTarkov.Server.Core" Version="$(SptPackageVersion)" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(SptRefsPresent)' == 'true'">
+    <Reference Include="SPTarkov.Server.Core">
+      <HintPath>$(SptRefDir)\SPTarkov.Server.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SPTarkov.Common">
+      <HintPath>$(SptRefDir)\SPTarkov.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SPTarkov.DI">
+      <HintPath>$(SptRefDir)\SPTarkov.DI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SPTarkov.Reflection">
+      <HintPath>$(SptRefDir)\SPTarkov.Reflection.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SemanticVersioning">
+      <HintPath>$(SptRefDir)\SemanticVersioning.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ReportSptRefs" BeforeTargets="ResolveAssemblyReferences">
+    <Message Importance="high" Condition="'$(SptRefsPresent)' == 'true'"
+             Text="Coti.Server ($(TargetFramework)): referencing the install at $(SptRefDir)" />
+    <Message Importance="high" Condition="'$(SptRefsPresent)' != 'true'"
+             Text="Coti.Server ($(TargetFramework)): no install at $(SptRefDir), using SPTarkov.Server.Core $(SptPackageVersion) from NuGet" />
+  </Target>
 
   <ItemGroup>
     <None Update="bundles.json">
@@ -26,11 +74,15 @@
     <Content Update="config\config.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\SPT_Runtime\user\mods\LennoxP90-COTI</CotiDist>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\spt-4.0\SPT\user\mods\LennoxP90-COTI</CotiDist>
   </PropertyGroup>
 
-  <Target Name="StageCotiServer" AfterTargets="Build">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <CotiDist>$(MSBuildProjectDirectory)\..\dist\$(Configuration)\spt-4.1\SPT_Runtime\user\mods\LennoxP90-COTI</CotiDist>
+  </PropertyGroup>
+
+  <Target Name="StageCotiServer" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
     <ItemGroup>
       <CotiModelBundle Include="$(MSBuildProjectDirectory)\..\bundles\coti\**\*" Exclude="**\*.manifest" />
     </ItemGroup>

@@ -1,8 +1,9 @@
-# COTI — Clip-On Thermal Imager
+# COTI - Clip-On Thermal Imager
 
-A clip-on thermal imager for SPT 4.1. It clamps to the objective of a night vision device and
+A clip-on thermal imager for SPT. Both the server half and the client half support **SPT 4.0** and
+**SPT 4.1**. It clamps to the objective of a night vision device and
 injects a thermal overlay **into the tube's circle**, so heat signatures stand out while the night
-vision image shows through everywhere else — the way a real fused clip-on works, rather than
+vision image shows through everywhere else - the way a real fused clip-on works, rather than
 replacing your view with a thermal one.
 
 Modelled on the Safran DSI AN/PAS-29B.
@@ -15,7 +16,8 @@ Modelled on the Safran DSI AN/PAS-29B.
   cooler than the heat threshold contributes exactly nothing, so the tube image stays readable.
 - **Its own power.** `Ctrl+N` toggles the imager independently of the goggles, like the real device's
   own button. The night vision stays on when the thermal goes off.
-- **Mounts to four devices** — PVS-14, N-15, GPNVG-18 and PVS-31A — each with its own tuned position.
+- **Mounts to five devices** - PVS-14, N-15, GPNVG-18, PVS-31A and the DTNVS from WTT Clothing and
+  Gear - each with its own tuned position. A device whose mod is not installed is skipped silently.
 - **Other players see it on you.** It renders on your head in third person and is hidden from your
   own first-person view, using the game's own mechanism for worn gear.
 - **Found where night vision is found.** It spawns in the same containers and loose-loot positions
@@ -23,37 +25,65 @@ Modelled on the Safran DSI AN/PAS-29B.
 
 ## Requirements
 
-- **SPT 4.1**
-- **Borkel's Realistic NVGs — recommended, not required.** Nothing here depends on it. It is
+- **SPT 4.0 or SPT 4.1.** Both generations get the full mod - server and client.
+- **Borkel's Realistic NVGs - recommended, not required.** Nothing here depends on it. It is
   recommended because it gives night vision the masked, feathered tube the overlay is designed to sit
   inside; on vanilla night vision the effect still works but sits in a plainer picture.
 
 ## Installing
 
-Server half → `SPT_Runtime/user/mods/LennoxP90-COTI/`
-Client half → `BepInEx/plugins/LennoxP90-COTI/`
+Server half → `SPT_Runtime/user/mods/LennoxP90-COTI/` (4.1) or `SPT/user/mods/LennoxP90-COTI/` (4.0)
+Client half → `BepInEx/plugins/LennoxP90-COTI/` (same path on both versions)
 
-Both are needed: the server registers the item, its slot on each night vision device, and the trader
-offer; the client does the rendering.
+Both halves are needed on either version: the server registers the item, its slot on each night
+vision device, and the trader offer; the client does the rendering.
 
 ## Building
 
+Building the server half needs reference assemblies from **both** an SPT 4.0 install and an SPT 4.1
+install - it targets both `net9.0` and `net10.0` and validates both reference sets up front:
+
 ```
-msbuild SPT-COTI.slnx -p:Configuration=Release -p:SptRoot=<path to your SPT client>
+dotnet build Coti.Server -c Release -p:SptRef40Dir=<path to your SPT 4.0 install> -p:SptRef41Dir=<path to your SPT 4.1 install>
+```
+
+If you only have one install, build just that target framework instead of failing on the other:
+
+```
+dotnet build Coti.Server -c Release -f net10.0
+```
+
+The client half builds against a live game install and takes the SPT generation as a property.
+Both client builds are `net472`, so MSBuild cannot multi-target them - build the project twice,
+once per version:
+
+```
+msbuild Coti.Client\Coti.Client.csproj -p:Configuration=Release -p:SptTarget=4.1
+msbuild Coti.Client\Coti.Client.csproj -p:Configuration=Release -p:SptTarget=4.0
+```
+
+`SptTarget` defaults to `4.1` if omitted. `SptRoot` defaults sensibly for each target
+(`F:\Games\SPT-4.1\SPT-4.1-client` and `F:\Games\SPT-4.0\Clean` respectively) but can be overridden:
+
+```
+msbuild Coti.Client\Coti.Client.csproj -p:Configuration=Release -p:SptTarget=4.0 -p:SptRoot=<path to your SPT 4.0 client>
 ```
 
 `SptRoot` is the folder holding `EscapeFromTarkov.exe`; the client half references the game's
-assemblies from `EscapeFromTarkov_Data\Managed` and `BepInEx\plugins\spt` beneath it. The server
-half needs no game install.
+assemblies from `EscapeFromTarkov_Data\Managed` and `BepInEx\plugins\spt` beneath it. The two
+builds compile different `#if` paths against different, differently-obfuscated game assemblies - their
+output DLLs are never byte-identical, and the build stages each one into its own
+`spt-4.0`/`spt-4.1` root so one target can never overwrite the other.
 
-Both projects stage themselves into `dist\<Configuration>\`, laid out so the contents drop straight
-into an SPT folder. `bundles\` holds the prebuilt Unity artifacts; the Unity project that produces
-them is not part of this repository, since the model it embeds is licensed rather than free.
+Both projects stage themselves into `dist\<Configuration>\spt-4.0\` and `dist\<Configuration>\spt-4.1\`,
+laid out so the contents of each drop straight into the matching SPT folder. `bundles\` holds the
+prebuilt Unity artifacts; the Unity project that produces them is not part of this repository, since
+the model it embeds is licensed rather than free.
 
 ## Settings
 
 Image and control settings are on the **F12** page. What the item costs and how often it turns up
-are server-side, in `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json` — a server restart applies them.
+are server-side, in `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json` - a server restart applies them.
 
 | Setting | |
 |---|---|
@@ -69,17 +99,17 @@ The F12 page:
 | | Heat Threshold | How hot something must be before it shows. Raise it if the overlay washes the picture out; lower it to pick up cooler things. |
 | | Overlay Intensity | Brightness of the heat that does show. Lower it if bodies read as solid white blobs rather than shapes. |
 | | Outline Mix | 0 is solid hot shapes, 1 is edge-only contours. |
-| **Controls** | Power Toggle | Click and press the combination you want. Default `Ctrl+N`. Keep a modifier — EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
+| **Controls** | Power Toggle | Click and press the combination you want. Default `Ctrl+N`. Keep a modifier - EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
 | **Debug** | Verbose Logging | Off for normal play. Writes detailed diagnostics to the BepInEx log if you are reporting a problem. |
 
 Deliberately not exposed: the thermal camera's resolution and refresh, the per-device mask geometry,
-and the mount poses. Those are not preferences, they are measured values — exposing them mostly
+and the mount poses. Those are not preferences, they are measured values - exposing them mostly
 offers a way to break the effect.
 
 ## Performance
 
 The imager renders the scene a second time, off-screen at 768x576, and composites the result inside
-the tube. That second pass runs only while the device is powered on and clipped to a host — it is
+the tube. That second pass runs only while the device is powered on and clipped to a host - it is
 switched off with the device, not merely hidden.
 
 There is nothing to tune for frames, and the settings that look like performance levers are not:
@@ -88,14 +118,14 @@ target is small enough that its size is not the bottleneck.
 
 ## Credits
 
-**3D model by [3DMA — 3D Military Assets](https://www.3dmilitaryassets.com/)**, used under their
+**3D model by [3DMA - 3D Military Assets](https://www.3dmilitaryassets.com/)**, used under their
 Extended Licence.
 
-Thanks to Eukyre for pointing out that worn gear wants a dress script — that turned out to be
+Thanks to Eukyre for pointing out that worn gear wants a dress script - that turned out to be
 exactly how the device is hidden from the wearer's own view.
 
 ## Licence
 
-The mod's own code is free to use. The 3D model is **not** — it is licensed from 3DMA and is
+The mod's own code is free to use. The 3D model is **not** - it is licensed from 3DMA and is
 redistributed only in compiled form inside the asset bundle, as their licence permits. Do not
 extract, redistribute, or reuse the model, its mesh or its textures.

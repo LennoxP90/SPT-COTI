@@ -22,11 +22,18 @@ namespace Coti.Client.Patches
   {
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( Player ), nameof( Player.ToggleGoggles ) );
+      return EftCompat.ToggleGogglesMethod();
     }
 
     [PatchPrefix]
     private static bool Prefix( Player __instance )
+    {
+      // Fails OPEN: if this throws, the goggles toggle as they normally would. The alternative is
+      // a player whose night vision has silently stopped responding to its own keybind.
+      return CotiPatchGuard.Run( "GoggleToggleSuppressPatch", () => ShouldRunOriginal( __instance ), onFailure: true );
+    }
+
+    private static bool ShouldRunOriginal( Player __instance )
     {
       // Only ever suppress for the local player. A remote or AI player's goggles have nothing to
       // do with what is held down on this keyboard.

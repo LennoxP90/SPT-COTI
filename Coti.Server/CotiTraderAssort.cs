@@ -1,10 +1,11 @@
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
-using SPTarkov.Server.Core.Models.Spt.Tables;
+#if SPT41
+using SPTarkov.Server.Core.Models.Spt.Tables; // TradersTable - no alias needed, it IS a Dictionary<MongoId, Trader>
+#endif
 
 namespace Coti.Server;
 
@@ -12,13 +13,49 @@ namespace Coti.Server;
 /// Adds the COTI to Peacekeeper's assort. Loyalty level, price and purchase limit come from
 /// config/config.json. Runs after CotiItemFactory so the COTI template already exists.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 30 )]
-public class CotiTraderAssort(
-    ISptLogger<CotiTraderAssort> logger,
-    CotiServerConfig config,
-    TradersTable tradersTable ) : IOnLoad
+[Injectable( TypePriority = CotiLoadOrder.PostLoad + 30 )]
+public class CotiTraderAssort : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  private readonly ISptLogger<CotiTraderAssort> logger;
+  private readonly CotiServerConfig config;
+
+#if SPT40
+  private readonly DatabaseServer databaseServer;
+  // GetTables() throws until DatabaseImporter has run, and DI builds this object long
+  // before that - so the table is resolved on use, inside OnLoad, never in the constructor.
+  private Dictionary<MongoId, Trader> tradersTable => databaseServer.GetTables().Traders;
+
+  public CotiTraderAssort(
+      ISptLogger<CotiTraderAssort> logger,
+      CotiServerConfig config,
+      DatabaseServer databaseServer )
+  {
+    this.logger = logger;
+    this.config = config;
+    this.databaseServer = databaseServer;
+  }
+#else
+  private readonly Dictionary<MongoId, Trader> tradersTable;
+
+  public CotiTraderAssort(
+      ISptLogger<CotiTraderAssort> logger,
+      CotiServerConfig config,
+      TradersTable tradersTable )
+  {
+    this.logger = logger;
+    this.config = config;
+    this.tradersTable = tradersTable;
+  }
+#endif
+
+  // The interface member differs between versions; the work does not.
+#if SPT40
+  public Task OnLoad() => LoadAsync( CancellationToken.None );
+#else
+  public Task OnLoadAsync( CancellationToken cancellationToken ) => LoadAsync( cancellationToken );
+#endif
+
+  private Task LoadAsync( CancellationToken cancellationToken )
   {
     if( !tradersTable.TryGetValue( Traders.PEACEKEEPER, out var peacekeeper ) )
     {

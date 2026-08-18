@@ -22,14 +22,16 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      // Nested type, so it cannot be named directly - AccessTools.Inner finds SlotView inside
-      // ContainerCollectionView.
-      var slotView = AccessTools.Inner( typeof( ContainerCollectionView ), "SlotView" );
-      return AccessTools.Method( slotView, "InsertItem" );
+      return EftCompat.InsertItemMethod();
     }
 
     [PatchPostfix]
     private static void Postfix( Item item, GameObject itemView )
+    {
+      CotiPatchGuard.Run( "CotiAttachPatch", () => Attach( itemView ) );
+    }
+
+    private static void Attach( GameObject itemView )
     {
       if( itemView == null )
         return;

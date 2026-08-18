@@ -1,11 +1,9 @@
 using Coti.Shared;
 using System.Linq;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
-using SPTarkov.Server.Core.Models.Spt.Tables;
 
 namespace Coti.Server;
 
@@ -13,12 +11,40 @@ namespace Coti.Server;
 /// Runs deliberately late. Other mods rewrite NVG templates (AttachmentBackport,
 /// Tarkov-1.0-Backport both touch mounts) and a slot added before they run can be discarded.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 20 )]
-public class CotiSlotInjector(
-    ISptLogger<CotiSlotInjector> logger,
-    TemplateTable templateTable ) : IOnLoad
+[Injectable( TypePriority = CotiLoadOrder.PostLoad + 20 )]
+public class CotiSlotInjector : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  private readonly ISptLogger<CotiSlotInjector> logger;
+
+#if SPT40
+  private readonly DatabaseServer databaseServer;
+  // GetTables() throws until DatabaseImporter has run, and DI builds this object long
+  // before that - so the table is resolved on use, inside OnLoad, never in the constructor.
+  private CotiTemplateTable templateTable => databaseServer.GetTables().Templates;
+
+  public CotiSlotInjector( ISptLogger<CotiSlotInjector> logger, DatabaseServer databaseServer )
+  {
+    this.logger = logger;
+    this.databaseServer = databaseServer;
+  }
+#else
+  private readonly CotiTemplateTable templateTable;
+
+  public CotiSlotInjector( ISptLogger<CotiSlotInjector> logger, CotiTemplateTable templateTable )
+  {
+    this.logger = logger;
+    this.templateTable = templateTable;
+  }
+#endif
+
+  // The interface member differs between versions; the work does not.
+#if SPT40
+  public Task OnLoad() => LoadAsync( CancellationToken.None );
+#else
+  public Task OnLoadAsync( CancellationToken cancellationToken ) => LoadAsync( cancellationToken );
+#endif
+
+  private Task LoadAsync( CancellationToken cancellationToken )
   {
     var items = templateTable.Items;
     var added = 0;

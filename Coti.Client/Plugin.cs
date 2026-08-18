@@ -6,11 +6,12 @@ using BepInEx.Logging;
 using Coti.Client.Dev;
 using Coti.Client.Patches;
 using EFT.InventoryLogic;
+using SPT.Reflection.Patching;
 using UnityEngine;
 
 namespace Coti.Client
 {
-  [BepInPlugin( "com.lennoxp90.coti", "ECOTI", "1.0.0" )]
+  [BepInPlugin( "com.lennoxp90.coti", "ECOTI", CotiVersion.Current )]
   public class Plugin : BaseUnityPlugin
   {
     public static ManualLogSource Log;
@@ -39,33 +40,61 @@ namespace Coti.Client
       Config = _settings.Current;
       CotiPowerToggle.Bind( _settings.PowerToggle );
 
-      new ThermalParametersPatch().Enable();
-      new GameStartedPatch().Enable();
-      new GoggleToggleSuppressPatch().Enable();
+      TryEnable( nameof( ThermalParametersPatch ), () => new ThermalParametersPatch() );
+      TryEnable( nameof( GameStartedPatch ), () => new GameStartedPatch() );
+      TryEnable( nameof( GoggleToggleSuppressPatch ), () => new GoggleToggleSuppressPatch() );
 
       // Must be enabled unconditionally, not gated on being in a raid: the device has to appear
       // in the inventory and on the character preview in the menu, which is where AttachMods
       // runs most.
-      new CotiMountBonePatch().Enable();
-      new CotiAttachPatch().Enable();
-      new CotiWorldViewPatch().Enable();
-      new CotiWorldViewPatch.OnAttachMods().Enable();
+      TryEnable( nameof( CotiMountBonePatch ), () => new CotiMountBonePatch() );
+      TryEnable( nameof( CotiAttachPatch ), () => new CotiAttachPatch() );
+      TryEnable( nameof( CotiWorldViewPatch ), () => new CotiWorldViewPatch() );
+      TryEnable( nameof( CotiWorldViewPatch.OnAttachMods ), () => new CotiWorldViewPatch.OnAttachMods() );
 
       // A real fix, not a diagnostic, so it runs regardless of verboseLogging: EFT's on-disk
       // icon cache holds pictures taken before the device could attach, filed under a hash that
       // already accounts for it, so nothing else will ever invalidate them.
-      new CotiIconCacheInvalidator().Enable();
+      TryEnable( nameof( CotiIconCacheInvalidator ), () => new CotiIconCacheInvalidator() );
 
       // Before any inventory UI opens: ModSlotView caches a null against the key the first
       // time it looks and does not retry.
-      CotiSlotIcon.Install();
+      TryEnable( nameof( CotiSlotIcon ), CotiSlotIcon.Install );
 
       Log.LogInfo( "[COTI] Initialised" );
+    }
+
+    private static void TryEnable( string name, Func<ModulePatch> create )
+    {
+      try
+      {
+        create().Enable();
+      }
+      catch( Exception ex )
+      {
+        // One patch failing must not abort Awake and silently disable everything after it.
+        Log.LogError( $"[COTI] patch {name} failed to enable: {ex}" );
+      }
+    }
+
+    private static void TryEnable( string name, Action install )
+    {
+      try
+      {
+        install();
+      }
+      catch( Exception ex )
+      {
+        // Same rationale as the ModulePatch overload above: a failure here must not cascade.
+        Log.LogError( $"[COTI] {name} failed to enable: {ex}" );
+      }
     }
 
     private void OnDestroy()
     {
       CotiThermalCamera.Teardown();
+      CotiOpticThermalCamera.Teardown();
+      CotiOpticOverlayCompositor.Teardown();
 
       // Unconditional Detach, NOT Sync(): the config still reports the mode as enabled here, so
       // Sync would re-attach the buffer we are tearing down.
@@ -95,6 +124,11 @@ namespace Coti.Client
         // CotiState.Active and CotiState.Host to decide whether and how to render.
         CotiThermalCamera.Tick();
 
+        // After the 1x camera, not before: the magnified path reads the same CotiState and the same
+        // thermal-camera config, and the 1x overlay's lens exclusion reads what this one published,
+        // so a frame where the two disagree would show heat in the lens from one and a hole from the
+        // other.
+        CotiOpticThermalCamera.Tick();
       }
       catch( Exception ex )
       {
@@ -110,6 +144,10 @@ namespace Coti.Client
         // Always, including after a throw: Sync is the only thing that detaches the overlay
         // buffer, and skipping it leaves the circle drawn with the device inactive.
         CotiOverlayCompositor.Sync();
+        CotiOpticOverlayCompositor.Sync();
+
+        // Last, so it reports the state the frame was actually composited with.
+        CotiRenderStateLog.Tick();
       }
     }
 

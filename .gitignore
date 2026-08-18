@@ -11,3 +11,8 @@ unity/blender/purchased/
 # VS generates this for the Web SDK the server mod builds against; it is not used.
 **/Properties/launchSettings.json
 dist/
+
+# Coti.Server's StageCotiServer build target copies the model bundle into the build output
+# (Coti.Server/bundles/coti/...) so it can be staged to dist/. The real bundles live at the
+# repo root under bundles/ - this is build residue, not a source location.
+Coti.Server/bundles/

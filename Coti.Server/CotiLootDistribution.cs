@@ -1,11 +1,9 @@
 using Coti.Shared;
-using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Enums;
-using SPTarkov.Server.Core.Models.Spt.Tables;
 
 namespace Coti.Server;
 
@@ -13,14 +11,53 @@ namespace Coti.Server;
 /// Spawns the COTI wherever night vision already spawns, at a fraction of its weight. NVGs come from
 /// the item database, not <see cref="CotiNvgHosts"/>, so modded ones count too.
 /// </summary>
-[Injectable( TypePriority = OnLoadOrder.PostLoad + 60 )]
-public class CotiLootDistribution(
-    ISptLogger<CotiLootDistribution> logger,
-    CotiServerConfig config,
-    TemplateTable templateTable,
-    LocationTable locationTable ) : IOnLoad
+[Injectable( TypePriority = CotiLoadOrder.PostLoad + 60 )]
+public class CotiLootDistribution : IOnLoad
 {
-  public Task OnLoadAsync( CancellationToken cancellationToken )
+  private readonly ISptLogger<CotiLootDistribution> logger;
+  private readonly CotiServerConfig config;
+
+#if SPT40
+  private readonly DatabaseServer databaseServer;
+  // GetTables() throws until DatabaseImporter has run, and DI builds this object long
+  // before that - so both tables are resolved on use, inside OnLoad, never in the constructor.
+  private CotiTemplateTable templateTable => databaseServer.GetTables().Templates;
+  private CotiLocationTable locationTable => databaseServer.GetTables().Locations;
+
+  public CotiLootDistribution(
+      ISptLogger<CotiLootDistribution> logger,
+      CotiServerConfig config,
+      DatabaseServer databaseServer )
+  {
+    this.logger = logger;
+    this.config = config;
+    this.databaseServer = databaseServer;
+  }
+#else
+  private readonly CotiTemplateTable templateTable;
+  private readonly CotiLocationTable locationTable;
+
+  public CotiLootDistribution(
+      ISptLogger<CotiLootDistribution> logger,
+      CotiServerConfig config,
+      CotiTemplateTable templateTable,
+      CotiLocationTable locationTable )
+  {
+    this.logger = logger;
+    this.config = config;
+    this.templateTable = templateTable;
+    this.locationTable = locationTable;
+  }
+#endif
+
+  // The interface member differs between versions; the work does not.
+#if SPT40
+  public Task OnLoad() => LoadAsync( CancellationToken.None );
+#else
+  public Task OnLoadAsync( CancellationToken cancellationToken ) => LoadAsync( cancellationToken );
+#endif
+
+  private Task LoadAsync( CancellationToken cancellationToken )
   {
     if( !config.Loot.Enabled || config.Loot.WeightFraction <= 0 )
     {

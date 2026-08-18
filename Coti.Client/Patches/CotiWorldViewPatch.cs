@@ -20,7 +20,7 @@ namespace Coti.Client.Patches
 
     protected override MethodBase GetTargetMethod()
     {
-      return AccessTools.Method( typeof( ObjectsFactory ), nameof( ObjectsFactory.CreateItemAsync ) );
+      return EftCompat.CreateItemAsyncMethod();
     }
 
     /// <summary>
@@ -31,12 +31,19 @@ namespace Coti.Client.Patches
     [PatchPostfix]
     private static void Postfix( Item item, ref Task<GameObject> __result )
     {
-      if( item == null || __result == null )
-        return;
-      if( !ContainsCoti( item ) )
-        return;
+      var replacement = __result;
+      CotiPatchGuard.Run( "CotiWorldViewPatch", () => replacement = WrapResult( item, replacement ) );
+      __result = replacement;
+    }
 
-      __result = DressWhenReady( __result, item.TemplateId == CotiIds.TplId );
+    private static Task<GameObject> WrapResult( Item item, Task<GameObject> result )
+    {
+      if( item == null || result == null )
+        return result;
+      if( !ContainsCoti( item ) )
+        return result;
+
+      return DressWhenReady( result, item.TemplateId == CotiIds.TplId );
     }
 
     private static async Task<GameObject> DressWhenReady( Task<GameObject> inner, bool viewIsDevice )
@@ -94,19 +101,28 @@ namespace Coti.Client.Patches
     {
       protected override MethodBase GetTargetMethod()
       {
-        return AccessTools.Method( typeof( ObjectsFactory ), nameof( ObjectsFactory.AttachMods ) );
+        return EftCompat.AttachModsMethod();
       }
 
       [PatchPostfix]
-      private static void Postfix( ContainerCollection containerCollection,
-          ContainerCollectionView collectionView, ref Task __result )
+      private static void Postfix( object containerCollection, object collectionView, ref Task __result )
       {
-        if( containerCollection == null || collectionView == null || __result == null )
-          return;
-        if( collectionView.GameObject == null || !HasCotiSlot( containerCollection ) )
-          return;
+        var replacement = __result;
+        CotiPatchGuard.Run( "CotiWorldViewPatch.Mods",
+            () => replacement = WrapResult( containerCollection, collectionView, replacement ) );
+        __result = replacement;
+      }
 
-        __result = DressWhenReady( __result, collectionView.GameObject );
+      private static Task WrapResult( object containerCollection, object collectionView, Task result )
+      {
+        if( containerCollection == null || collectionView == null || result == null )
+          return result;
+
+        var gameObject = EftCompat.ViewGameObject( collectionView );
+        if( gameObject == null || !HasCotiSlot( containerCollection ) )
+          return result;
+
+        return DressWhenReady( result, gameObject );
       }
 
       private static async Task DressWhenReady( Task inner, GameObject view )
@@ -119,9 +135,9 @@ namespace Coti.Client.Patches
         Dress( view, viewIsDevice: false );
       }
 
-      private static bool HasCotiSlot( ContainerCollection containerCollection )
+      private static bool HasCotiSlot( object containerCollection )
       {
-        foreach( var container in containerCollection.Containers )
+        foreach( var container in EftCompat.Containers( containerCollection ) )
         {
           if( container is Slot slot && slot.ID == CotiModSlotName )
             return true;

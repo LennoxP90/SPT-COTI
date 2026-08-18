@@ -9,7 +9,9 @@ namespace Coti.Client
   /// </summary>
   public class CotiConfig
   {
-    /// <summary>Keyed by host NVG template id.</summary>
+    /// <summary>
+    /// Keyed by host NVG template id.
+    /// </summary>
     [JsonProperty( "nvgHosts" )]
     public Dictionary<string, CotiNvgHostConfig> NvgHosts { get; set; } = new Dictionary<string, CotiNvgHostConfig>();
 
@@ -25,20 +27,55 @@ namespace Coti.Client
     /// </summary>
     public bool EnablePoseModifier { get; set; }
 
-    /// <summary>Millimetres per tuner keypress.</summary>
+    /// <summary>
+    /// Millimetres per tuner keypress.
+    /// </summary>
     public float TunerStepMm { get; set; } = 2f;
 
-    /// <summary>Degrees per tuner keypress.</summary>
+    /// <summary>
+    /// Degrees per tuner keypress.
+    /// </summary>
     public float TunerStepDegrees { get; set; } = 5f;
 
-    /// <summary>Modifier held while tuning, as "+"-separated KeyCode names.</summary>
+    /// <summary>
+    /// Scale added per tuner keypress, as a fraction. 0.01 is one percent of the model's true size,
+    /// which on an 87 mm device is just under a millimetre - about the resolution the clamp ring's
+    /// fit against a tube housing can be judged by eye.
+    /// </summary>
+    public float TunerStepScale { get; set; } = 0.01f;
+
+    /// <summary>
+    /// Modifier held while tuning, as "+"-separated KeyCode names.
+    /// </summary>
     public string TunerModifier { get; set; } = "LeftControl+LeftAlt";
 #endif
+
+    /// <summary>
+    /// Renders a second thermal pass matched to a magnified optic, so heat lines up with the scope.
+    ///
+    /// Off by default as a position, not caution: the COTI is an offset sensor, so a 1x thermal is
+    /// what it would really produce. Costs a second scene render while aiming.
+    /// </summary>
+    [JsonProperty( "magnifyWithOptic" )]
+    public bool MagnifyWithOptic { get; set; }
+
+    /// <summary>
+    /// How much of the lens the 1x overlay is kept off, as a multiple of the lens's measured extent.
+    ///
+    /// The measurement over-covers the glass, since it comes from an axis-aligned box around a
+    /// tilted disc - intended, because what surrounds the lens is the scope body. Lower it if the
+    /// spill reaches past the body; zero leaves the 1x heat on the lens, which is a useful
+    /// comparison rather than only a fault state.
+    /// </summary>
+    [JsonProperty( "magnifiedLensCover" )]
+    public float MagnifiedLensCover { get; set; } = 1f;
 
     [JsonProperty( "thermalCamera" )]
     public CotiCameraConfig ThermalCamera { get; set; } = new CotiCameraConfig();
 
-    /// <summary>Mask used when a host has no entry, or its named mask is missing.</summary>
+    /// <summary>
+    /// Mask used when a host has no entry, or its named mask is missing.
+    /// </summary>
     public const string FallbackMaskName = "centre";
 
     public static CotiConfig Fallback => new CotiConfig();

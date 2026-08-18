@@ -5,16 +5,23 @@ namespace Coti.Client
   /// <summary>
   /// Places the COTI on its host's mount bone. The delta overload is the one composition point for
   /// config and dev tuning alike - applying them separately previously let a pooled rebuild keep a
-  /// position nudge and drop the matching rotation nudge.
+  /// position nudge and drop the matching rotation nudge. Scale travels with them for the same
+  /// reason: there is deliberately no way to apply one delta without the others.
   /// </summary>
   public static class CotiMountPose
   {
+    /// <summary>
+    /// Below this the model is small enough to read as missing rather than small, which during
+    /// tuning is indistinguishable from the mod having broken.
+    /// </summary>
+    private const float MinimumScale = 0.1f;
+
     public static void Apply( Transform bone, CotiNvgHostConfig host )
     {
-      Apply( bone, host, Vector3.zero, Vector3.zero );
+      Apply( bone, host, Vector3.zero, Vector3.zero, 0f );
     }
 
-    public static void Apply( Transform bone, CotiNvgHostConfig host, Vector3 positionDelta, Vector3 rotationDelta )
+    public static void Apply( Transform bone, CotiNvgHostConfig host, Vector3 positionDelta, Vector3 rotationDelta, float scaleDelta )
     {
       if( bone == null )
         return;
@@ -38,6 +45,8 @@ namespace Coti.Client
         // collapses the model to nothing - indistinguishable from the mod being broken.
         scale = host.MountScale > 0f ? host.MountScale : 1f;
       }
+
+      scale = Mathf.Max( scale + scaleDelta, MinimumScale );
 
       bone.localPosition = position + positionDelta;
       bone.localRotation =
