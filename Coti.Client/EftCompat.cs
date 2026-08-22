@@ -17,52 +17,14 @@ namespace Coti.Client
   /// <summary>
   /// Everything that differs between the SPT 4.0 and 4.1 game builds.
   ///
-  /// On 4.0 the types this mod needs do not carry their source names. They carry GENERATED
-  /// placeholder names, which EftResolveProbe reports directly:
-  ///
-  ///     4.1 name                          4.0 name
-  ///     ItemIconCreator                   GClass926
-  ///     ObjectsFactory                    PoolManagerClass
-  ///     ContainerCollectionView.SlotView  GClass768+GClass769
-  ///     IconsHash                         GClass928
-  ///     TransformTools                    TransformHelperClass
-  ///     ResourcesCache                    CacheResourcesPopAbstractClass
-  ///
-  /// Those ARE valid C# identifiers, so the reason they cannot be written in source is not that
-  /// they are unwriteable - it is that they are not STABLE. The numbering is assigned by SPT's
-  /// deobfuscation pass and shifts whenever the game or the pass changes, so a build naming
-  /// GClass926 compiles today and binds to something unrelated after an update, silently. Members
-  /// that lose their names are renamed the same way, to Dictionary_0, Color_0, method_15 and so on.
-  ///
-  /// Hence: every 4.0 lookup here is resolved at RUNTIME, and by SHAPE wherever the source name is
-  /// gone - the one type declaring a distinctively-named method, a field's generic shape, a
-  /// property's return type, a method's parameter-name sequence, a local variable's type. Names are
-  /// only trusted where they survive: a public method or property keeps its source name under this
-  /// pass, which is why GetItemIcon, InsertItem, GetItemHash, FindTransformRecursive, TemplateId,
-  /// Containers and GameObject are still found by name on their resolved type.
-  ///
-  /// Private members lose their names AND are unreachable from C# regardless, so reflection is not
-  /// a choice for them - see ResolveIconCacheFields and ResourcesCacheStorageField.
-  ///
-  /// Two members drift without their type being renamed at all: Player and NightVision keep their
-  /// real names on both builds, but Player.ToggleGoggles becomes method_15 and
+  /// Most types keep their real names on both, but Player.ToggleGoggles becomes method_15 and
   /// NightVision.CurrentColor becomes Color_0, so both are matched by shape - a local-variable type
   /// for the method, a return type for the property. ToggleGoggles is still PUBLIC on 4.0 despite
-  /// the rename; see the warning on ToggleGogglesMethod, which cost a debugging session.
+  /// the rename, so do not filter on visibility.
   ///
-  /// Shape-based binding fails QUIETLY - it returns a plausible member, the patch applies cleanly,
-  /// and nothing happens. That is what EftResolveProbe exists to catch. Run it against both
-  /// installs after any game update and diff the two outputs; matching parameter shapes across
-  /// versions is the evidence that an obfuscated lookup found the right member:
-  ///
-  ///     EftResolveProbe.exe &lt;installRoot&gt; &lt;Coti.Client.dll&gt;
-  ///
-  /// When adding a lookup, note the compiler's error list is a LOWER BOUND. It stops naming a type
-  /// once an earlier unresolved name in the same statement has already failed, which is how
-  /// ObjectsFactory, IconsHash and TransformTools all went unreported until each was found by
-  /// grepping the patch sources by hand and confirming absence against the real 4.0 assembly.
-  ///
-  /// Nothing else in the client is version-specific. Patch bodies stay shared.
+  /// Shape-based binding fails QUIETLY: it returns a plausible member, the patch applies, and
+  /// nothing works. Verify a new lookup against the real assembly rather than the compiler's error
+  /// list, which stops naming types once an earlier name in the same statement has failed.
   /// </summary>
   internal static class EftCompat
   {
@@ -94,25 +56,10 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// The one type DECLARING a method of this name.
+    /// Declaring type per searched member name, resolved once.
     ///
-    /// DeclaredOnly is load-bearing. Without it an INHERITED method matches, so a subclass is
-    /// returned as though it were the declaring type - and if the method is virtual, the caller's
-    /// AccessTools.Method then hands Harmony the base MethodInfo while the override is what runs.
-    /// That patches cleanly and never fires, which is the failure this codebase is least able to
-    /// detect.
-    ///
-    /// It also scans all types rather than stopping at the first, and demands exactly one. The
-    /// old early break made the answer depend on GetTypes() ordering, which is metadata order and
-    /// not something a game update preserves: a second declaring type would silently change which
-    /// one was patched, on a build that had previously been verified. Measured against 4.0
-    /// (14997 loadable types) all six searched names have exactly one declaring type, so this is
-    /// strict about a condition that already holds rather than a new constraint.
-    /// </summary>
-    /// <summary>
-    /// Memoised because the scan is not cheap and the callers are not one-off: resolving
-    /// FindTransformRecursive happens on the AttachMods prefix, which runs per item view. Scanning
-    /// 14997 types per inventory item is not something to do twice.
+    /// Scans all types and demands exactly one match: metadata order is not preserved across game
+    /// updates, so a second declaring type would otherwise change which one gets patched.
     /// </summary>
     private static readonly Dictionary<string, Type> DeclaringTypes = new Dictionary<string, Type>();
 
@@ -336,10 +283,9 @@ namespace Coti.Client
         throw new InvalidOperationException(
             $"[COTI] {containerCollection.GetType().FullName} has no TemplateId property" );
 
-      // A null VALUE is data and stays null; only a missing MEMBER is a defect. The two used to
-      // be indistinguishable here, and this accessor is on the mount path - a resolution failure
-      // returned null, the host config lookup missed, and the device mounted at the host's origin
-      // with no diagnostic anywhere.
+      // A null VALUE is data and stays null; only a missing MEMBER is a defect. This accessor is on
+      // the mount path, where a silent null makes the host lookup miss and the device mount at the
+      // host's origin with no diagnostic.
       return prop.GetValue( containerCollection )?.ToString();
     }
 
@@ -524,8 +470,7 @@ namespace Coti.Client
       if( _toggleGogglesMethod != null )
         return _toggleGogglesMethod;
 
-      // Renamed to method_15 on 4.0, but still public - do NOT filter on visibility. An earlier
-      // attempt required non-public and so skipped the only candidate before ever reading a body.
+      // Renamed to method_15 on 4.0 but still public, so do NOT filter on visibility.
       // TogglableComponent appears exactly once in Player, which is what makes this unambiguous.
       var hits = typeof( EFT.Player )
                  .GetMethods( AccessTools.all | BindingFlags.DeclaredOnly )
@@ -757,6 +702,169 @@ namespace Coti.Client
       sight = optic.CurrentOpticSight;
       camera = optic.Camera;
       return sight != null && camera != null;
+    }
+#endif
+
+    // ---- Inspect window (ItemSpecificationPanel) --------------------------------------------
+    //
+    // Unlike ContainerCollectionView/IconsHash/ResourcesCache above, every TYPE and FIELD this
+    // section touches keeps its source name on 4.0 - only two METHOD names are wiped
+    // (CreateContextButton and BindButton, both on InteractionButtonsContainer). Confirmed by
+    // decompiling both installs directly rather than inferred from the 4.1 names, so a plain
+    // typeof and AccessTools.Field are enough here and only those two methods need a lookup.
+
+    internal static Type ItemSpecificationPanelType => typeof( EFT.UI.ItemSpecificationPanel );
+
+    internal static MethodBase ItemSpecificationPanelShowMethod()
+    {
+      // The only Show overload declared directly on the class on either build, so no parameter
+      // list is needed to disambiguate.
+      return AccessTools.Method( ItemSpecificationPanelType, "Show" );
+    }
+
+    internal static FieldInfo InteractionButtonsContainerField()
+    {
+      var field = AccessTools.Field( ItemSpecificationPanelType, "_interactionButtonsContainer" );
+      if( field == null )
+        throw new InvalidOperationException( "[COTI] ItemSpecificationPanel has no _interactionButtonsContainer field" );
+
+      return field;
+    }
+
+    /// <summary>
+    /// The inspected item. Named _item on 4.1 and item_0 on 4.0, so resolved by shape: the one field
+    /// of type EFT.InventoryLogic.Item declared directly on the class. The nested FakeSlot helper
+    /// carries a same-typed field, but DeclaredOnly on the outer type never sees it.
+    /// </summary>
+    private static FieldInfo _inspectedItemField;
+
+    internal static FieldInfo InspectedItemField()
+    {
+      if( _inspectedItemField != null )
+        return _inspectedItemField;
+
+      var hits = ItemSpecificationPanelType
+                 .GetFields( AccessTools.all | BindingFlags.DeclaredOnly )
+                 .Where( f => f.FieldType == typeof( EFT.InventoryLogic.Item ) )
+                 .ToList();
+
+      if( hits.Count != 1 )
+      {
+        throw new InvalidOperationException(
+            $"[COTI] expected exactly one Item field declared on ItemSpecificationPanel, found {hits.Count}" );
+      }
+
+      return _inspectedItemField = hits[0];
+    }
+
+    internal static FieldInfo ButtonTemplateField()
+    {
+      var field = AccessTools.Field( typeof( EFT.UI.InteractionButtonsContainer ), "_buttonTemplate" );
+      if( field == null )
+        throw new InvalidOperationException( "[COTI] InteractionButtonsContainer has no _buttonTemplate field" );
+
+      return field;
+    }
+
+    internal static FieldInfo ButtonsContainerField()
+    {
+      var field = AccessTools.Field( typeof( EFT.UI.InteractionButtonsContainer ), "_buttonsContainer" );
+      if( field == null )
+        throw new InvalidOperationException( "[COTI] InteractionButtonsContainer has no _buttonsContainer field" );
+
+      return field;
+    }
+
+#if SPT40
+    /// <summary>
+    /// InteractionButtonsContainer's own button-clone method is unnamed on 4.0 - it decompiles as
+    /// method_1 - but its parameter names survive intact, same situation as AttachModsMethod
+    /// above.
+    /// </summary>
+    private static readonly string[] CreateContextButtonParams =
+        { "key", "caption", "template", "container", "sprite", "onButtonClicked", "onMouseHover", "subMenu", "autoClose" };
+
+    /// <summary>
+    /// Memoised, same rationale as _toggleGogglesMethod above: AddButton calls this every time
+    /// the inspect window opens or redraws, not once at patch-registration time, so the scan
+    /// this does over every InteractionButtonsContainer method is worth caching.
+    /// </summary>
+    private static MethodBase _createContextButtonMethod;
+
+    internal static MethodBase CreateContextButtonMethod()
+    {
+      if( _createContextButtonMethod != null )
+        return _createContextButtonMethod;
+
+      var hits = typeof( EFT.UI.InteractionButtonsContainer )
+                 .GetMethods( AccessTools.all )
+                 .Where( m =>
+                 {
+                   var p = m.GetParameters();
+                   return p.Length == CreateContextButtonParams.Length
+                       && p.Select( x => x.Name ).SequenceEqual( CreateContextButtonParams );
+                 } )
+                 .ToList();
+
+      if( hits.Count != 1 )
+      {
+        throw new InvalidOperationException(
+            $"[COTI] expected exactly one method on InteractionButtonsContainer matching the CreateContextButton parameter shape, found {hits.Count}" );
+      }
+
+      return _createContextButtonMethod = hits[0];
+    }
+
+    /// <summary>
+    /// BindButton's own name is wiped on 4.0 too - method_5 - but it keeps its single
+    /// parameter's name, "button", of type SimpleContextMenuButton. Two other textual matches for
+    /// that parameter shape exist in the 4.0 dump (a field inside a nested compiler-generated
+    /// closure class, and a local variable) but GetMethods can only ever return methods, so
+    /// neither is a candidate here. Memoised for the same reason as CreateContextButtonMethod.
+    /// </summary>
+    private static MethodBase _bindButtonMethod;
+
+    internal static MethodBase BindButtonMethod()
+    {
+      if( _bindButtonMethod != null )
+        return _bindButtonMethod;
+
+      var hits = typeof( EFT.UI.InteractionButtonsContainer )
+                 .GetMethods( AccessTools.all )
+                 .Where( m =>
+                 {
+                   var p = m.GetParameters();
+                   return p.Length == 1
+                       && p[0].Name == "button"
+                       && p[0].ParameterType == typeof( EFT.UI.SimpleContextMenuButton );
+                 } )
+                 .ToList();
+
+      if( hits.Count != 1 )
+      {
+        throw new InvalidOperationException(
+            $"[COTI] expected exactly one method on InteractionButtonsContainer matching the BindButton parameter shape, found {hits.Count}" );
+      }
+
+      return _bindButtonMethod = hits[0];
+    }
+#else
+    internal static MethodBase CreateContextButtonMethod()
+    {
+      // A string literal, not nameof: CreateContextButton is overloaded (a generic <T> form
+      // also exists), and AccessTools.Method needs the explicit parameter list below to pick
+      // the non-generic one regardless.
+      return AccessTools.Method( typeof( EFT.UI.InteractionButtonsContainer ), "CreateContextButton",
+          new[]
+          {
+              typeof( string ), typeof( string ), typeof( EFT.UI.SimpleContextMenuButton ), typeof( RectTransform ),
+              typeof( Sprite ), typeof( Action ), typeof( Action ), typeof( bool ), typeof( bool ),
+          } );
+    }
+
+    internal static MethodBase BindButtonMethod()
+    {
+      return AccessTools.Method( typeof( EFT.UI.InteractionButtonsContainer ), "BindButton" );
     }
 #endif
   }

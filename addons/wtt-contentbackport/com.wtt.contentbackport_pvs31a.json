@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "device": "com.wtt.contentbackport_pvs31a",
+  "displayName": "PVS-31A",
+  "requires": "com.wtt.contentbackport",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "689b889473ebd6871805edd6"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5361,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "",
+    "positionX": 0.034,
+    "positionY": -0.073,
+    "positionZ": 0.03,
+    "rotationX": -90.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": -43.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 0.0,
+    "scale": 1.32
+  }
+}

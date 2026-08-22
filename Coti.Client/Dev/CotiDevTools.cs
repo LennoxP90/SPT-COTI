@@ -1,9 +1,7 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using UnityEngine;
 
 #if COTI_DEV
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using EFT;
@@ -12,42 +10,20 @@ using EFT;
 namespace Coti.Client.Dev
 {
   /// <summary>
-  /// Tools for adding support for a new night vision device: measure its geometry, report what EFT
-  /// does to the model on attach, and nudge the mount pose live.
+  /// Dev-only diagnostics for adding support for a new night vision device: measure its geometry
+  /// and report what EFT does to the model on attach and what the optic/camera pipeline is doing.
+  ///
+  /// The pose editor itself - tuning deltas, the config-changed reset, the keyboard shortcut and
+  /// the on-screen panel - was extracted to release in <see cref="CotiPoseTuner"/> and
+  /// <see cref="CotiTunerPanel"/>; it is a first-class feature reached from the inspect window's
+  /// COTI Pose button, not a debug tool that needs arming. What is left here is genuinely dev-only:
+  /// camera and lens probes with no player-facing use.
   ///
   /// Entry points are [Conditional] on COTI_DEV, defined for Debug only, so Release drops the calls
-  /// rather than testing a flag every frame. Reporting is automatic in a dev build; the config switch
-  /// arms only the pose keys.
+  /// rather than testing a flag every frame.
   /// </summary>
   public static class CotiDevTools
   {
-    /// <summary>
-    /// Re-applies the pose with this session's tuning deltas on top.
-    /// </summary>
-    [Conditional( "COTI_DEV" )]
-    public static void OnMountPosed( Transform bone, CotiNvgHostConfig host, string hostId, string hostName )
-    {
-#if COTI_DEV
-      if( bone == null || hostId == null )
-        return;
-
-      if( hostId != _hostId )
-      {
-        Plugin.Log.LogInfo(
-            $"[COTI TUNE] now tuning {hostName} ({hostId}) - {ModifierName()} and the arrows/,./[]/;'/-= keys" );
-      }
-
-      _hostId = hostId;
-      _hostName = hostName;
-      _bone = bone;
-      _host = host;
-
-      ForgetDeltasIfConfigChanged( hostId, host );
-
-      CotiMountPose.Apply( bone, host, Delta( Positions, hostId ), Delta( Rotations, hostId ), ScaleDelta( hostId ) );
-#endif
-    }
-
     /// <summary>
     /// Dumps every active camera on demand, so the optic pipeline can be read from a raid rather
     /// than guessed at. Press once while not aiming and once while looking through a scope: the
@@ -115,6 +91,26 @@ namespace Coti.Client.Dev
       CotiFrameDump.RequestBatch( 2 );
       Plugin.Log.LogInfo(
           $"[COTI] F10: dumping 2 frames at {Plugin.Config?.ThermalCamera?.Height ?? 0} rows" );
+    }
+
+    /// <summary>
+    /// Re-fetches the host table, which is the only way to reach CotiSlotPatcher deliberately.
+    ///
+    /// The patcher runs when the client's item templates lack a slot the server has, and the client
+    /// fetches /client/items once at login - so that gap only opens if the server gains a slot
+    /// mid-session. Nothing in the UI can produce it: a publish comes from a host whose slot the
+    /// client already has. Re-fetching applies the server's current table with patchSlots on, which
+    /// is exactly what a client that had been running through someone else's publish would do.
+    ///
+    /// Watch for "template(s) patched" in the log: a non-zero count is the patcher working.
+    /// </summary>
+    private static void TickRefetchKey()
+    {
+      if( !Input.GetKeyDown( KeyCode.F8 ) )
+        return;
+
+      Plugin.Log.LogInfo( "[COTI] F8: re-fetching the host table" );
+      CotiHostTableClient.BeginFetch();
     }
 
     /// <summary>
@@ -335,63 +331,7 @@ namespace Coti.Client.Dev
       TickCameraProbe();
       TickDumpKey();
       TickResolutionKey();
-
-      if( Plugin.Config == null || !Plugin.Config.EnablePoseModifier )
-        return;
-      if( _bone == null || _hostId == null )
-        return;
-      if( !ModifierHeld() )
-        return;
-
-      var fine = Input.GetKey( KeyCode.LeftShift );
-      var move = ( fine ? Plugin.Config.TunerStepMm / FineDivisorDistance : Plugin.Config.TunerStepMm ) / 1000f;
-      var turn = fine ? Plugin.Config.TunerStepDegrees / FineDivisorAngle : Plugin.Config.TunerStepDegrees;
-      var grow = fine ? Plugin.Config.TunerStepScale / FineDivisorScale : Plugin.Config.TunerStepScale;
-
-      var dp = Vector3.zero;
-      var dr = Vector3.zero;
-      var ds = 0f;
-
-      if( Input.GetKeyDown( KeyCode.UpArrow ) ) dp.y += move;
-      if( Input.GetKeyDown( KeyCode.DownArrow ) ) dp.y -= move;
-      if( Input.GetKeyDown( KeyCode.LeftArrow ) ) dp.x -= move;
-      if( Input.GetKeyDown( KeyCode.RightArrow ) ) dp.x += move;
-      if( Input.GetKeyDown( KeyCode.PageUp ) ) dp.z += move;       // depth, forward
-      if( Input.GetKeyDown( KeyCode.PageDown ) ) dp.z -= move;     // depth, backward
-
-      if( Input.GetKeyDown( KeyCode.Comma ) ) dr.z -= turn;        // roll, left
-      if( Input.GetKeyDown( KeyCode.Period ) ) dr.z += turn;       // roll, right
-      if( Input.GetKeyDown( KeyCode.LeftBracket ) ) dr.x -= turn;  // pitch, nose down
-      if( Input.GetKeyDown( KeyCode.RightBracket ) ) dr.x += turn; // pitch, nose up
-      if( Input.GetKeyDown( KeyCode.Semicolon ) ) dr.y -= turn;    // yaw, nose left
-      if( Input.GetKeyDown( KeyCode.Quote ) ) dr.y += turn;        // yaw, nose right
-
-      if( Input.GetKeyDown( KeyCode.Minus ) ) ds -= grow;          // smaller
-      if( Input.GetKeyDown( KeyCode.Equals ) ) ds += grow;         // larger
-
-      if( dp == Vector3.zero && dr == Vector3.zero && ds == 0f )
-        return;
-
-      Positions[_hostId] = Delta( Positions, _hostId ) + dp;
-      Rotations[_hostId] = Delta( Rotations, _hostId ) + dr;
-      Scales[_hostId] = ScaleDelta( _hostId ) + ds;
-
-      CotiMountPose.Apply( _bone, _host, Positions[_hostId], Rotations[_hostId], Scales[_hostId] );
-
-      var rotation = Rotations[_hostId];
-      var position = _bone.localPosition;
-
-      // Read back off the transform rather than recomputing: CotiMountPose clamps the scale, so a
-      // recomputed figure could be one the device is not actually wearing.
-      var scale = _bone.localScale.x;
-
-      Plugin.Log.LogInfo(
-          $"[COTI TUNE] {_hostName} {_hostId}  \"mountPositionX\": {position.x:F3}, " +
-          $"\"mountPositionY\": {position.y:F3}, \"mountPositionZ\": {position.z:F3}, " +
-          $"\"mountRollDegrees\": {( _host == null ? 0f : _host.MountRollDegrees ) + rotation.z:F0}, " +
-          $"\"mountPitchDegrees\": {( _host == null ? 0f : _host.MountPitchDegrees ) + rotation.x:F0}, " +
-          $"\"mountYawDegrees\": {( _host == null ? 0f : _host.MountYawDegrees ) + rotation.y:F0}, " +
-          $"\"mountScale\": {scale:F3}" );
+      TickRefetchKey();
 #endif
     }
 
@@ -466,177 +406,19 @@ namespace Coti.Client.Dev
 
       _loggedCullingMasks = true;
 
-      Plugin.Log.LogInfo( $"[COTI] culling mask prefab {prefabMask:X8} [{DescribeMask( prefabMask )}]" );
-      Plugin.Log.LogInfo( $"[COTI] culling mask main   {mainMask:X8} [{DescribeMask( mainMask )}]" );
-      Plugin.Log.LogInfo( $"[COTI] dropped by intersecting [{DescribeMask( mainMask & ~prefabMask )}]" );
-#endif
-    }
-
-    /// <summary>
-    /// The host's transform names and renderer geometry, once per host. Where an anchor bone name for
-    /// a new host comes from.
-    /// </summary>
-    [Conditional( "COTI_DEV" )]
-    public static void ReportHostBones( string templateId, Transform root )
-    {
-#if COTI_DEV
-      // AttachMods runs on every item view, so an unguarded line would repeat constantly while the
-      // inventory screen is open.
-      if( templateId == null || !LoggedHosts.Add( templateId ) )
-        return;
-
-      var names = new StringBuilder();
-      CollectNames( root, names, depth: 0 );
-
-      if( names.Length == 0 )
-        names.Append( " (none - the host mesh is a single object with no child transforms)" );
-
-      Plugin.Log.LogInfo( $"[COTI] Host {templateId} ({root.name}) transforms:{names}" );
-      Plugin.Log.LogInfo( $"[COTI] Host {templateId} geometry:{MeasureRenderers( root )}" );
+      // CotiTunerPreview.DescribeCullingMask, not a private copy here: that method has to compile
+      // in Release (it is the primary in-raid check for the preview camera's own mask), so it is
+      // the one copy of this layer-name walk that always exists - keeping a second one here would
+      // be two independently-evolving implementations of the same loop.
+      Plugin.Log.LogInfo( $"[COTI] culling mask prefab {prefabMask:X8} [{CotiTunerPreview.DescribeCullingMask( prefabMask )}]" );
+      Plugin.Log.LogInfo( $"[COTI] culling mask main   {mainMask:X8} [{CotiTunerPreview.DescribeCullingMask( mainMask )}]" );
+      Plugin.Log.LogInfo( $"[COTI] dropped by intersecting [{CotiTunerPreview.DescribeCullingMask( mainMask & ~prefabMask )}]" );
 #endif
     }
 
 #if COTI_DEV
-    private const float FineDivisorDistance = 4f;
-    private const float FineDivisorAngle = 5f;
-    private const float FineDivisorScale = 4f;
-
-    private static readonly Dictionary<string, Vector3> Positions = new Dictionary<string, Vector3>();
-    private static readonly Dictionary<string, Vector3> Rotations = new Dictionary<string, Vector3>();
-    private static readonly Dictionary<string, float> Scales = new Dictionary<string, float>();
-    private static readonly Dictionary<string, PoseSnapshot> SeenConfig = new Dictionary<string, PoseSnapshot>();
-
-    /// <summary>
-    /// The configured pose a set of deltas is relative to.
-    /// </summary>
-    private class PoseSnapshot
-    {
-      public Vector3 Position;
-      public Vector3 Rotation;
-      public float Scale;
-
-      public bool Matches( PoseSnapshot other )
-      {
-        return Position == other.Position && Rotation == other.Rotation && Scale == other.Scale;
-      }
-    }
-    private static readonly HashSet<string> LoggedHosts = new HashSet<string>();
-    private static readonly HashSet<string> WarnedModifiers = new HashSet<string>();
-
     private static bool _loggedCullingMasks;
     private static int _probeCount;
-
-    private static string DescribeMask( int mask )
-    {
-      var names = new StringBuilder();
-
-      for( var layer = 0; layer < 32; layer++ )
-      {
-        if( ( mask & ( 1 << layer ) ) == 0 )
-          continue;
-
-        var name = LayerMask.LayerToName( layer );
-        if( names.Length > 0 )
-          names.Append( ", " );
-        names.Append( string.IsNullOrEmpty( name ) ? layer.ToString() : $"{layer}:{name}" );
-      }
-
-      return names.ToString();
-    }
-
-    private static Transform _bone;
-    private static CotiNvgHostConfig _host;
-    private static string _hostId;
-
-    /// <summary>
-    /// The host model's own GameObject name, e.g. "nvg_pvs_14(Clone)". Template ids are unreadable,
-    /// and with four hosts opened one after another it is genuinely unclear which one the keys are
-    /// driving. Taken from the model rather than a hardcoded table, so it cannot go stale.
-    /// </summary>
-    private static string _hostName;
-
-    private static Vector3 Delta( Dictionary<string, Vector3> deltas, string hostId )
-    {
-      return deltas.TryGetValue( hostId, out var value ) ? value : Vector3.zero;
-    }
-
-    private static float ScaleDelta( string hostId )
-    {
-      return Scales.TryGetValue( hostId, out var value ) ? value : 0f;
-    }
-
-    /// <summary>
-    /// A config change means the numbers were baked in, so the deltas that produced them have already
-    /// been absorbed and must be dropped. Clearing here rather than asking the tuner to guess keeps
-    /// the invariant simple: a delta is always relative to the config currently in force.
-    /// </summary>
-    private static void ForgetDeltasIfConfigChanged( string hostId, CotiNvgHostConfig host )
-    {
-      var current = new PoseSnapshot
-      {
-        Position = host == null
-            ? Vector3.zero
-            : new Vector3( host.MountPositionX, host.MountPositionY, host.MountPositionZ ),
-        Rotation = host == null
-            ? Vector3.zero
-            : new Vector3( host.MountPitchDegrees, host.MountYawDegrees, host.MountRollDegrees ),
-        Scale = host == null ? 1f : host.MountScale
-      };
-
-      if( SeenConfig.TryGetValue( hostId, out var seen ) )
-      {
-        if( seen.Matches( current ) )
-          return;
-
-        Positions.Remove( hostId );
-        Rotations.Remove( hostId );
-        Scales.Remove( hostId );
-
-        Plugin.Log.LogInfo( $"[COTI TUNE] {hostId} config changed - tuning deltas reset to match" );
-      }
-
-      SeenConfig[hostId] = current;
-    }
-
-    private static string ModifierName()
-    {
-      var modifier = Plugin.Config == null ? null : Plugin.Config.TunerModifier;
-      return string.IsNullOrEmpty( modifier ) ? "no modifier" : modifier;
-    }
-
-    private static bool ModifierHeld()
-    {
-      var modifier = Plugin.Config.TunerModifier;
-      if( string.IsNullOrEmpty( modifier ) )
-        return true;
-
-      foreach( var part in modifier.Split( '+' ) )
-      {
-        var name = part.Trim();
-        if( name.Length == 0 )
-          continue;
-
-        KeyCode key;
-        try
-        {
-          key = (KeyCode)Enum.Parse( typeof( KeyCode ), name, ignoreCase: true );
-        }
-        catch( Exception )
-        {
-          if( WarnedModifiers.Add( name ) )
-          {
-            Plugin.Log.LogWarning( $"[COTI] Tuner modifier '{name}' is not a KeyCode - ignoring that part" );
-          }
-
-          continue;
-        }
-
-        if( !Input.GetKey( key ) )
-          return false;
-      }
-
-      return true;
-    }
 
     /// <summary>
     /// The full ancestor chain, with layers and whether any Player component sits on it.
@@ -684,49 +466,6 @@ namespace Coti.Client.Dev
           var texture = material.GetTexture( property );
           report.Append( $"\n    {property} = {( texture == null ? "NULL" : $"{texture.name} {texture.width}x{texture.height}" )}" );
         }
-      }
-    }
-
-    /// <summary>
-    /// Every renderer's size and centre expressed in the HOST'S OWN local space, in millimetres.
-    /// This is what a mount pose is derived from: where the host's tubes sit relative to the origin
-    /// the COTI gets parented to.
-    ///
-    /// World-space bounds converted to local, rather than mesh bounds, because that accounts for any
-    /// scaling baked into the hierarchy.
-    /// </summary>
-    private static string MeasureRenderers( Transform root )
-    {
-      var renderers = root.GetComponentsInChildren<Renderer>( includeInactive: true );
-      if( renderers.Length == 0 )
-        return " (no renderers)";
-
-      var report = new StringBuilder();
-
-      foreach( var renderer in renderers )
-      {
-        var centre = root.InverseTransformPoint( renderer.bounds.center ) * 1000f;
-        var size = renderer.bounds.size * 1000f;
-
-        report.Append( $"\n  {renderer.name}: size {size.x:F0} x {size.y:F0} x {size.z:F0} mm, " +
-                      $"centre ({centre.x:F0}, {centre.y:F0}, {centre.z:F0}) mm" );
-      }
-
-      return report.ToString();
-    }
-
-    private static void CollectNames( Transform transform, StringBuilder into, int depth )
-    {
-      // Deep enough to reach mount hardware, shallow enough not to dump every screw: NVG hierarchies
-      // bottom out in per-vertex helper objects that are useless as anchors.
-      if( depth > 3 )
-        return;
-
-      for( var i = 0; i < transform.childCount; i++ )
-      {
-        var child = transform.GetChild( i );
-        into.Append( "\n  " ).Append( ' ', depth * 2 ).Append( child.name );
-        CollectNames( child, into, depth + 1 );
       }
     }
 #endif

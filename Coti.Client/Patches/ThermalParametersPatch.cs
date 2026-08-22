@@ -41,9 +41,9 @@ namespace Coti.Client.Patches
       //
       // BOTH of this mod's cameras qualify, so the magnified image cannot be tuned differently from
       // the 1x one it sits inside. The single _wasActive latch survives that: both write identical
-      // values from CotiState.Host, and the pristine snapshot is the shared prefab's own defaults, so
-      // whichever instance restores first restores the right numbers. The magnified camera is also
-      // destroyed when the feature goes off rather than left holding COTI values.
+      // values from Plugin.Config.Image, and the pristine snapshot is the shared prefab's own
+      // defaults, so whichever instance restores first restores the right numbers. The magnified
+      // camera is also destroyed when the feature goes off rather than left holding COTI values.
       if( !CotiThermalCamera.Owns( __instance ) && !CotiOpticThermalCamera.Owns( __instance ) )
         return;
 
@@ -66,7 +66,7 @@ namespace Coti.Client.Patches
       {
         if( !_loggedError )
         {
-          Plugin.Log.LogError( $"[COTI] Failed to apply thermal parameters, host values will not apply: {ex}" );
+          Plugin.Log.LogError( $"[COTI] Failed to apply thermal parameters, image tuning will not apply: {ex}" );
           _loggedError = true;
         }
       }
@@ -80,6 +80,8 @@ namespace Coti.Client.Patches
       var utils = instance.ThermalVisionUtilities;
       if( utils?.ValuesCoefs == null )
         return;
+
+      var image = Plugin.Config.Image;
 
       // Captured at most once for the whole session, guarded by _snapshotTaken - the
       // snapshot is the game's own pristine defaults, which do not change between raids, so
@@ -116,49 +118,48 @@ namespace Coti.Client.Patches
         }
       }
 
-      var host = CotiState.Host;
-      utils.ValuesCoefs.MinimumTemperatureValue = host.MinimumTemperatureValue;
-      utils.ValuesCoefs.MainTexColorCoef = host.MainTexColorCoef;
-      utils.DepthFade = host.DepthFade;
+      utils.ValuesCoefs.MinimumTemperatureValue = image.MinimumTemperatureValue;
+      utils.ValuesCoefs.MainTexColorCoef = image.MainTexColorCoef;
+      utils.DepthFade = image.DepthFade;
 
-      instance.IsPixelated = host.IsPixelated;
-      instance.IsNoisy = host.IsNoisy;
-      instance.IsMotionBlurred = host.IsMotionBlurred;
+      instance.IsPixelated = image.IsPixelated;
+      instance.IsNoisy = image.IsNoisy;
+      instance.IsMotionBlurred = image.IsMotionBlurred;
 
       // BSG's own unsharp-mask fields: original + (original - blurred) * bias, inside its
       // thermal shader. This is the mechanism that makes the composite's masked overlay
       // (see ThermalVisionOnPreCullPatch) read as edge-dominated contours rather than a
       // filled thermal image - there is no separate edge-detect shader in this project.
-      instance.UnsharpRadiusBlur = host.UnsharpRadiusBlur;
-      instance.UnsharpBias = host.UnsharpBias;
+      instance.UnsharpRadiusBlur = image.UnsharpRadiusBlur;
+      instance.UnsharpBias = image.UnsharpBias;
 
-      ApplyPalette( utils, host );
+      ApplyPalette( utils, image );
 
       // RampShift just shifts where the ramp above is sampled - unlike the palette itself,
       // there is no failure mode where a given float value produces a null texture, so this
       // is applied unconditionally (0 is the vanilla no-op default).
-      utils.ValuesCoefs.RampShift = host.RampShift;
+      utils.ValuesCoefs.RampShift = image.RampShift;
     }
 
     /// <summary>
-    /// Applies <see cref="CotiNvgHostConfig.Palette"/> to
+    /// Applies <see cref="CotiImageConfig.Palette"/> to
     /// <c>ThermalVisionUtilities.CurrentRampPalette</c> - the ramp is what maps heat to colour,
     /// so this is the actual control over whether the image reads as a uniformly bright disc or
-    /// dark-with-hot-highlights (see CotiNvgHostConfig.Palette for the full rationale).
+    /// dark-with-hot-highlights (see CotiImageConfig.Palette for the full rationale).
     ///
     /// <see cref="ThermalVision.GetRampTexture"/> walks
     /// <c>ThermalVisionUtilities.RampTexPalletteConnectors</c> and returns null if none of them
     /// match <c>CurrentRampPalette</c> - a null ramp texture handed to the material could break
     /// the thermal image entirely. So a connector for the requested palette must be confirmed to
     /// exist BEFORE writing CurrentRampPalette, never after. "" / null means "leave the game's
-    /// current palette untouched" and is not an error - that is the correct behaviour for a host
-    /// entry that has not opted into a specific palette. An unrecognised string and a
+    /// current palette untouched" and is not an error - that is the correct behaviour for a
+    /// setting that has not opted into a specific palette. An unrecognised string and a
     /// recognised-but-connector-less palette both get the same treatment: log once (naming the
     /// requested value and the ones actually available) and leave the palette unchanged.
     /// </summary>
-    private static void ApplyPalette( ThermalVisionUtilities utils, CotiNvgHostConfig host )
+    private static void ApplyPalette( ThermalVisionUtilities utils, CotiImageConfig image )
     {
-      var requested = host.Palette;
+      var requested = image.Palette;
       if( string.IsNullOrEmpty( requested ) )
         return;
 

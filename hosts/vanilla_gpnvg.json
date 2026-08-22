@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "device": "vanilla_gpnvg",
+  "displayName": "GPNVG-18",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "5c0558060db834001b735271"
+    }
+  ],
+  "mask": {
+    "centerX": 0.525,
+    "centerY": 0.5,
+    "radius": 0.285,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "axis",
+    "positionX": 0.027,
+    "positionY": -0.037,
+    "positionZ": -0.075,
+    "rotationX": -90.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": -26.0,
+    "pitchDegrees": 90.0,
+    "yawDegrees": 2.0,
+    "scale": 1.46
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "device": "vanilla_pnv10t",
+  "displayName": "nvg_alfa_pnv-10t",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "5c0696830db834001d23f5da",
+      "prefab": "assets/content/items/equipment/customizable/nvg_alfa_pnv-10t/nvg_alfa_pnv-10t.bundle",
+      "label": "PNV-10T"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5011,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "",
+    "positionX": 0.0005,
+    "positionY": -0.032,
+    "positionZ": 0.067,
+    "rotationX": 0.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": 12.0,
+    "pitchDegrees": -90.0,
+    "yawDegrees": -11.0,
+    "scale": 0.91
+  }
+}

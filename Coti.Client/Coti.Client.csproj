@@ -7,6 +7,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>annotations</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -59,6 +60,10 @@
       <HintPath>$(SptManaged)\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Sirenix.Serialization">
+      <HintPath>$(SptManaged)\Sirenix.Serialization.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(SptManaged)\UnityEngine.dll</HintPath>
       <Private>false</Private>
@@ -77,6 +82,14 @@
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>$(SptManaged)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(SptManaged)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(SptManaged)\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Unity.Postprocessing.Runtime">
@@ -104,7 +117,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Assets\slot_mod_coti.png" />
-    <EmbeddedResource Include="Assets\coti-defaults.json" />
+
+    <EmbeddedResource Include="..\hosts\*.json" Link="Hosts\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <PropertyGroup>

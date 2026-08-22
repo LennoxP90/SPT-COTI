@@ -1,6 +1,5 @@
 using Coti.Shared;
 using System.Reflection;
-using Coti.Client.Dev;
 using EFT;
 using EFT.InventoryLogic;
 using HarmonyLib;
@@ -61,7 +60,7 @@ namespace Coti.Client.Patches
       // makes mount tuning a config edit rather than a client relaunch.
       var existing = EftCompat.FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
 
-      CotiDevTools.ReportHostBones( templateId, root );
+      CotiPoseTuner.ReportHostBones( templateId, root );
 
       var anchor = ResolveAnchor( root, host );
 
@@ -74,7 +73,7 @@ namespace Coti.Client.Patches
       SetLayerRecursively( bone, anchor.gameObject.layer );
 
       CotiMountPose.Apply( bone.transform, host );
-      CotiDevTools.OnMountPosed( bone.transform, host, templateId, gameObject.name );
+      CotiPoseTuner.OnMountPosed( bone.transform, host, templateId, gameObject.name, root );
 
       if( Plugin.Config != null && Plugin.Config.VerboseLogging )
       {
@@ -122,7 +121,7 @@ namespace Coti.Client.Patches
     /// the device back to invisible, and a COTI in the wrong place is a far better failure than
     /// no COTI at all - it is visible, so it can be diagnosed.
     /// </summary>
-    private static Transform ResolveAnchor( Transform root, CotiNvgHostConfig host )
+    internal static Transform ResolveAnchor( Transform root, CotiNvgHostConfig host )
     {
       if( host == null || string.IsNullOrEmpty( host.MountAnchorBone ) )
         return root;

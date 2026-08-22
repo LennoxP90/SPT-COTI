@@ -72,7 +72,7 @@ namespace Coti.Client
         {
           Plugin.Log.LogError(
               $"[COTI] Shader bundle missing at {path}. The COTI overlay cannot render " +
-              "without it - build it with unity/README.md and deploy it beside this plugin." );
+              $"without it. Reinstall the mod so that {BundleFileName} sits beside this plugin." );
           return;
         }
 

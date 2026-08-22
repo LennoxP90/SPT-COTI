@@ -4,8 +4,8 @@ using Newtonsoft.Json;
 namespace Coti.Client
 {
   /// <summary>
-  /// The complete COTI configuration. Defaults are deserialised from the embedded
-  /// Coti.Client/Assets/coti-defaults.json; the player's own settings come from the F12 page.
+  /// The complete COTI configuration. Global defaults live as this class's field initialisers;
+  /// per-host mask and mount geometry comes from hosts/*.json; the player's settings come from F12.
   /// </summary>
   public class CotiConfig
   {
@@ -20,35 +20,42 @@ namespace Coti.Client
     [JsonProperty( "verboseLogging" )]
     public bool VerboseLogging { get; set; }
 
-#if COTI_DEV
     /// <summary>
-    /// Arms the mount tuner's keys. A dev build reports geometry and attach results on its own; this
-    /// only decides whether the arrow keys move the device.
+    /// Arms the tuner's keyboard shortcut (arrows/,./[]/;'/-=). The pose editor's own on-screen
+    /// buttons, opened from the inspect window's COTI Pose button, work regardless of this setting -
+    /// it only gates the raw keys, which are otherwise free ones EFT does not bind.
     /// </summary>
     public bool EnablePoseModifier { get; set; }
 
     /// <summary>
-    /// Millimetres per tuner keypress.
+    /// Millimetres per tuner keypress or pose editor button press.
     /// </summary>
     public float TunerStepMm { get; set; } = 2f;
 
     /// <summary>
-    /// Degrees per tuner keypress.
+    /// Degrees per tuner keypress or pose editor button press.
     /// </summary>
     public float TunerStepDegrees { get; set; } = 5f;
 
     /// <summary>
-    /// Scale added per tuner keypress, as a fraction. 0.01 is one percent of the model's true size,
-    /// which on an 87 mm device is just under a millimetre - about the resolution the clamp ring's
-    /// fit against a tube housing can be judged by eye.
+    /// Scale added per tuner keypress or pose editor button press, as a fraction. 0.01 is one
+    /// percent of the model's true size, which on an 87 mm device is just under a millimetre - about
+    /// the resolution the clamp ring's fit against a tube housing can be judged by eye.
     /// </summary>
     public float TunerStepScale { get; set; } = 0.01f;
 
     /// <summary>
-    /// Modifier held while tuning, as "+"-separated KeyCode names.
+    /// Whether the pose editor's preview gets its own light. On by default because without it the
+    /// model renders as a flat black silhouette. Switchable because the light is culled to the
+    /// same layers as the camera, and those layers carry the game's own inspect model, so it may
+    /// brighten EFT's inspect view as a side effect.
+    /// </summary>
+    public bool TunerPreviewLight { get; set; } = true;
+
+    /// <summary>
+    /// Modifier held while using the tuner keys, as "+"-separated KeyCode names.
     /// </summary>
     public string TunerModifier { get; set; } = "LeftControl+LeftAlt";
-#endif
 
     /// <summary>
     /// Renders a second thermal pass matched to a magnified optic, so heat lines up with the scope.
@@ -74,6 +81,13 @@ namespace Coti.Client
     public CotiCameraConfig ThermalCamera { get; set; } = new CotiCameraConfig();
 
     /// <summary>
+    /// Thermal image tuning shared by every host - see <see cref="CotiImageConfig"/>. Global rather
+    /// than per-host because the values it carries were byte-identical across every device.
+    /// </summary>
+    [JsonProperty( "image" )]
+    public CotiImageConfig Image { get; set; } = new CotiImageConfig();
+
+    /// <summary>
     /// Mask used when a host has no entry, or its named mask is missing.
     /// </summary>
     public const string FallbackMaskName = "centre";
@@ -84,20 +98,22 @@ namespace Coti.Client
   public class CotiCameraConfig
   {
     /// <summary>
-    /// Master switch, and the live kill switch if the cost turns out unacceptable mid-raid.
-    /// Defaults false so a config predating this feature cannot start spawning a camera.
+    /// Master switch for the second camera, with no F12 entry. Must default true or a fresh install
+    /// renders no thermal picture.
     /// </summary>
     [JsonProperty( "enabled" )]
-    public bool Enabled { get; set; }
+    public bool Enabled { get; set; } = true;
 
+    // Must stay one of CotiSensorResolutions.All's values - CotiF12Config seeds the
+    // "Sensor Resolution (rows)" bind from Height.
     [JsonProperty( "width" )]
-    public int Width { get; set; } = 640;
+    public int Width { get; set; } = 1536;
 
     /// <summary>
     /// Render target height. The ECOTI's real sensor height.
     /// </summary>
     [JsonProperty( "height" )]
-    public int Height { get; set; } = 480;
+    public int Height { get; set; } = 1152;
 
     /// <summary>
     /// Sensor refresh in hertz - the real ECOTI's is 60. Drives ThermalVision's own frame hold, so
@@ -110,9 +126,7 @@ namespace Coti.Client
 
 #if COTI_DEV
     /// <summary>
-    /// Writes this many thermal-camera frames out as PNGs, with per-channel statistics, then stops.
-    /// Reading the camera's own texture answers directly what a composited screenshot can only be
-    /// used to guess at.
+    /// Writes this many thermal-camera frames out as PNGs with per-channel statistics, then stops.
     /// </summary>
     [JsonProperty( "dumpFrames" )]
     public int DumpFrames { get; set; }
@@ -151,88 +165,6 @@ namespace Coti.Client
     /// </summary>
     [JsonProperty( "maskFeather" )]
     public float MaskFeather { get; set; }
-
-    [JsonProperty( "minimumTemperatureValue" )]
-    public float MinimumTemperatureValue { get; set; }
-
-    [JsonProperty( "mainTexColorCoef" )]
-    public float MainTexColorCoef { get; set; }
-
-    [JsonProperty( "depthFade" )]
-    public float DepthFade { get; set; }
-
-    [JsonProperty( "isPixelated" )]
-    public bool IsPixelated { get; set; }
-
-    [JsonProperty( "isNoisy" )]
-    public bool IsNoisy { get; set; }
-
-    [JsonProperty( "isMotionBlurred" )]
-    public bool IsMotionBlurred { get; set; }
-
-    /// <summary>
-    /// ThermalVision.UnsharpRadiusBlur. Vanilla default 5.
-    /// </summary>
-    [JsonProperty( "unsharpRadiusBlur" )]
-    public float UnsharpRadiusBlur { get; set; }
-
-    /// <summary>
-    /// ThermalVision.UnsharpBias, the edge-dominance lever. Vanilla default 2.
-    /// </summary>
-    [JsonProperty( "unsharpBias" )]
-    public float UnsharpBias { get; set; }
-
-    [JsonProperty( "overlayContrast" )]
-    public float OverlayContrast { get; set; }
-
-    [JsonProperty( "overlayExposure" )]
-    public float OverlayExposure { get; set; }
-
-    /// <summary>
-    /// Diagnostic switch for the composite pass. 0 is the normal composite and must stay the
-    /// default; an out-of-range value falls back to 0 rather than throwing.
-    /// </summary>
-    [JsonProperty( "compositeMode" )]
-    public int CompositeMode { get; set; }
-
-    /// <summary>
-    /// Ramp palette mapping heat to colour - Fusion, Rainbow, WhiteHot, BlackHot. A string, not the
-    /// game enum, because the shared half must not reference a game assembly. Empty leaves the player's
-    /// current palette alone.
-    /// </summary>
-    [JsonProperty( "palette" )]
-    public string Palette { get; set; }
-
-    /// <summary>
-    /// Shifts where the ramp palette is sampled. Vanilla default 0.
-    /// </summary>
-    [JsonProperty( "rampShift" )]
-    public float RampShift { get; set; }
-
-    /// <summary>
-    /// Heat floor, 0..1. Anything cooler contributes EXACTLY zero, which is what lets the night
-    /// vision image show through instead of the circle washing out.
-    /// </summary>
-    [JsonProperty( "heatThreshold" )]
-    public float HeatThreshold { get; set; } = 0.75f;
-
-    /// <summary>
-    /// Crossfades solid hot shapes (0) against edge-only contours (1).
-    /// </summary>
-    [JsonProperty( "outlineMix" )]
-    public float OutlineMix { get; set; }
-
-    /// <summary>
-    /// Contour thickness in texels of the thermal target, when OutlineMix &gt; 0.
-    /// </summary>
-    [JsonProperty( "outlineWidth" )]
-    public float OutlineWidth { get; set; } = 1.5f;
-
-    /// <summary>
-    /// Overall brightness of the added heat.
-    /// </summary>
-    [JsonProperty( "overlayIntensity" )]
-    public float OverlayIntensity { get; set; } = 1f;
 
     /// <summary>
     /// Transform on the host NVG to hang the COTI from. Empty means the host's root.

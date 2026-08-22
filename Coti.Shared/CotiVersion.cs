@@ -1,27 +1,21 @@
 namespace Coti.Shared
 {
-  /// <summary>
-  /// The mod's version, declared once for both halves.
+  /// The mod's version, declared once for both halves - bumping one side and not the other ships a
+  /// client and server that disagree, which no build or test can catch.
   ///
-  /// It used to be four literals - two in the client's EftCompat, two in the server's ModMetadata -
-  /// and nothing tied a pair together. Bumping one side and not the other ships a client and server
-  /// that disagree about what they are, which no build or test can catch: both compile, both load,
-  /// and the mismatch only surfaces as a confusing version in a player's log.
-  ///
-  /// The two SPT generations keep separate lines because they are separate releases; the major
-  /// field encodes the generation. See CLAUDE.md.
-  /// </summary>
+  /// Each SPT generation has its own line, and the major encodes the generation: 2.x.y is SPT 4.0,
+  /// 3.x.y is 4.1. The two advance in pairs, 4.0 taking the lower major.
   public static class CotiVersion
   {
     /// <summary>
     /// SPT 4.0 line. Bump here and the 4.0 client and server both follow.
     /// </summary>
-    public const string Spt40 = "0.1.0";
+    public const string Spt40 = "2.0.0";
 
     /// <summary>
     /// SPT 4.1 line. Bump here and the 4.1 client and server both follow.
     /// </summary>
-    public const string Spt41 = "1.1.0";
+    public const string Spt41 = "3.0.0";
 
     /// <summary>
     /// Whichever line this build belongs to. A const, so it is usable in the BepInPlugin attribute.

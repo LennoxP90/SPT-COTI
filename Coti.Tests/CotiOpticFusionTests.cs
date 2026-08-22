@@ -4,7 +4,7 @@ using Xunit;
 public class CotiOpticFusionTests
 {
     // Every field of view below was measured in a 4.1 raid with the COTI_DEV camera probe on
-    // 2026-08-17, not invented. See docs/superpowers/specs/2026-08-17-optic-magnified-thermal-design.md
+    // 2026-08-17, not invented. Re-measure with that probe rather than adjusting a value here.
     private const float MainHipfire = 75.00f;
     private const float MainAiming = 35.00f;
     private const float MainEotech1x = 60.00f;
@@ -277,10 +277,8 @@ public class CotiOpticFusionTests
     [Fact]
     public void TheSubTexelFloorAppliesAtTheReferenceResolutionToo()
     {
-        // It used to sit behind an early return for rows == ReferenceRows, so a host configured at
-        // or below half a texel handed the shader half a texel on the DEFAULT 576 - the one row
-        // count where the guard was skipped, and the one everybody runs. Contour mode then renders
-        // nothing, which is exactly what MinimumTexels exists to prevent.
+        // The floor applies at the default 576 rows too, not only when scaling. Below half a texel,
+        // contour mode renders nothing - which is what MinimumTexels exists to prevent.
         Assert.Equal(CotiOverlayScale.MinimumTexels,
             CotiOverlayScale.OutlineWidth(0.5f, CotiOverlayScale.ReferenceRows));
     }

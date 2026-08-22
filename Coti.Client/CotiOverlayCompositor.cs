@@ -142,19 +142,19 @@ namespace Coti.Client
 
     private static void ApplyMaterialValues()
     {
-      var host = CotiState.Host;
+      var image = Plugin.Config.Image;
 
       _material.SetTexture( MainTexId, CotiThermalCamera.Output );
       _material.SetTexture( MaskTexId, CotiState.Mask );
       LensExclusion = ResolveLensExclusion();
       _material.SetVector( LensCircleId, LensExclusion );
       ApplyPhosphorTint();
-      _material.SetFloat( ThresholdId, Mathf.Clamp01( host.HeatThreshold ) );
-      _material.SetFloat( OutlineMixId, Mathf.Clamp01( host.OutlineMix ) );
+      _material.SetFloat( ThresholdId, Mathf.Clamp01( image.HeatThreshold ) );
+      _material.SetFloat( OutlineMixId, Mathf.Clamp01( image.OutlineMix ) );
       _material.SetFloat( OutlineWidthId, CotiOverlayScale.OutlineWidth(
-          Mathf.Max( 0.5f, host.OutlineWidth ),
+          Mathf.Max( 0.5f, image.OutlineWidth ),
           CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height ) );
-      _material.SetFloat( IntensityId, Mathf.Max( 0f, host.OverlayIntensity ) * PhosphorFade );
+      _material.SetFloat( IntensityId, Mathf.Max( 0f, image.OverlayIntensity ) * PhosphorFade );
     }
 
     /// <summary>
@@ -242,12 +242,7 @@ namespace Coti.Client
       {
         _loggedLensExclusion = true;
 
-        // Labelled as the FIRST frame, emphatically, because it is not the steady state and reads
-        // exactly like one. The first frame the magnified path runs on is partway through the ADS
-        // swing, with the weapon still moving up and across, so the centre it reports can sit far
-        // from where the lens settles - 0.739 across a 2024-wide view on 2026-08-18, against a
-        // scope that ends up near the middle. That was read as a mislocated hole and cost a whole
-        // diagnostic detour before the screen showed it was fine. Press F9 for the steady state.
+        // A centred hole is expected: the mask is the COTI's own display, not the host's viewport.
         Plugin.Log.LogInfo(
             $"[COTI] 1x overlay began excluding the lens - FIRST frame only, mid-ADS and NOT the " +
             $"settled position: ({centreU:F3}, {centreV:F3}) radius ({radiusU:F3}, {radiusV:F3}) " +

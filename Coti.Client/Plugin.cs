@@ -19,9 +19,8 @@ namespace Coti.Client
     public static new CotiConfig Config = CotiConfig.Fallback;
     public static bool IsHeadless;
 
-    private const string CotiModSlotName = CotiIds.ModSlotName;
-
     private bool _loggedUpdateError;
+    private bool _loggedHostTableError;
     private CotiF12Config _settings;
 
     private void Awake()
@@ -36,9 +35,19 @@ namespace Coti.Client
         return;
       }
 
-      _settings = new CotiF12Config( ( (BaseUnityPlugin)this ).Config );
+      var hostFallback = CotiHostTableClient.LoadEmbeddedFallback();
+
+      _settings = new CotiF12Config( ( (BaseUnityPlugin)this ).Config, hostFallback );
       Config = _settings.Current;
       CotiPowerToggle.Bind( _settings.PowerToggle );
+
+      // Seeded with the same table CotiF12Config just read, then handed off to fetch the
+      // server's copy - both are only ever applied from Update, never here: Awake runs before
+      // the game's own singletons (ItemFactory, the backend session) are guaranteed to exist,
+      // and Update is what the HideManagerGameObject finding already proved DOES run reliably
+      // on this plugin. See CotiHostTableClient's own comments for the fetch and apply details.
+      CotiHostTableClient.Pending = new CotiPendingTable( hostFallback, fromServer: false );
+      CotiHostTableClient.BeginFetch();
 
       TryEnable( nameof( ThermalParametersPatch ), () => new ThermalParametersPatch() );
       TryEnable( nameof( GameStartedPatch ), () => new GameStartedPatch() );
@@ -60,6 +69,21 @@ namespace Coti.Client
       // Before any inventory UI opens: ModSlotView caches a null against the key the first
       // time it looks and does not retry.
       TryEnable( nameof( CotiSlotIcon ), CotiSlotIcon.Install );
+
+      // The pose editor's only entry point - see CotiInspectButton's own class comment for the
+      // redraw lifecycle this has to cooperate with.
+      TryEnable( nameof( CotiInspectButton ), CotiInspectButton.Install );
+
+      // Subscribes to CotiInspectButton.OpenRequested. The panel itself only draws once IsOpen,
+      // from OnGUI below, but its window rect is BepInEx config and has to be bound here, from
+      // the same ConfigFile CotiF12Config wraps.
+      TryEnable( nameof( CotiPoseTuner ), CotiPoseTuner.Install );
+      TryEnable( nameof( CotiTunerPanel ), () => CotiTunerPanel.Install( ( (BaseUnityPlugin)this ).Config ) );
+      TryEnable( nameof( CotiMaskPanel ), () => CotiMaskPanel.Install( ( (BaseUnityPlugin)this ).Config ) );
+
+      // [Conditional(COTI_DEV)] - compiled out of Release. Re-verifies the accessors above
+      // resolve against whatever assemblies this build actually loaded.
+      CotiInspectButtonProbe.Run();
 
       Log.LogInfo( "[COTI] Initialised" );
     }
@@ -95,6 +119,7 @@ namespace Coti.Client
       CotiThermalCamera.Teardown();
       CotiOpticThermalCamera.Teardown();
       CotiOpticOverlayCompositor.Teardown();
+      CotiTunerPreview.Teardown();
 
       // Unconditional Detach, NOT Sync(): the config still reports the mode as enabled here, so
       // Sync would re-attach the buffer we are tearing down.
@@ -109,11 +134,28 @@ namespace Coti.Client
       if( IsHeadless )
         return;
 
+      // Own try/catch, deliberately separate from the raid-state block below: a failure applying
+      // the host table must not suppress thermal-camera updates for the rest of the session (or
+      // vice versa), and each gets its own once-only log rather than sharing _loggedUpdateError.
+      ApplyPendingHostTable();
+
+      // Ahead of the try/catch below on purpose: this is what restores game UI input, so it
+      // must not be skippable by an exception raised somewhere else in the frame.
+      CotiUiBlocker.Tick();
+
       try
       {
         // First, deliberately: everything below is raid-oriented and can throw in the menu, which is
-        // where the mount is tuned. Compiled out of Release, call included.
+        // where the mount is tuned. CotiDevTools.Tick is compiled out of Release, call included;
+        // CotiPoseTuner.Tick is the promoted keyboard shortcut and always runs.
         CotiDevTools.Tick();
+        CotiPoseTuner.Tick();
+        CotiMaskPanel.Tick();
+
+        // The pose editor's preview camera. Own try/catch coverage same as everything else in
+        // this block - it already no-ops the instant CotiPoseTuner.IsOpen is false, so this is not
+        // a per-frame cost for a player who never opens the panel.
+        CotiTunerPreview.Tick();
 
         // Before state resolution: the toggle feeds into activation.
         CotiPowerToggle.Tick();
@@ -167,7 +209,7 @@ namespace Coti.Client
       // the fade it now rides (CotiOverlayCompositor.PhosphorFade) would never be seen on the way
       // out - which is the popping the project owner asked to remove.
       var hostNvgOn = ( nvgComponent?.Togglable?.On ?? false ) || CotiOverlayCompositor.TubeSwitching;
-      var cotiAttached = IsCotiAttached( hostItem );
+      var cotiAttached = CotiSlotProbe.IsCotiAttached( hostItem );
 
       CotiState.Update( hostTemplateId, cotiAttached, hostNvgOn );
 
@@ -179,22 +221,44 @@ namespace Coti.Client
       // could never be false, along with the release path for a flag it could never set.
     }
 
-    private static bool IsCotiAttached( Item hostItem )
+    /// <summary>
+    /// Drains the pending host table on the main thread. Only a table the server actually returned
+    /// may patch slots - the embedded fallback must not add a slot the server does not have.
+    /// </summary>
+    private void ApplyPendingHostTable()
     {
-      var slots = ( hostItem as CompoundItem )?.Slots;
-      if( slots == null )
-        return false;
+      var pending = CotiHostTableClient.TakePending();
 
-      for( var i = 0; i < slots.Length; i++ )
+      try
       {
-        var slot = slots[i];
-        if( slot != null && slot.Name == CotiModSlotName )
+        if( pending != null )
+          CotiHostTableClient.Apply( pending.Devices, Config, pending.FromServer );
+
+        CotiHostTableClient.RetrySlotPassOnceItemFactoryIsReady();
+      }
+      catch( Exception ex )
+      {
+        if( !_loggedHostTableError )
         {
-          return slot.ContainedItem != null;
+          Log.LogError( $"[COTI] Applying the host table failed: {ex}" );
+          _loggedHostTableError = true;
         }
       }
+    }
 
-      return false;
+    /// <summary>
+    /// The pose editor's panel. Kept in its own MonoBehaviour callback rather than folded into
+    /// Update: IMGUI only draws from OnGUI, which Unity calls several times a frame regardless of
+    /// how often Update runs. CotiTunerPanel.Draw itself does nothing at all unless the panel is
+    /// open, so this is not a per-frame cost for players who never touch the feature.
+    /// </summary>
+    private void OnGUI()
+    {
+      if( IsHeadless )
+        return;
+
+      CotiTunerPanel.Draw();
+      CotiMaskPanel.Draw();
     }
   }
 }

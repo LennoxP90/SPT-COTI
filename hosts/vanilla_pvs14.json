@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "device": "vanilla_pvs14",
+  "displayName": "PVS-14",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "57235b6f24597759bf5a30f1"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5,
+    "centerY": 0.5,
+    "radius": 0.273,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "",
+    "positionX": 0.015,
+    "positionY": -0.024,
+    "positionZ": 0.039,
+    "rotationX": -90.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": 104.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 0.0,
+    "scale": 1.16
+  }
+}

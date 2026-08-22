@@ -12,7 +12,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\Coti.Client\Assets\coti-defaults.json" Link="Assets\coti-defaults.json" />
+    <EmbeddedResource Include="..\hosts\*.json" Link="Hosts\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\addons\*\*.json" Link="Hosts\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,6 +24,15 @@
     <Compile Include="..\Coti.Client\CotiSensorResolutions.cs" Link="Client\CotiSensorResolutions.cs" />
     <Compile Include="..\Coti.Client\CotiMaskResolver.cs" Link="Client\CotiMaskResolver.cs" />
     <Compile Include="..\Coti.Client\CotiConfig.cs" Link="Client\CotiConfig.cs" />
+    <Compile Include="..\Coti.Client\CotiImageConfig.cs" Link="Client\CotiImageConfig.cs" />
     <Compile Include="..\Coti.Client\MaskGeometry.cs" Link="Client\MaskGeometry.cs" />
+    <Compile Include="..\Coti.Server\CotiDeviceDto.cs" Link="Server\CotiDeviceDto.cs" />
+    <Compile Include="..\Coti.Client\CotiDeviceDto.cs" Link="Client\CotiDeviceDto.cs" />
+    <Compile Include="..\Coti.Client\CotiInspectGate.cs" Link="Client\CotiInspectGate.cs" />
+    <Compile Include="..\Coti.Client\CotiAnchorAdvisor.cs" Link="Client\CotiAnchorAdvisor.cs" />
+    <Compile Include="..\Coti.Client\CotiOrbitMath.cs" Link="Client\CotiOrbitMath.cs" />
+    <Compile Include="..\Coti.Client\CotiLayerMask.cs" Link="Client\CotiLayerMask.cs" />
+    <Compile Include="..\Coti.Client\CotiPublishReport.cs" Link="Client\CotiPublishReport.cs" />
+    <Compile Include="..\Coti.Client\CotiMaskNudge.cs" Link="Client\CotiMaskNudge.cs" />
   </ItemGroup>
 </Project>

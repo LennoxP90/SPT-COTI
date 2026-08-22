@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "device": "vanilla_n15",
+  "displayName": "N-15",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "5c066e3a0db834001b7353f0"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5361,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "",
+    "positionX": 0.033,
+    "positionY": -0.023,
+    "positionZ": 0.037,
+    "rotationX": -90.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": -42.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 0.0,
+    "scale": 1.24
+  }
+}

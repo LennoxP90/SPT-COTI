@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "device": "com.c11.truenorth4_argus_chimera",
+  "displayName": "Argus Chimera Panoramic Bridge",
+  "requires": "com.c11.truenorth4",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "69e29e097259deabbcff1884",
+      "prefab": "chimera.bundle",
+      "label": "Tan"
+    },
+    {
+      "id": "69e3d5854119e71c8cff1885",
+      "prefab": "chimera_mc.bundle",
+      "label": "MultiCam"
+    },
+    {
+      "id": "69e3d59d816b7c8821ff1887",
+      "prefab": "chimera_mca.bundle",
+      "label": "MC Alpine"
+    }
+  ],
+  "mask": {
+    "centerX": 0.525,
+    "centerY": 0.5,
+    "radius": 0.285,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "axis_2",
+    "positionX": 0.007,
+    "positionY": -0.0435,
+    "positionZ": -0.0525,
+    "rotationX": 0.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": 0.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 28.0,
+    "scale": 1.518
+  }
+}

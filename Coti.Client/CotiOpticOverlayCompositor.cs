@@ -147,7 +147,7 @@ namespace Coti.Client
 
     private static void ApplyMaterialValues()
     {
-      var host = CotiState.Host;
+      var image = Plugin.Config.Image;
 
       _material.SetTexture( MainTexId, CotiOpticThermalCamera.Output );
 
@@ -163,10 +163,10 @@ namespace Coti.Client
       // shader's own "no lens" value.
       _material.SetVector( LensCircleId, Vector4.zero );
 
-      _material.SetFloat( ThresholdId, Mathf.Clamp01( host.HeatThreshold ) );
-      _material.SetFloat( OutlineMixId, Mathf.Clamp01( host.OutlineMix ) );
+      _material.SetFloat( ThresholdId, Mathf.Clamp01( image.HeatThreshold ) );
+      _material.SetFloat( OutlineMixId, Mathf.Clamp01( image.OutlineMix ) );
       _material.SetFloat( OutlineWidthId, CotiOverlayScale.OutlineWidth(
-          Mathf.Max( 0.5f, host.OutlineWidth ),
+          Mathf.Max( 0.5f, image.OutlineWidth ),
           CotiOpticThermalCamera.Output == null ? 0 : CotiOpticThermalCamera.Output.height ) );
 
       // Phosphor and switching fade from the 1x path: the magnified image sits inside the same
@@ -174,7 +174,7 @@ namespace Coti.Client
       _material.SetColor( HotColourId, CotiOverlayCompositor.HotColour );
       _material.SetColor( CoolColourId, CotiOverlayCompositor.CoolColour );
       _material.SetFloat(
-          IntensityId, Mathf.Max( 0f, host.OverlayIntensity ) * CotiOverlayCompositor.PhosphorFade );
+          IntensityId, Mathf.Max( 0f, image.OverlayIntensity ) * CotiOverlayCompositor.PhosphorFade );
     }
 
     internal static void Detach()

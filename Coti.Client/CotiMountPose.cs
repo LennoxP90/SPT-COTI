@@ -3,10 +3,8 @@ using UnityEngine;
 namespace Coti.Client
 {
   /// <summary>
-  /// Places the COTI on its host's mount bone. The delta overload is the one composition point for
-  /// config and dev tuning alike - applying them separately previously let a pooled rebuild keep a
-  /// position nudge and drop the matching rotation nudge. Scale travels with them for the same
-  /// reason: there is deliberately no way to apply one delta without the others.
+  /// Applies the mount pose in one pass, config and tuning together, so a pooled rebuild cannot
+  /// keep half of it.
   /// </summary>
   public static class CotiMountPose
   {

@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Coti.Client;
+using Newtonsoft.Json;
 using Xunit;
 
 // ResolveMaskName has five separate routes to the fallback. A missed branch does not
@@ -73,14 +76,41 @@ public class CotiMaskResolverTests
     [Fact]
     public void EveryShippedHostResolvesToItsOwnMask()
     {
-        // Guards the server/client agreement: the shared host table and the client's mask
-        // names must not drift apart.
+        // Guards the server/client agreement: the shipped device files and the client's mask
+        // resolution must not drift apart. Reads the same embedded hosts/*.json files
+        // CotiHostTableClient falls back to in production, rather than the deleted
+        // Coti.Shared.CotiNvgHosts table.
         var config = new CotiConfig();
         config.NvgHosts = new Dictionary<string, CotiNvgHostConfig>();
-        foreach( var host in Coti.Shared.CotiNvgHosts.All )
-            config.NvgHosts[ host.TemplateId ] = new CotiNvgHostConfig { MaskName = host.MaskName };
 
-        foreach( var host in Coti.Shared.CotiNvgHosts.All )
-            Assert.Equal( host.MaskName, CotiMaskResolver.ResolveMaskName( config, host.TemplateId ) );
+        foreach( var device in ReadShippedDevices() )
+            foreach( var host in device.Hosts )
+                config.NvgHosts[ host.Id! ] = new CotiNvgHostConfig { MaskName = device.Device! };
+
+        foreach( var device in ReadShippedDevices() )
+            foreach( var host in device.Hosts )
+                Assert.Equal( device.Device, CotiMaskResolver.ResolveMaskName( config, host.Id! ) );
+    }
+
+    private static List<CotiDeviceDto> ReadShippedDevices()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        var result = new List<CotiDeviceDto>();
+
+        // By ".Hosts." and the ".json" suffix rather than the full name - same convention
+        // CotiShippedDevicesTests uses, for the same reason: a rename of the link path or the
+        // root namespace fails as "no hosts" instead of "resource missing".
+        foreach( var name in assembly.GetManifestResourceNames() )
+        {
+            if( !name.Contains( ".Hosts." ) || !name.EndsWith( ".json" ) )
+                continue;
+
+            using var stream = assembly.GetManifestResourceStream( name )!;
+            using var reader = new System.IO.StreamReader( stream );
+            result.Add( JsonConvert.DeserializeObject<CotiDeviceDto>( reader.ReadToEnd() )! );
+        }
+
+        Assert.True( result.Count >= 5, "expected at least 5 shipped device files, found " + result.Count );
+        return result;
     }
 }

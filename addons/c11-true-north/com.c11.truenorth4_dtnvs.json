@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "device": "com.c11.truenorth4_dtnvs",
+  "displayName": "ACTinBlack DTNVS (C11 - True North)",
+  "requires": "com.c11.truenorth4",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "69e3d5a9609333ebadff188a",
+      "prefab": "dtnvs.bundle",
+      "label": null
+    }
+  ],
+  "mask": {
+    "centerX": 0.5361,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "axis_2",
+    "positionX": -0.0005,
+    "positionY": -0.0435,
+    "positionZ": -0.038,
+    "rotationX": 0.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": 0.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 48.0,
+    "scale": 1.065
+  }
+}

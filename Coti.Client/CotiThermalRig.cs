@@ -139,22 +139,23 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Copies the ThermalVision look from the host's config, shared so the magnified image cannot
-    /// drift from the 1x one it sits inside.
+    /// Copies the shared image tuning - see <see cref="CotiImageConfig"/> - onto a ThermalVision
+    /// instance. Called for both cameras, so the magnified image cannot drift from the 1x one it
+    /// sits inside.
     /// </summary>
-    internal static void ApplyHostLook( ThermalVision thermal, CotiNvgHostConfig host )
+    internal static void ApplyImageTuning( ThermalVision thermal, CotiImageConfig image )
     {
-      if( host == null )
+      if( image == null )
         return;
 
-      thermal.IsPixelated = host.IsPixelated;
-      thermal.IsNoisy = host.IsNoisy;
-      thermal.IsMotionBlurred = host.IsMotionBlurred;
+      thermal.IsPixelated = image.IsPixelated;
+      thermal.IsNoisy = image.IsNoisy;
+      thermal.IsMotionBlurred = image.IsMotionBlurred;
 
       // Dropout is BSG's artefact for a failing scope, not a characteristic of this device.
       thermal.IsGlitch = false;
-      thermal.UnsharpRadiusBlur = host.UnsharpRadiusBlur;
-      thermal.UnsharpBias = host.UnsharpBias;
+      thermal.UnsharpRadiusBlur = image.UnsharpRadiusBlur;
+      thermal.UnsharpBias = image.UnsharpBias;
     }
 
     /// <summary>

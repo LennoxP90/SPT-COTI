@@ -298,7 +298,7 @@ namespace Coti.Client
 
       CotiThermalRig.SetRefreshRate( _tv, cfg.Hz );
 
-      CotiThermalRig.ApplyHostLook( _tv, CotiState.Host );
+      CotiThermalRig.ApplyImageTuning( _tv, Plugin.Config.Image );
     }
 
     /// <summary>
@@ -424,9 +424,9 @@ namespace Coti.Client
         Plugin.Log.LogInfo(
             $"[COTI] overlay -> {path} mean={sum / pixels.Length:F1} max={max} " +
             $"nonBlack={100.0 * nonBlack / pixels.Length:F1}% " +
-            $"(threshold={CotiState.Host?.HeatThreshold:F2} " +
-            $"intensity={CotiState.Host?.OverlayIntensity:F2} " +
-            $"outlineMix={CotiState.Host?.OutlineMix:F2})" );
+            $"(threshold={Plugin.Config?.Image.HeatThreshold:F2} " +
+            $"intensity={Plugin.Config?.Image.OverlayIntensity:F2} " +
+            $"outlineMix={Plugin.Config?.Image.OutlineMix:F2})" );
       }
       catch( Exception ex )
       {

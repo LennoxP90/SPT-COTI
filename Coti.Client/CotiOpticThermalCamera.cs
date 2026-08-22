@@ -240,7 +240,7 @@ namespace Coti.Client
       _tv.On = true;
 
       CotiThermalRig.SetRefreshRate( _tv, cfg.Hz );
-      CotiThermalRig.ApplyHostLook( _tv, CotiState.Host );
+      CotiThermalRig.ApplyImageTuning( _tv, Plugin.Config.Image );
     }
 
     /// <summary>

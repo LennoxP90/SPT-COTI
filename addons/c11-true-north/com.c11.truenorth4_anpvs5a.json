@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "device": "com.c11.truenorth4_anpvs5a",
+  "displayName": "ITT AN/PVS-5A Night Vision Goggles",
+  "requires": "com.c11.truenorth4",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "69e3d5a8dffbd50412ff1889",
+      "prefab": "anpvs5a.bundle",
+      "label": null
+    }
+  ],
+  "mask": {
+    "centerX": 0.5361,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "anpvs5",
+    "positionX": 0.0365,
+    "positionY": -0.023,
+    "positionZ": -0.057,
+    "rotationX": 0.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": 0.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 34.0,
+    "scale": 1.46
+  }
+}

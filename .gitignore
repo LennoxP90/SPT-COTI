@@ -16,3 +16,7 @@ dist/
 # (Coti.Server/bundles/coti/...) so it can be staged to dist/. The real bundles live at the
 # repo root under bundles/ - this is build residue, not a source location.
 Coti.Server/bundles/
+
+# Downloaded host-mod archives kept locally for pose tuning (C11 - True North is 1.7 GB).
+# Never redistributed and never committed; the release process 7z's from dist/, which is ignored above.
+*.7z

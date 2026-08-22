@@ -20,12 +20,14 @@
     <DefineConstants>$(DefineConstants);SPT40</DefineConstants>
     <SptRefDir>$(SptRef40Dir)</SptRefDir>
     <SptPackageVersion>4.0.13</SptPackageVersion>
+    <SptPackageId>SPTarkov.Server.Core</SptPackageId>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
     <DefineConstants>$(DefineConstants);SPT41</DefineConstants>
     <SptRefDir>$(SptRef41Dir)</SptRefDir>
-    <SptPackageVersion>4.1.2</SptPackageVersion>
+    <SptPackageVersion>4.1.3</SptPackageVersion>
+    <SptPackageId>SPTushonka.Server.Core</SptPackageId>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -34,7 +36,7 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(SptRefsPresent)' != 'true'">
-    <PackageReference Include="SPTarkov.Server.Core" Version="$(SptPackageVersion)" />
+    <PackageReference Include="$(SptPackageId)" Version="$(SptPackageVersion)" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(SptRefsPresent)' == 'true'">
@@ -64,7 +66,22 @@
     <Message Importance="high" Condition="'$(SptRefsPresent)' == 'true'"
              Text="Coti.Server ($(TargetFramework)): referencing the install at $(SptRefDir)" />
     <Message Importance="high" Condition="'$(SptRefsPresent)' != 'true'"
-             Text="Coti.Server ($(TargetFramework)): no install at $(SptRefDir), using SPTarkov.Server.Core $(SptPackageVersion) from NuGet" />
+             Text="Coti.Server ($(TargetFramework)): no install at $(SptRefDir), using $(SptPackageId) $(SptPackageVersion) from NuGet" />
+  </Target>
+
+  <Target Name="ValidateSptCoreFloor" BeforeTargets="ResolveAssemblyReferences" Condition="'$(SptRefsPresent)' == 'true'">
+    <GetAssemblyIdentity AssemblyFiles="$(SptRefDir)\SPTarkov.Server.Core.dll">
+      <Output TaskParameter="Assemblies" ItemName="SptCoreLocalAssembly" />
+    </GetAssemblyIdentity>
+
+    <PropertyGroup>
+      <SptCoreLocalVersionRaw>@(SptCoreLocalAssembly->'%(Version)')</SptCoreLocalVersionRaw>
+      <SptCoreLocalVersion>$(SptCoreLocalVersionRaw.Split('.')[0]).$(SptCoreLocalVersionRaw.Split('.')[1]).$(SptCoreLocalVersionRaw.Split('.')[2])</SptCoreLocalVersion>
+    </PropertyGroup>
+
+    <Error
+        Condition="$([MSBuild]::VersionGreaterThan('$(SptCoreLocalVersion)', '$(SptPackageVersion)'))"
+        Text="Coti.Server ($(TargetFramework)): the local install at $(SptRefDir) carries SPTarkov.Server.Core $(SptCoreLocalVersion), above the declared floor SptPackageVersion=$(SptPackageVersion). Building against it as-is would silently raise the mod's real minimum server version, since ModValidator.ValidateCoreAssemblyReference throws out of the mod loader on any server below the compile-time Core. Either raise SptPackageVersion (and ModMetadata.cs's SptVersion) to $(SptCoreLocalVersion) as a deliberate decision, or point SptRefDir at an install at or below $(SptPackageVersion)." />
   </Target>
 
   <ItemGroup>
@@ -107,6 +124,20 @@
     <Copy SourceFiles="config\config.json"
           DestinationFolder="$(CotiDist)\config"
           SkipUnchangedFiles="true" />
+
+    <ItemGroup>
+      <CotiHostFile Include="$(MSBuildProjectDirectory)\..\hosts\*.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <CotiStaleHostFile Include="$(CotiDist)\nvghostcompat\*.json" />
+    </ItemGroup>
+
+    <Delete Files="@(CotiStaleHostFile)" Condition="'@(CotiStaleHostFile)' != ''" />
+
+    <Copy SourceFiles="@(CotiHostFile)"
+          DestinationFolder="$(CotiDist)\nvghostcompat"
+          Condition="'@(CotiHostFile)' != ''" />
   </Target>
 
 </Project>

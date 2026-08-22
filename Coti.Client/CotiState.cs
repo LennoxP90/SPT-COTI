@@ -12,6 +12,24 @@ namespace Coti.Client
     public static Texture2D Mask;
     public static CotiNvgHostConfig Host;
 
+    /// <summary>
+    /// The template id <see cref="Host"/> was resolved from. Update already receives it, and the
+    /// mask editor needs it to find which device file to publish - CotiNvgHostConfig itself does
+    /// not carry its own id.
+    /// </summary>
+    public static string HostTemplateId;
+
+    /// <summary>
+    /// Whatever night vision is EQUIPPED, regardless of whether it is switched on, powered, or
+    /// carrying a COTI. Distinct from <see cref="HostTemplateId"/>, which is only set on the path
+    /// where the overlay actually renders.
+    ///
+    /// The mask editor needs this one. Keying it on HostTemplateId meant an equipped goggle in the
+    /// stash reported "no host resolved yet", because the goggles are not on outside a raid - so
+    /// the editor could not be opened anywhere you could comfortably read it.
+    /// </summary>
+    public static string EquippedHostTemplateId;
+
     // Once per RAID, not per session, so a settings change between raids produces a fresh line
     // and an in-raid screenshot can be matched back to a configuration from the log alone.
     private static bool _loggedHostForRaid;
@@ -31,6 +49,8 @@ namespace Coti.Client
     {
       Mask = null;
       Host = null;
+      HostTemplateId = null;
+      EquippedHostTemplateId = hostTemplateId;
 
       // Folded into "powered on" rather than given its own branch, so it travels the same
       // already-proven path.
@@ -84,6 +104,7 @@ namespace Coti.Client
       }
 
       Host = host;
+      HostTemplateId = hostTemplateId;
       Mask = mask;
       Active = true;
     }
@@ -94,16 +115,18 @@ namespace Coti.Client
         return;
       _loggedHostForRaid = true;
 
-      var paletteText = string.IsNullOrEmpty( host.Palette ) ? "(unchanged)" : host.Palette;
+      // Image parameters are global now (see CotiImageConfig) - only the mask geometry below is
+      // still per-host.
+      var image = Plugin.Config?.Image ?? new CotiImageConfig();
+      var paletteText = string.IsNullOrEmpty( image.Palette ) ? "(unchanged)" : image.Palette;
 
       Plugin.Log.LogInfo(
-          $"[COTI] host {hostTemplateId} ({maskLabel}) mode={host.CompositeMode} " +
-          $"minTemp={host.MinimumTemperatureValue:F2} colorCoef={host.MainTexColorCoef:F2} " +
-          $"depthFade={host.DepthFade:F2} unsharp={host.UnsharpRadiusBlur:F1}/{host.UnsharpBias:F1} " +
-          $"contrast={host.OverlayContrast:F2} exposure={host.OverlayExposure:F2} " +
+          $"[COTI] host {hostTemplateId} ({maskLabel}) " +
+          $"minTemp={image.MinimumTemperatureValue:F2} colorCoef={image.MainTexColorCoef:F2} " +
+          $"depthFade={image.DepthFade:F2} unsharp={image.UnsharpRadiusBlur:F1}/{image.UnsharpBias:F1} " +
           $"mask=({host.MaskCenterX:F3},{host.MaskCenterY:F3}) r={host.MaskRadius:F3} f={host.MaskFeather:F3} " +
-          $"pix={host.IsPixelated} noise={host.IsNoisy} motion={host.IsMotionBlurred} " +
-          $"palette={paletteText} rampShift={host.RampShift:F2}" );
+          $"pix={image.IsPixelated} noise={image.IsNoisy} motion={image.IsMotionBlurred} " +
+          $"palette={paletteText} rampShift={image.RampShift:F2}" );
     }
 
     private static void LogMissingHostOnce( string hostTemplateId )

@@ -3,9 +3,14 @@
 // The table types are a fourth case: 4.1 injects them directly, 4.0 has no such types at all
 // (everything hangs off DatabaseServer.GetTables()) - so only the field TYPE is aliased here;
 // the constructors that populate it still differ per version at the call site.
+//
+// ProfileHelper is a fifth case, added for CotiDeviceRoutes: same class name, same members
+// (GetPmcProfile(MongoId) returning PmcData?), but 4.0 declares it directly under
+// SPTarkov.Server.Core.Helpers (already aliased above for ModHelper, so 4.0 needs nothing extra)
+// while 4.1 moved it one level deeper, to SPTarkov.Server.Core.Helpers.Profile.
 #if SPT40
 global using SPTarkov.Server.Core.Models.Utils;           // ISptLogger
-global using SPTarkov.Server.Core.Helpers;                // ModHelper
+global using SPTarkov.Server.Core.Helpers;                // ModHelper, ProfileHelper
 global using SPTarkov.Server.Core.Services.Mod;           // CustomItemService
 global using SPTarkov.Server.Core.Servers;                // DatabaseServer
 global using CotiTemplateTable = SPTarkov.Server.Core.Models.Spt.Templates.Templates;
@@ -14,6 +19,7 @@ global using CotiLocaleTable   = SPTarkov.Server.Core.Models.Spt.Server.LocaleBa
 #else
 global using SPTarkov.Common.Models.Logging;              // ISptLogger
 global using SPTarkov.Server.Core.Helpers.Server;         // ModHelper
+global using SPTarkov.Server.Core.Helpers.Profile;        // ProfileHelper
 global using SPTarkov.Server.Core.Services.Modding.Custom; // CustomItemService
 global using CotiTemplateTable = SPTarkov.Server.Core.Models.Spt.Tables.TemplateTable;
 global using CotiLocationTable = SPTarkov.Server.Core.Models.Spt.Tables.LocationTable;

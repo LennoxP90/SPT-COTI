@@ -12,6 +12,7 @@ public class CotiServerConfig
 {
   public CotiTraderSettings Trader { get; private set; } = new();
   public CotiLootSettings Loot { get; private set; } = new();
+  public CotiHostEditorSettings HostEditor { get; private set; } = new();
 
   public CotiServerConfig( ISptLogger<CotiServerConfig> logger, ModHelper modHelper )
   {
@@ -22,8 +23,14 @@ public class CotiServerConfig
       var modFolder = modHelper.GetAbsolutePathToModFolder( typeof( CotiServerConfig ).Assembly );
       var file = modHelper.GetJsonDataFromFile<CotiConfigFile>( Path.Combine( modFolder, "config" ), "config.json" );
 
-      Trader = file.Trader;
-      Loot = file.Loot;
+      // ?? on each: an ABSENT key leaves the CotiConfigFile initialiser intact, but an explicit
+      // "trader": null in a hand-edited file makes System.Text.Json assign null straight over it,
+      // and every reader here dereferences without checking - hostEditor.autoDiscover would then
+      // take the whole mod down at load. Same trap the device files were already hardened against,
+      // and a player trying to switch a section off by nulling it is the likely way in.
+      Trader = file.Trader ?? Trader;
+      Loot = file.Loot ?? Loot;
+      HostEditor = file.HostEditor ?? HostEditor;
     }
     catch( Exception ex )
     {
@@ -43,6 +50,9 @@ public class CotiConfigFile
 
   [JsonPropertyName( "loot" )]
   public CotiLootSettings Loot { get; set; } = new();
+
+  [JsonPropertyName( "hostEditor" )]
+  public CotiHostEditorSettings HostEditor { get; set; } = new();
 }
 
 public class CotiTraderSettings
@@ -70,4 +80,15 @@ public class CotiLootSettings
   /// </summary>
   [JsonPropertyName( "weightFraction" )]
   public double WeightFraction { get; set; } = 0.25;
+}
+
+public class CotiHostEditorSettings
+{
+  /// <summary>
+  /// When true (the default), CotiHostDiscovery stubs a Tuned:false device for every night
+  /// vision host the item table declares that no device file already covers. False restores the
+  /// pre-2.0.0 behaviour of supporting exactly the shipped set.
+  /// </summary>
+  [JsonPropertyName( "autoDiscover" )]
+  public bool AutoDiscover { get; set; } = true;
 }

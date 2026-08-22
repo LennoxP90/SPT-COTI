@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "device": "vanilla_pnv57e",
+  "displayName": "nvg_57em",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "67506ca81f18589016006aa6",
+      "prefab": "assets/content/items/equipment/customizable/nvg_57em/nvg_57em.bundle",
+      "label": "PNV-57E"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5361,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "axis",
+    "positionX": 0.036,
+    "positionY": -0.119,
+    "positionZ": -0.081,
+    "rotationX": 0.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": 0.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 40.0,
+    "scale": 1.32
+  }
+}

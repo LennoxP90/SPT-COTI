@@ -9,7 +9,7 @@ namespace Coti.Server;
 
 /// <summary>
 /// Spawns the COTI wherever night vision already spawns, at a fraction of its weight. NVGs come from
-/// the item database, not <see cref="CotiNvgHosts"/>, so modded ones count too.
+/// the item database, not <see cref="CotiDeviceStore"/>, so modded ones count too.
 /// </summary>
 [Injectable( TypePriority = CotiLoadOrder.PostLoad + 60 )]
 public class CotiLootDistribution : IOnLoad

@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "device": "com.wtt.cag_dtnvs",
+  "displayName": "ACTinBlack DTNVS",
+  "requires": "com.wtt.cag",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "6974ce066e50d4be623b8d9b",
+      "prefab": "nvg_actinblack_dtnvg.bundle",
+      "label": "White Phos."
+    },
+    {
+      "id": "6974cf52ee1fb8a0683b8d9d",
+      "prefab": "nvg_actinblack_dtnvg.bundle",
+      "label": "Green Phos."
+    }
+  ],
+  "mask": {
+    "centerX": 0.5361,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "",
+    "positionX": 0.036,
+    "positionY": -0.067,
+    "positionZ": 0.05,
+    "rotationX": -90.0,
+    "rotationY": 0.0,
+    "rotationZ": 0.0,
+    "rollDegrees": -43.0,
+    "pitchDegrees": 0.0,
+    "yawDegrees": 0.0,
+    "scale": 1.24
+  }
+}
