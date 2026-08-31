@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Coti.Client.Dev;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -387,6 +388,75 @@ namespace Coti.Client
           composited == null
               ? "[COTI] optic target dump unavailable - the optic camera has no target texture"
               : $"[COTI] optic target (one frame stale) -> {composited}" );
+
+      DumpMagnifiedOverlay( CotiFrameDump.Directory, index );
+    }
+
+    /// <summary>
+    /// The magnified overlay on its own, matching the 1x overlay dump. Without it the only
+    /// magnified picture is the optic target, which carries the scope image too - so a blowout
+    /// there cannot be attributed to either.
+    /// </summary>
+    private static void DumpMagnifiedOverlay( string directory, int index )
+    {
+      RenderTexture rendered = null;
+      Texture2D readback = null;
+      var previous = RenderTexture.active;
+
+      try
+      {
+        rendered = CotiOpticOverlayCompositor.RenderOverlayForDiagnostics( _rt.width, _rt.height );
+        if( rendered == null )
+        {
+          Plugin.Log.LogWarning(
+              "[COTI] magnified overlay dump skipped - no material or no magnified output" );
+          return;
+        }
+
+        readback = new Texture2D( rendered.width, rendered.height, TextureFormat.RGBA32, false );
+        RenderTexture.active = rendered;
+        readback.ReadPixels( new Rect( 0f, 0f, rendered.width, rendered.height ), 0, 0 );
+        readback.Apply( false, false );
+        RenderTexture.active = previous;
+
+        var pixels = readback.GetPixels32();
+        double sum = 0;
+        int max = 0, nonBlack = 0, clipped = 0;
+
+        for( var i = 0; i < pixels.Length; i++ )
+        {
+          var value = Mathf.Max( pixels[i].r, Mathf.Max( pixels[i].g, pixels[i].b ) );
+          sum += value;
+          if( value > max )
+            max = value;
+          if( value > 8 )
+            nonBlack++;
+          if( value >= 250 )
+            clipped++;
+        }
+
+        var path = Path.Combine( directory, $"magnified-overlay-{index:d3}.png" );
+        File.WriteAllBytes( path, readback.EncodeToPNG() );
+
+        // clipped% is the blob measured directly: solid fill reads high, a contour reads near zero.
+        Plugin.Log.LogInfo(
+            $"[COTI] magnified overlay -> {path} mean={sum / pixels.Length:F1} max={max} " +
+            $"nonBlack={100.0 * nonBlack / pixels.Length:F1}% " +
+            $"clipped={100.0 * clipped / pixels.Length:F1}% " +
+            $"material[{CotiOpticOverlayCompositor.DescribeMaterial()}]" );
+      }
+      catch( Exception ex )
+      {
+        RenderTexture.active = previous;
+        Plugin.Log.LogWarning( $"[COTI] magnified overlay dump failed: {ex.Message}" );
+      }
+      finally
+      {
+        if( readback != null )
+          UnityEngine.Object.Destroy( readback );
+        if( rendered != null )
+          UnityEngine.Object.Destroy( rendered );
+      }
     }
 #endif
 

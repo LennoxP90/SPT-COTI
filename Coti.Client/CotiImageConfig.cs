@@ -75,5 +75,13 @@ namespace Coti.Client
     /// </summary>
     [JsonProperty( "overlayIntensity" )]
     public float OverlayIntensity { get; set; } = 6.0f;
+
+    /// <summary>
+    /// Fraction of <see cref="OverlayIntensity"/> the magnified path uses. Lower, because the 1x
+    /// overlay has the circle glow beneath it and the magnified one does not, so the value that
+    /// reads correctly at 1x clips magnified contours into a solid mass.
+    /// </summary>
+    [JsonProperty( "magnifiedIntensityScale" )]
+    public float MagnifiedIntensityScale { get; set; } = 0.25f;
   }
 }

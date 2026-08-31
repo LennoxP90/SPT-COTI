@@ -1,3 +1,4 @@
+using Coti.Shared;
 using System;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -16,7 +17,6 @@ namespace Coti.Client
     private static readonly int OutlineWidthId = Shader.PropertyToID( "_OutlineWidth" );
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
-    private static readonly int LensCircleId = Shader.PropertyToID( "_LensCircle" );
 
     private static CommandBuffer _commandBuffer;
     private static Camera _attachedTo;
@@ -31,15 +31,6 @@ namespace Coti.Client
     private static bool _loggedTint;
     private static Camera _nightVisionCamera;
     private static BSG.CameraEffects.NightVision _nightVision;
-
-    private static bool _loggedLensExclusion;
-
-    /// <summary>
-    /// The lens ellipse last handed to the shader, as (centreU, centreV, radiusU, radiusV), or zero
-    /// when none was. Published so the F9 probe can report what was ACTUALLY applied rather than
-    /// recomputing it - a recomputation would answer a slightly different question.
-    /// </summary>
-    internal static Vector4 LensExclusion { get; private set; }
 
     /// <summary>
     /// The tint last written to the material, published so the magnified path can match it.
@@ -71,6 +62,18 @@ namespace Coti.Client
         }
 
         var camera = Camera.main;
+
+        // While the magnified composite is drawing, the 1x overlay stands down entirely rather
+        // than cutting a hole for the lens. The hole was an ESTIMATE - an axis-aligned box around
+        // a tilted disc - so wherever it missed, its rim read as a second circle inside the scope.
+        //
+        // Both conditions, because they fail independently: standing down for a composite that is
+        // not running would leave no thermal at all.
+        if( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached )
+        {
+          Detach();
+          return;
+        }
 
         // Attached only while there is genuinely something to draw.
         var wanted = CotiThermalCamera.ModeEnabled
@@ -146,8 +149,6 @@ namespace Coti.Client
 
       _material.SetTexture( MainTexId, CotiThermalCamera.Output );
       _material.SetTexture( MaskTexId, CotiState.Mask );
-      LensExclusion = ResolveLensExclusion();
-      _material.SetVector( LensCircleId, LensExclusion );
       ApplyPhosphorTint();
       _material.SetFloat( ThresholdId, Mathf.Clamp01( image.HeatThreshold ) );
       _material.SetFloat( OutlineMixId, Mathf.Clamp01( image.OutlineMix ) );
@@ -158,11 +159,14 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Tints the heat to the tube's phosphor colour, read off NightVision.Color at runtime so it
-    /// follows the player's own settings rather than a per-host value that would go stale.
+    /// Tints the heat to the tube's phosphor colour, read at runtime so it follows the player's
+    /// own settings rather than a per-host value that would go stale.
     ///
     /// Hot trends toward white: it is brightness that reads as heat, and a green blob on a green
     /// image would not.
+    ///
+    /// The phosphor comes from whichever mod owns the tube - see CotiTubeBridge. NightVision.Color
+    /// is the FALLBACK, not the source: Borkel 3.0 stopped writing it.
     /// </summary>
     private static void ApplyPhosphorTint()
     {
@@ -175,20 +179,22 @@ namespace Coti.Client
 
       PhosphorFade = ComputeFade( nightVision );
 
-      var phosphor = nightVision.Color;
+      Color phosphor;
+      bool fromBridge = CotiTubeBridge.TryPhosphor( nightVision, out phosphor );
+      if( !fromBridge )
+        phosphor = nightVision.Color;
 
-      // A black or unset colour would tint the heat to nothing. Leave the shader's own defaults
-      // in place instead - visible warm-white beats invisible.
-      if( phosphor.r + phosphor.g + phosphor.b <= 0.01f )
+      // Leave the shader's own defaults in place rather than tint the heat to nothing. Not
+      // theoretical: an unwritten NightVision.Color is a real state since Borkel 3.0.
+      float hueR, hueG, hueB;
+      if( !CotiPhosphorTint.TryHue( phosphor.r, phosphor.g, phosphor.b, out hueR, out hueG, out hueB ) )
         return;
 
-      // Normalise: RNVG's colours vary in brightness, and an already-dim phosphor would
-      // otherwise make the heat dimmer still. Only the HUE should come from the tube.
-      var peak = Mathf.Max( phosphor.r, Mathf.Max( phosphor.g, phosphor.b ) );
-      var hue = new Color( phosphor.r / peak, phosphor.g / peak, phosphor.b / peak, 1f );
+      float hotR, hotG, hotB;
+      CotiPhosphorTint.Hot( hueR, hueG, hueB, out hotR, out hotG, out hotB );
 
-      HotColour = Color.Lerp( hue, Color.white, 0.7f );
-      CoolColour = hue;
+      HotColour = new Color( hotR, hotG, hotB, 1f );
+      CoolColour = new Color( hueR, hueG, hueB, 1f );
 
       _material.SetColor( HotColourId, HotColour );
       _material.SetColor( CoolColourId, CoolColour );
@@ -196,125 +202,42 @@ namespace Coti.Client
       if( !_loggedTint )
       {
         _loggedTint = true;
+
+        // "NightVision.Color" with Borkel 3.0 installed means the bridge failed to bind.
         Plugin.Log.LogInfo(
             $"[COTI] Heat tinted from the tube's phosphor: " +
-            $"({hue.r:F2}, {hue.g:F2}, {hue.b:F2})" );
+            $"({hueR:F2}, {hueG:F2}, {hueB:F2}) " +
+            $"via {( fromBridge ? "the tube's own renderer" : "NightVision.Color" )}" );
       }
     }
 
     internal static float PhosphorFade { get; private set; } = 1f;
 
     /// <summary>
-    /// The ellipse this overlay must NOT draw into, or zero for no exclusion.
-    ///
-    /// The 1x overlay paints straight over a magnified lens, so the magnified thermal underneath
-    /// cannot be seen until it stops. Zero whenever the magnified path is not rendering, or the hole
-    /// would just be a blind spot.
+    /// The main camera's NightVision, for the timing trace. Exposed rather than resolved a second
+    /// time so the trace reports the SAME component the tint and fade were computed from.
     /// </summary>
-    private static Vector4 ResolveLensExclusion()
+    internal static BSG.CameraEffects.NightVision Tube
     {
-      // Both, because they fail independently: a hole cut for a composite that is not running is a
-      // dead circle. Attached describes the previous frame - Plugin.Update syncs this compositor
-      // first - which costs one frame of 1x heat over the lens when magnification engages.
-      if( !CotiOpticThermalCamera.Magnifying || !CotiOpticOverlayCompositor.Attached )
-        return Vector4.zero;
-
-      var lens = CotiOpticThermalCamera.Optic.Lens;
-      var camera = Camera.main;
-      if( lens == null || camera == null )
-        return Vector4.zero;
-
-      float minX, minY, maxX, maxY;
-      if( !TryProjectBounds( lens.bounds, camera, out minX, out minY, out maxX, out maxY ) )
-        return Vector4.zero;
-
-      float centreU, centreV, radiusU, radiusV;
-      if( !CotiOpticFusion.TryLensEllipse(
-              minX, minY, maxX, maxY,
-              camera.pixelWidth, camera.pixelHeight,
-              Mathf.Max( 0f, Plugin.Config?.MagnifiedLensCover ?? 1f ),
-              out centreU, out centreV, out radiusU, out radiusV ) )
-      {
-        return Vector4.zero;
-      }
-
-      if( !_loggedLensExclusion && ( Plugin.Config?.VerboseLogging ?? false ) )
-      {
-        _loggedLensExclusion = true;
-
-        // A centred hole is expected: the mask is the COTI's own display, not the host's viewport.
-        Plugin.Log.LogInfo(
-            $"[COTI] 1x overlay began excluding the lens - FIRST frame only, mid-ADS and NOT the " +
-            $"settled position: ({centreU:F3}, {centreV:F3}) radius ({radiusU:F3}, {radiusV:F3}) " +
-            $"of a {camera.pixelWidth}x{camera.pixelHeight} view. F9 reports the steady state." );
-      }
-
-      return new Vector4( centreU, centreV, radiusU, radiusV );
+      get { return ResolveNightVision(); }
     }
 
     /// <summary>
-    /// Projects a world bounding box to the camera's own pixel space.
-    ///
-    /// camera.pixelWidth/Height, never Screen.width/height: EFT renders at a scaled resolution, and
-    /// mixing the two spaces once produced a second copy of the mask scaled by that factor.
+    /// Rides vanilla's switch flash - a ~100 ms dip in CurrentColor as the tube lights, not a fade
+    /// across the whole switch. A replacement renderer does not draw that flash, so following it
+    /// there would blink the overlay out with nothing on screen to explain it.
     /// </summary>
-    private static bool TryProjectBounds(
-        Bounds bounds, Camera camera,
-        out float minX, out float minY, out float maxX, out float maxY )
-    {
-      minX = float.MaxValue;
-      minY = float.MaxValue;
-      maxX = float.MinValue;
-      maxY = float.MinValue;
-
-      for( var corner = 0; corner < 8; corner++ )
-      {
-        var point = new Vector3(
-            ( corner & 1 ) == 0 ? bounds.min.x : bounds.max.x,
-            ( corner & 2 ) == 0 ? bounds.min.y : bounds.max.y,
-            ( corner & 4 ) == 0 ? bounds.min.z : bounds.max.z );
-
-        var screen = camera.WorldToScreenPoint( point );
-
-        // A corner behind the eye comes back with the wrong sign, so one bad corner poisons the
-        // box. Rejected rather than clamped: a plausible wrong answer deletes overlay.
-        if( screen.z <= 0f )
-          return false;
-
-        if( screen.x < minX ) minX = screen.x;
-        if( screen.y < minY ) minY = screen.y;
-        if( screen.x > maxX ) maxX = screen.x;
-        if( screen.y > maxY ) maxY = screen.y;
-      }
-
-      return true;
-    }
-
-    internal static bool TubeSwitching
-    {
-      get
-      {
-        var nightVision = ResolveNightVision();
-        return nightVision != null && nightVision.InProcessSwitching;
-      }
-    }
-
     private static float ComputeFade( BSG.CameraEffects.NightVision nightVision )
     {
-      var full = nightVision.Color;
-      var denominator = full.r + full.g + full.b;
-
-      // A black configured colour makes the ratio meaningless; treat the tube as fully on rather
-      // than dividing by zero and hiding the overlay forever.
-      if( denominator <= 0.001f )
+      if( CotiTubeBridge.Present )
         return 1f;
 
+      var full = nightVision.Color;
       var current = EftCompat.NightVisionCurrentColor( nightVision );
-      var ratio = ( current.r + current.g + current.b ) / denominator;
 
-      // CurrentColor goes NEGATIVE past the midpoint of the flash, since the formula is
-      // 1 - 2 * value with value running beyond 0.5 - so clamping is required, not cosmetic.
-      return Mathf.Clamp01( ratio );
+      return CotiPhosphorTint.Fade(
+          current.r + current.g + current.b,
+          full.r + full.g + full.b );
     }
 
     /// <summary>
@@ -335,6 +258,23 @@ namespace Coti.Client
       }
 
       return _nightVision;
+    }
+
+    /// <summary>
+    /// What this material is ACTUALLY set to. Worth reading rather than assuming: while a magnified
+    /// optic is up this compositor is detached, so ApplyMaterialValues does not run and these hold
+    /// whatever was last set before the scope came up.
+    /// </summary>
+    internal static string DescribeMaterial()
+    {
+      if( _material == null )
+        return "(no material)";
+
+      return $"threshold={_material.GetFloat( ThresholdId ):F2} " +
+             $"intensity={_material.GetFloat( IntensityId ):F2} " +
+             $"outlineMix={_material.GetFloat( OutlineMixId ):F2} " +
+             $"outlineWidth={_material.GetFloat( OutlineWidthId ):F2} " +
+             $"attached={( _commandBuffer != null && _attachedTo != null )}";
     }
 
     internal static RenderTexture RenderOverlayForDiagnostics( int width, int height )

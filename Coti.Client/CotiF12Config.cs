@@ -78,6 +78,12 @@ namespace Coti.Client
           "rather than shapes.",
           new AcceptableValueRange<float>( 0f, 20f ) ) );
 
+      var magnifiedScale = _file.Bind( "Image", "Magnified Intensity Scale",
+          image.MagnifiedIntensityScale, new ConfigDescription(
+              "Fraction of Overlay Intensity used inside a magnified scope. Lower it if hot edges " +
+              "there read as a solid mass.",
+              new AcceptableValueRange<float>( 0.05f, 1f ) ) );
+
       var outline = _file.Bind( "Image", "Outline Mix", image.OutlineMix, new ConfigDescription(
           "0% is solid hot shapes, 100% is edge-only contours.",
           new AcceptableValueRange<float>( 0f, 1f ) ) );
@@ -163,22 +169,14 @@ namespace Coti.Client
               "scope blur is on, this spends that render aligning heat onto a deliberately blurred " +
               "picture." ) );
 
-      var lensCover = _file.Bind( "Image", "Magnified Lens Cover", defaults.MagnifiedLensCover,
-          new ConfigDescription(
-              "How much of the scope lens the 1x heat is kept off while the above is on, as a " +
-              "multiple of the lens's measured size. Lower it if the cleared area spills past the " +
-              "scope body; 0 leaves the 1x heat painted over the lens as before. Does nothing with " +
-              "Magnify With Optic off.",
-              new AcceptableValueRange<float>( 0f, 2f ) ) );
-
       _appliers.Add( () =>
       {
         Current.Enabled = enabled.Value;
         Current.MagnifyWithOptic = magnify.Value;
-        Current.MagnifiedLensCover = lensCover.Value;
 
         Current.Image.HeatThreshold = threshold.Value;
         Current.Image.OverlayIntensity = intensity.Value;
+        Current.Image.MagnifiedIntensityScale = magnifiedScale.Value;
         Current.Image.OutlineMix = outline.Value;
         Current.Image.OutlineWidth = outlineWidth.Value;
         Current.Image.MinimumTemperatureValue = minimumTemperature.Value;

@@ -66,17 +66,6 @@ namespace Coti.Client
     [JsonProperty( "magnifyWithOptic" )]
     public bool MagnifyWithOptic { get; set; }
 
-    /// <summary>
-    /// How much of the lens the 1x overlay is kept off, as a multiple of the lens's measured extent.
-    ///
-    /// The measurement over-covers the glass, since it comes from an axis-aligned box around a
-    /// tilted disc - intended, because what surrounds the lens is the scope body. Lower it if the
-    /// spill reaches past the body; zero leaves the 1x heat on the lens, which is a useful
-    /// comparison rather than only a fault state.
-    /// </summary>
-    [JsonProperty( "magnifiedLensCover" )]
-    public float MagnifiedLensCover { get; set; } = 1f;
-
     [JsonProperty( "thermalCamera" )]
     public CotiCameraConfig ThermalCamera { get; set; } = new CotiCameraConfig();
 

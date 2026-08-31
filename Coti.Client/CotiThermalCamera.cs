@@ -424,9 +424,7 @@ namespace Coti.Client
         Plugin.Log.LogInfo(
             $"[COTI] overlay -> {path} mean={sum / pixels.Length:F1} max={max} " +
             $"nonBlack={100.0 * nonBlack / pixels.Length:F1}% " +
-            $"(threshold={Plugin.Config?.Image.HeatThreshold:F2} " +
-            $"intensity={Plugin.Config?.Image.OverlayIntensity:F2} " +
-            $"outlineMix={Plugin.Config?.Image.OutlineMix:F2})" );
+            $"material[{CotiOverlayCompositor.DescribeMaterial()}]" );
       }
       catch( Exception ex )
       {

@@ -167,37 +167,6 @@ namespace Coti.Client.Dev
       var theirs = optic.Camera.transform;
       report.Append( $"\n      optic at pos={theirs.position} rot={theirs.rotation.eulerAngles}" );
 
-      ReportLensExclusion( report );
-    }
-
-    /// <summary>
-    /// Where the 1x overlay is cutting the lens out of itself, read at a moment of your choosing -
-    /// the one-shot log fires mid-ADS, nowhere near where the lens settles.
-    ///
-    /// Pixels as well as normalised: a round lens is a taller ellipse in normalised space on a
-    /// non-square view, so the raw radii look wrong at a glance.
-    /// </summary>
-    private static void ReportLensExclusion( StringBuilder report )
-    {
-      var lens = CotiOverlayCompositor.LensExclusion;
-
-      if( lens.z <= 0f || lens.w <= 0f )
-      {
-        report.Append(
-            "\n      lens exclusion: NONE - the 1x heat is still painted over the lens. Expected only" +
-            " with Magnified Lens Cover at 0, or if the lens projection was rejected." );
-        return;
-      }
-
-      var camera = Camera.main;
-      var width = camera == null ? 0 : camera.pixelWidth;
-      var height = camera == null ? 0 : camera.pixelHeight;
-
-      report.Append(
-          $"\n      lens exclusion: centre ({lens.x:F3}, {lens.y:F3}) radius ({lens.z:F3}, {lens.w:F3})" +
-          $" = centre ({lens.x * width:F0}, {lens.y * height:F0}) radius ({lens.z * width:F0}," +
-          $" {lens.w * height:F0}) px of {width}x{height}" +
-          $", cover={Plugin.Config?.MagnifiedLensCover ?? 1f:F2}" );
     }
 
     /// <summary>

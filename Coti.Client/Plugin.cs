@@ -204,11 +204,14 @@ namespace Coti.Client
       var nvgComponent = CotiNvgHost.Component;
       var hostItem = nvgComponent?.Item;
       var hostTemplateId = hostItem?.StringTemplateId;
-      // OR the switch animation: Togglable.On flips on the FIRST frame of the toggle, while the
-      // tube takes most of a second to fade. Without this the COTI would disappear instantly and
-      // the fade it now rides (CotiOverlayCompositor.PhosphorFade) would never be seen on the way
-      // out - which is the popping the project owner asked to remove.
-      var hostNvgOn = ( nvgComponent?.Togglable?.On ?? false ) || CotiOverlayCompositor.TubeSwitching;
+      // NightVision.On - the camera effect - and NOT Togglable.On, which is the ITEM's switch and
+      // flips the moment the key is pressed, about 700 ms before the goggles finish flipping down
+      // and the tube lights. InProcessSwitching is that animation and is no use here either: it
+      // spans both sides of the moment the tube lights.
+      var tube = CotiOverlayCompositor.Tube;
+      var hostNvgOn = tube != null
+          ? tube.On
+          : ( nvgComponent?.Togglable?.On ?? false );
       var cotiAttached = CotiSlotProbe.IsCotiAttached( hostItem );
 
       CotiState.Update( hostTemplateId, cotiAttached, hostNvgOn );

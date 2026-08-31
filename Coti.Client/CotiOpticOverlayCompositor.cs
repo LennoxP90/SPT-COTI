@@ -25,7 +25,6 @@ namespace Coti.Client
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
     private static readonly int CircleGlowId = Shader.PropertyToID( "_CircleGlow" );
-    private static readonly int LensCircleId = Shader.PropertyToID( "_LensCircle" );
 
     private static CommandBuffer _commandBuffer;
     private static Camera _attachedTo;
@@ -159,10 +158,6 @@ namespace Coti.Client
       // mask open it would just lift the whole scope picture by a constant.
       _material.SetFloat( CircleGlowId, 0f );
 
-      // No lens exclusion either - that only means anything on the main camera. Zero radius is the
-      // shader's own "no lens" value.
-      _material.SetVector( LensCircleId, Vector4.zero );
-
       _material.SetFloat( ThresholdId, Mathf.Clamp01( image.HeatThreshold ) );
       _material.SetFloat( OutlineMixId, Mathf.Clamp01( image.OutlineMix ) );
       _material.SetFloat( OutlineWidthId, CotiOverlayScale.OutlineWidth(
@@ -173,8 +168,55 @@ namespace Coti.Client
       // tube, so a different tint would read as two instruments.
       _material.SetColor( HotColourId, CotiOverlayCompositor.HotColour );
       _material.SetColor( CoolColourId, CotiOverlayCompositor.CoolColour );
+      // Scaled down - see CotiImageConfig.MagnifiedIntensityScale. Without the circle glow beneath
+      // it, the 1x value drives contours past full scale and they clip to a solid mass.
       _material.SetFloat(
-          IntensityId, Mathf.Max( 0f, image.OverlayIntensity ) * CotiOverlayCompositor.PhosphorFade );
+          IntensityId,
+          Mathf.Max( 0f, image.OverlayIntensity )
+              * Mathf.Clamp( image.MagnifiedIntensityScale, 0.05f, 1f )
+              * CotiOverlayCompositor.PhosphorFade );
+    }
+
+    /// <summary>
+    /// Renders the magnified overlay ALONE, so its contribution can be told apart from the scope
+    /// picture it is added to. The optic target carries both, and a blown-out target says nothing
+    /// about which of the two blew out.
+    /// </summary>
+    internal static RenderTexture RenderOverlayForDiagnostics( int width, int height )
+    {
+      if( _material == null || CotiOpticThermalCamera.Output == null )
+        return null;
+
+      var target = new RenderTexture( width, height, 0, RenderTextureFormat.ARGB32 )
+      {
+        name = "CotiMagnifiedOverlayDiagnostic",
+      };
+      target.Create();
+
+      var previous = RenderTexture.active;
+      RenderTexture.active = target;
+      GL.Clear( false, true, Color.black );
+      RenderTexture.active = previous;
+
+      Graphics.Blit( CotiOpticThermalCamera.Output, target, _material );
+      return target;
+    }
+
+    /// <summary>
+    /// What the magnified material is ACTUALLY set to, read back off the material rather than off
+    /// config. The two differ exactly when a value fails to reach this path, which is the case
+    /// worth catching.
+    /// </summary>
+    internal static string DescribeMaterial()
+    {
+      if( _material == null )
+        return "(no material)";
+
+      return $"threshold={_material.GetFloat( ThresholdId ):F2} " +
+             $"intensity={_material.GetFloat( IntensityId ):F2} " +
+             $"outlineMix={_material.GetFloat( OutlineMixId ):F2} " +
+             $"outlineWidth={_material.GetFloat( OutlineWidthId ):F2} " +
+             $"circleGlow={_material.GetFloat( CircleGlowId ):F3}";
     }
 
     internal static void Detach()
