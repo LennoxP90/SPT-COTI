@@ -59,12 +59,6 @@ public class CotiLootDistribution : IOnLoad
 
   private Task LoadAsync( CancellationToken cancellationToken )
   {
-    if( !config.Loot.Enabled || config.Loot.WeightFraction <= 0 )
-    {
-      logger.Success( "[COTI] Loot spawns disabled by config - the trader is the only source" );
-      return Task.CompletedTask;
-    }
-
     var nightVisionTpls = GetNightVisionTpls();
     if( nightVisionTpls.Count == 0 )
     {
@@ -80,12 +74,20 @@ public class CotiLootDistribution : IOnLoad
       AddToLooseLoot( entry.Key, entry.Value, nightVisionTpls, cotiTpl );
     }
 
-    logger.Success(
-        $"[COTI] Loot spawns registered against {nightVisionTpls.Count} night vision template(s) " +
-        $"at {config.Loot.WeightFraction:P0} of their weight" );
+    logger.Success( LootEnabled
+        ? $"[COTI] Loot spawns registered against {nightVisionTpls.Count} night vision template(s) " +
+          $"at {config.Loot.WeightFraction:P0} of their weight"
+        : "[COTI] Loot spawns disabled by config - the trader is the only source. The transformers "
+          + "are registered, so switching it on takes effect at the next raid." );
 
     return Task.CompletedTask;
   }
+
+  /// <summary>
+  /// Read inside the transformers, not at load. The transformers are registered unconditionally,
+  /// and switching loot on takes effect at the next raid.
+  /// </summary>
+  private bool LootEnabled => config.Loot.Enabled && config.Loot.WeightFraction > 0;
 
   private HashSet<MongoId> GetNightVisionTpls()
   {
@@ -105,7 +107,7 @@ public class CotiLootDistribution : IOnLoad
   {
     location.StaticLoot?.AddTransformer( staticLoot =>
     {
-      if( staticLoot is null )
+      if( staticLoot is null || !LootEnabled )
         return staticLoot;
 
       var added = 0;
@@ -147,7 +149,7 @@ public class CotiLootDistribution : IOnLoad
   {
     location.LooseLoot?.AddTransformer( looseLoot =>
     {
-      if( looseLoot?.Spawnpoints is null )
+      if( looseLoot?.Spawnpoints is null || !LootEnabled )
         return looseLoot;
 
       var added = 0;

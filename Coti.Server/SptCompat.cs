@@ -52,4 +52,8 @@ public static class CotiLoadOrder
     public const int Preload = SPTarkov.Server.Core.DI.OnLoadOrder.Preload;
     public const int PostLoad = SPTarkov.Server.Core.DI.OnLoadOrder.PostLoad;
 #endif
+
+    // Same member in both versions, so no #if. Precedes OnLoadOrder.RagfairCallbacks, where
+    // RagfairServer.Load builds every flea offer.
+    public const int TraderRegistration = SPTarkov.Server.Core.DI.OnLoadOrder.TraderRegistration;
 }

@@ -20,3 +20,7 @@ Coti.Server/bundles/
 # Downloaded host-mod archives kept locally for pose tuning (C11 - True North is 1.7 GB).
 # Never redistributed and never committed; the release process 7z's from dist/, which is ignored above.
 *.7z
+.playwright-mcp/
+
+# Meshes converted from other mods bundles. Install-specific and not ours to ship.
+Coti.Server.Web/wwwroot/meshes-local/

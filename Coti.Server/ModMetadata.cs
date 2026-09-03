@@ -1,5 +1,8 @@
 using Coti.Shared;
 using SPTarkov.Server.Core.Models.Spt.Mod;
+#if SPT41
+using SPTarkov.Server.Web;
+#endif
 
 namespace Coti.Server;
 
@@ -32,7 +35,9 @@ public record ModMetadata : AbstractModMetadata
   public override string License { get; init; } = ModMetadataFields.License;
 }
 #else
-public record ModMetadata : IModMetadata
+// IModBlazorMetadata puts the ECOTI card in MOD PAGES on the landing page and lets SPTWeb route
+// the page in Coti.Server.Web. 4.1 only.
+public record ModMetadata : IModMetadata, IModBlazorMetadata
 {
   public string ModGuid { get; init; } = ModMetadataFields.ModGuid;
   public string Name { get; init; } = ModMetadataFields.Name;
@@ -45,5 +50,10 @@ public record ModMetadata : IModMetadata
   public Dictionary<string, SemanticVersioning.Range>? ModDependencies { get; init; }
   public string? Url { get; init; } = ModMetadataFields.Url;
   public string License { get; init; } = ModMetadataFields.License;
+
+  // Explicit: mesh assets sit here rather than under /Coti.Server/.
+  public string? WWWRootUrl { get; init; } = "coti-assets";
+  public string? HomePage { get; init; } = "/coti";
+  public string? HomePageDescription { get; init; } = "Configure the ECOTI clip-on thermal imager";
 }
 #endif

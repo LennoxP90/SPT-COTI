@@ -13,11 +13,19 @@ namespace Coti.Server;
 /// Adds the COTI to Peacekeeper's assort. Loyalty level, price and purchase limit come from
 /// config/config.json. Runs after CotiItemFactory so the COTI template already exists.
 /// </summary>
-[Injectable( TypePriority = CotiLoadOrder.PostLoad + 30 )]
+// TraderRegistration, not PostLoad: PostLoad runs after SPT has built the flea offers. See
+// CotiLoadOrder.TraderRegistration.
+[Injectable( InjectionType.Singleton, TypePriority = CotiLoadOrder.TraderRegistration + 30 )]
 public class CotiTraderAssort : IOnLoad
 {
   private readonly ISptLogger<CotiTraderAssort> logger;
   private readonly CotiServerConfig config;
+
+  /// <summary>
+  /// The assort entry this mod added, for re-applying the config to it. Null until OnLoad has
+  /// run, or if the trader was not there to add it to.
+  /// </summary>
+  private MongoId? assortItemId;
 
 #if SPT40
   private readonly DatabaseServer databaseServer;
@@ -69,15 +77,15 @@ public class CotiTraderAssort : IOnLoad
       return Task.CompletedTask;
     }
 
-    var assortItemId = new MongoId();
+    var newAssortItemId = new MongoId();
 
     peacekeeper.Assort.Items.Add( new Item
     {
-      Id = assortItemId,
+      Id = newAssortItemId,
       Template = new MongoId( CotiItemFactory.CotiTplId ),
       ParentId = "hideout",
       SlotId = "hideout",
-      Upd = new Upd 
+      Upd = new Upd
       {
         StackObjectsCount = 9999999,
         UnlimitedCount = false,
@@ -86,19 +94,61 @@ public class CotiTraderAssort : IOnLoad
       }
     } );
 
-    peacekeeper.Assort.BarterScheme[assortItemId] = new List<List<BarterScheme>>
+    peacekeeper.Assort.BarterScheme[newAssortItemId] = new List<List<BarterScheme>>
     {
       new List<BarterScheme>
       {
         new BarterScheme { Count = config.Trader.PriceUsd, Template = ItemTpl.MONEY_DOLLARS }
       }
     };
-    peacekeeper.Assort.LoyalLevelItems[assortItemId] = config.Trader.LoyaltyLevel;
+    peacekeeper.Assort.LoyalLevelItems[newAssortItemId] = config.Trader.LoyaltyLevel;
+
+    assortItemId = newAssortItemId;
 
     logger.Success(
         $"[COTI] Added to Peacekeeper LL{config.Trader.LoyaltyLevel} at ${config.Trader.PriceUsd}, " +
         $"limit {config.Trader.BuyLimit}" );
 
     return Task.CompletedTask;
+  }
+
+  /// <summary>
+  /// Rewrites the live assort from the current config. Peacekeeper's own screen shows the new
+  /// values immediately; the flea copy follows on the next ragfair update, which
+  /// RefreshTraderRagfairOffers asks for.
+  /// </summary>
+  public bool ApplyConfig()
+  {
+    if( assortItemId is null )
+      return false;
+
+    if( !tradersTable.TryGetValue( Traders.PEACEKEEPER, out var peacekeeper ) || peacekeeper.Assort is null )
+      return false;
+
+    var id = assortItemId.Value;
+    var item = peacekeeper.Assort.Items.FirstOrDefault( entry => entry.Id == id );
+    if( item is null )
+      return false;
+
+    item.Upd ??= new Upd();
+    item.Upd.BuyRestrictionMax = config.Trader.BuyLimit;
+
+    peacekeeper.Assort.BarterScheme[id] = new List<List<BarterScheme>>
+    {
+      new List<BarterScheme>
+      {
+        new BarterScheme { Count = config.Trader.PriceUsd, Template = ItemTpl.MONEY_DOLLARS }
+      }
+    };
+    peacekeeper.Assort.LoyalLevelItems[id] = config.Trader.LoyaltyLevel;
+
+    if( peacekeeper.Base is not null )
+      peacekeeper.Base.RefreshTraderRagfairOffers = true;
+
+    logger.Success(
+        $"[COTI] Trader settings re-applied: LL{config.Trader.LoyaltyLevel}, " +
+        $"${config.Trader.PriceUsd}, limit {config.Trader.BuyLimit}" );
+
+    return true;
   }
 }

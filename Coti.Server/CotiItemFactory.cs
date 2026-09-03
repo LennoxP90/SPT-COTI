@@ -10,7 +10,8 @@ namespace Coti.Server;
 [Injectable( TypePriority = CotiLoadOrder.Preload )]
 public class CotiItemFactory(
     ISptLogger<CotiItemFactory> logger,
-    CustomItemService customItemService ) : IOnLoad
+    CustomItemService customItemService,
+    CotiServerConfig config ) : IOnLoad
 {
   public const string CotiTplId = CotiIds.TplId;
 
@@ -121,7 +122,7 @@ public class CotiItemFactory(
         // No slots, so nothing to merge with.
         MergesWithChildren = false,
 
-        CanSellOnRagfair = false,
+        CanSellOnRagfair = config.Flea.PlayerSellable,
         Width = 1,
         Height = 1,
         // Empty, not null: CustomItemService only overwrites a property when the override is

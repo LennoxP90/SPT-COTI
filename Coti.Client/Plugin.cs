@@ -49,6 +49,10 @@ namespace Coti.Client
       CotiHostTableClient.Pending = new CotiPendingTable( hostFallback, fromServer: false );
       CotiHostTableClient.BeginFetch();
 
+#if SPT41
+      CotiHostSocketClient.Start();
+#endif
+
       TryEnable( nameof( ThermalParametersPatch ), () => new ThermalParametersPatch() );
       TryEnable( nameof( GameStartedPatch ), () => new GameStartedPatch() );
       TryEnable( nameof( GoggleToggleSuppressPatch ), () => new GoggleToggleSuppressPatch() );

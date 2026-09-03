@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Coti.Client/Coti.Client.csproj" />
   <Project Path="Coti.Server/Coti.Server.csproj" />
+  <Project Path="Coti.Server.Web/Coti.Server.Web.csproj" />
   <Project Path="Coti.Tests/Coti.Tests.csproj" />
 </Solution>

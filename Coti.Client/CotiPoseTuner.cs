@@ -692,6 +692,33 @@ namespace Coti.Client
       }
     }
 
+#if SPT41
+    /// <summary>
+    /// Re-poses the mounted model from the current config. _host is refreshed first, since
+    /// CotiHostTableClient.Apply replaces the NvgHosts entry with a new object.
+    /// </summary>
+    public static void OnHostTableReapplied()
+    {
+      if( _bone == null || _hostId == null || Plugin.Config == null )
+        return;
+
+      CotiNvgHostConfig refreshed;
+      if( !Plugin.Config.NvgHosts.TryGetValue( _hostId, out refreshed ) || refreshed == null )
+        return;
+
+      _host = refreshed;
+
+      // Reparents before applying the pose, so the local transform is measured against the new
+      // parent.
+      ReparentLiveBone();
+
+      CotiMountPose.Apply( _bone, _host, Delta( Positions, _hostId ), Delta( Rotations, _hostId ),
+          ScaleDelta( _hostId ) );
+
+      Plugin.Log?.LogInfo( $"[COTI] re-posed {_hostName} from the pushed host table" );
+    }
+#endif
+
     private static void ReapplyIfLive( string hostId )
     {
       if( _bone == null || _hostId != hostId )
@@ -737,6 +764,37 @@ namespace Coti.Client
       ForgetDeltasIfConfigChanged( hostId, host );
 
       CotiMountPose.Apply( bone, host, Delta( Positions, hostId ), Delta( Rotations, hostId ), ScaleDelta( hostId ) );
+
+#if SPT41
+      // Where the device lands, in host-root space. The pose log above is the local transform.
+      if( hostRoot != null )
+      {
+        var world = hostRoot.InverseTransformPoint( bone.position );
+        var spin = UnityEngine.Quaternion.Inverse( hostRoot.rotation ) * bone.rotation;
+        var size = bone.lossyScale;
+
+        Plugin.Log?.LogInfo(
+            $"[COTI] mounted {hostName} anchor '{( string.IsNullOrEmpty( host?.MountAnchorBone ) ? "(root)" : host.MountAnchorBone )}' " +
+            $"-> device origin ({world.x:F4}, {world.y:F4}, {world.z:F4}) in host-root space" );
+
+        // Orientation, in host-root space, so it compares directly with the editor.
+        Plugin.Log?.LogInfo(
+            $"[COTI] device rotation quat ({spin.x:F5}, {spin.y:F5}, {spin.z:F5}, {spin.w:F5}) " +
+            $"euler ({spin.eulerAngles.x:F2}, {spin.eulerAngles.y:F2}, {spin.eulerAngles.z:F2}) " +
+            $"lossyScale ({size.x:F4}, {size.y:F4}, {size.z:F4})" );
+
+        // The anchor's own pose. The web editor draws the host at its prefab bind pose.
+        var anchor = bone.parent;
+        if( anchor != null )
+        {
+          var local = anchor.localRotation.eulerAngles;
+          Plugin.Log?.LogInfo(
+              $"[COTI] anchor '{anchor.name}' local euler ({local.x:F2}, {local.y:F2}, {local.z:F2}), " +
+              $"world euler ({anchor.rotation.eulerAngles.x:F2}, {anchor.rotation.eulerAngles.y:F2}, " +
+              $"{anchor.rotation.eulerAngles.z:F2})" );
+        }
+      }
+#endif
     }
 
     /// <summary>

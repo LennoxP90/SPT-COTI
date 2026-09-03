@@ -1,0 +1,294 @@
+@page "/coti/model"
+@attribute [Authorize(Policy = "Administrator")]
+@layout SPTarkov.Server.Web.Layout.BaseMudBlazorLayout
+@implements IAsyncDisposable
+
+@using System.Text.Json
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@inject CotiDeviceStore DeviceStore
+@inject CotiDevicePublisher Publisher
+
+<PageTitle>ECOTI mount editor</PageTitle>
+
+<MudMainContent>
+  <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
+
+    <CotiNav />
+
+    <MudPaper Class="pa-4 mb-3" Elevation="3">
+      <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+          <div>
+            <MudText Typo="Typo.h5">Mount editor</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+              Drag to orbit, scroll to zoom, click a cube face to look down that axis.
+            </MudText>
+          </div>
+          <MudSelect T="string" Value="@hostId" ValueChanged="SelectHost" Dense="true"
+                     Variant="Variant.Outlined" Style="min-width:220px" Label="Host">
+            @foreach (var h in devices)
+            {
+              <MudSelectItem T="string" Value="@h.Key">@h.Value</MudSelectItem>
+            }
+          </MudSelect>
+          <MudTooltip Text="@sourceTooltip">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
+                     Color="@(addonMod is null ? Color.Default : Color.Secondary)"
+                     Icon="@(addonMod is null ? Icons.Material.Filled.Verified
+                                              : Icons.Material.Filled.Extension)">@sourceLabel</MudChip>
+          </MudTooltip>
+        </MudStack>
+        <MudStack Row="true" Spacing="2">
+          @if (addonMod is not null)
+          {
+            <MudButton StartIcon="@Icons.Material.Filled.Archive" Variant="Variant.Outlined"
+                       Color="Color.Secondary" Href="@($"/coti/addon/{addonMod}")"
+                       Disabled="@dirty">Export addon</MudButton>
+          }
+          <MudButton StartIcon="@Icons.Material.Filled.Undo" Variant="Variant.Outlined"
+                     OnClick="Revert" Disabled="@(!dirty)">Revert</MudButton>
+          <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled"
+                     Color="Color.Primary" OnClick="Save" Disabled="@(!dirty)">Save and push</MudButton>
+        </MudStack>
+      </MudStack>
+    </MudPaper>
+
+    @if (withoutMesh.Count > 0)
+    {
+      <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+        No mesh shipped for @string.Join(", ", withoutMesh), so @(withoutMesh.Count == 1 ? "it has" : "they have")
+        no preview. Mod-added hosts keep their bundles in their own mod folder; converting those
+        at runtime is not built yet.
+      </MudAlert>
+    }
+
+    @if (message is not null)
+    {
+      <MudAlert Severity="@severity" Class="mb-3" ShowCloseIcon="true"
+                CloseIconClicked="@(() => message = null)">@message</MudAlert>
+    }
+
+    @if (hostId is null)
+    {
+      <MudAlert Severity="Severity.Warning">No host has a shipped mesh, so there is nothing to edit.</MudAlert>
+    }
+    else
+    {
+      <MudPaper Class="pa-3" Elevation="2">
+        <div @ref="mountRoot"></div>
+      </MudPaper>
+    }
+
+  </MudContainer>
+</MudMainContent>
+
+@code {
+  private ElementReference mountRoot;
+  private IJSObjectReference? module;
+  private DotNetObjectReference<CotiModelPage>? selfRef;
+
+  private Dictionary<string, string> devices = new();
+  private readonly List<string> withoutMesh = new();
+  private string? hostId;
+  private bool dirty;
+  private string? message;
+  private Severity severity = Severity.Success;
+
+  protected override void OnInitialized()
+  {
+    // Only hosts with a shipped mesh. A device without one is named rather than dropped.
+    foreach (var device in DeviceStore.Current.ResolvedDevices)
+    {
+      foreach (var host in device.Hosts)
+      {
+        if (host?.Id is null)
+        {
+          continue;
+        }
+
+        var label = device.DisplayName ?? device.Device ?? host.Id;
+
+        if (CotiHostMeshes.TryGetSlug(host.Id, out _))
+        {
+          devices[host.Id] = label;
+        }
+        else
+        {
+          withoutMesh.Add(label);
+        }
+      }
+    }
+
+    hostId = devices.Keys.FirstOrDefault();
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender || hostId is null)
+    {
+      return;
+    }
+
+    // A viewer that fails to start leaves the host list and save controls up, and reports why.
+    try
+    {
+      selfRef = DotNetObjectReference.Create(this);
+      module = await JS.InvokeAsync<IJSObjectReference>(
+        "import", $"/coti-assets/js/interop.js?v={CotiVersion.Current}");
+      await module.InvokeVoidAsync("start", mountRoot, BuildHostTable(), hostId, selfRef, CotiVersion.Current);
+    }
+    catch (Exception ex)
+    {
+      message = $"The 3D viewer could not start: {ex.Message}";
+      severity = Severity.Error;
+      await InvokeAsync(StateHasChanged);
+    }
+  }
+
+  /// <summary>
+  /// Everything the viewer needs to pose a device: the mesh slug, the mount and mask blocks, and
+  /// the world transform of every bone a mount could anchor to.
+  /// </summary>
+  private string BuildHostTable()
+  {
+    var table = new Dictionary<string, object>();
+
+    foreach (var device in DeviceStore.Current.ResolvedDevices)
+    {
+      foreach (var host in device.Hosts)
+      {
+        if (host?.Id is null || !CotiHostMeshes.TryGetSlug(host.Id, out var slug))
+        {
+          continue;
+        }
+
+        var (pivot, hasPivotMesh) = CotiHostMeshes.PivotFor(host.Id);
+
+        table[host.Id] = new
+        {
+          slug,
+          pivot,
+          hasPivotMesh,
+          name = device.DisplayName ?? device.Device,
+          device = device.Device,
+          // The DTO carries the camelCase names the device files and the viewer both use.
+          mount = CotiMountBlockDto.FromShared(device.Mount),
+          mask = CotiMaskBlockDto.FromShared(device.Mask),
+          bones = CotiHostMeshes.BonesFor(host.Id),
+        };
+      }
+    }
+
+    return JsonSerializer.Serialize(table);
+  }
+
+  /// <summary>
+  /// The mod the current host comes from, or null for a vanilla one.
+  /// </summary>
+  private string? addonMod =>
+    DeviceStore.Current.ResolvedDevices
+      .FirstOrDefault(d => d.Hosts.Any(h => h?.Id == hostId))?.Requires is { Length: > 0 } requires
+        ? requires
+        : null;
+
+  /// <summary>Where the selected host comes from. The tooltip carries the raw plugin id.</summary>
+  private string sourceLabel => addonMod is null ? "Vanilla" : CotiAddonPackager.SlugFor(addonMod);
+
+  private string sourceTooltip => addonMod is null
+    ? "Ships with Escape from Tarkov. Its pose ships inside COTI."
+    : $"Added by {addonMod}. Its pose can be exported as an addon.";
+
+  private async Task SelectHost(string value)
+  {
+    hostId = value;
+    dirty = false;
+    if (module is not null)
+    {
+      await module.InvokeVoidAsync("setHost", value);
+    }
+  }
+
+  [JSInvokable]
+  public Task OnDirty(bool value)
+  {
+    dirty = value;
+    return InvokeAsync(StateHasChanged);
+  }
+
+  private async Task Revert()
+  {
+    if (module is not null)
+    {
+      await module.InvokeVoidAsync("revert");
+    }
+
+    dirty = false;
+  }
+
+  private async Task Save()
+  {
+    if (module is null || hostId is null)
+    {
+      return;
+    }
+
+    var json = await module.InvokeAsync<string>("getMount");
+    var edited = JsonSerializer.Deserialize<CotiMountBlockDto>(json, JsonOpts)?.ToShared();
+
+    if (edited is null)
+    {
+      message = "Could not read the edited mount.";
+      severity = Severity.Error;
+      return;
+    }
+
+    var device = DeviceStore.Current.ResolvedDevices
+      .FirstOrDefault(d => d.Hosts.Any(h => h?.Id == hostId));
+
+    if (device is null)
+    {
+      message = "That host is no longer in the device store.";
+      severity = Severity.Error;
+      return;
+    }
+
+    // Rounded through the same helper the in-game tuner uses.
+    device.Mount = CotiMountRounding.Round(edited);
+    device.Tuned = true;
+
+    var result = Publisher.Publish(device, "web mount editor");
+
+    if (result.Ok != true)
+    {
+      message = $"Rejected: {result.Error}";
+      severity = Severity.Error;
+      return;
+    }
+
+    await module.InvokeVoidAsync("markSaved");
+    dirty = false;
+    message = "Saved and pushed. A running client re-poses immediately; no restart.";
+    severity = Severity.Success;
+  }
+
+  private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+  public async ValueTask DisposeAsync()
+  {
+    if (module is not null)
+    {
+      try
+      {
+        await module.InvokeVoidAsync("stop");
+        await module.DisposeAsync();
+      }
+      catch (JSDisconnectedException)
+      {
+        // The circuit is already gone.
+      }
+    }
+
+    selfRef?.Dispose();
+  }
+}

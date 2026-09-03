@@ -96,7 +96,11 @@ public class CotiDeviceStore : IOnLoad
   /// </summary>
   public CotiDeviceSnapshot Current => Volatile.Read( ref snapshot );
 
-  private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
+  private static readonly JsonSerializerOptions WriteOptions = new()
+  {
+    WriteIndented = true,
+    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+  };
 
 #if SPT40
   public CotiDeviceStore(

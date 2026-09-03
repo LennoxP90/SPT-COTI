@@ -167,7 +167,37 @@ namespace Coti.Client
           ? $"[COTI] host table applied: {hostCount} host(s), {patchedThisCall} template(s) patched"
           : $"[COTI] host table applied: {hostCount} host(s), slot patching skipped " +
               "(offline fallback, not the server's table)" );
+
+#if SPT41
+      LogPoses( config );
+      CotiPoseTuner.OnHostTableReapplied();
+#endif
     }
+
+#if SPT41
+    /// <summary>
+    /// The pose each host resolves to, logged from the menu. Runs on every apply, so a pushed
+    /// table shows its new numbers here.
+    /// </summary>
+    private static void LogPoses( CotiConfig config )
+    {
+      foreach( var entry in config.NvgHosts )
+      {
+        var host = entry.Value;
+        if( host == null )
+          continue;
+
+        var pose = CotiMountTransform.Compute( host.ToMountBlock() );
+
+        Plugin.Log?.LogInfo(
+            $"[COTI] pose {entry.Key} ({host.MaskName ?? "?"}) " +
+            $"pos=({pose.Position.X:F4}, {pose.Position.Y:F4}, {pose.Position.Z:F4}) " +
+            $"quat=({pose.Rotation.X:F5}, {pose.Rotation.Y:F5}, {pose.Rotation.Z:F5}, {pose.Rotation.W:F5}) " +
+            $"scale={pose.Scale:F4} " +
+            $"mask=({host.MaskCenterX:F4}, {host.MaskCenterY:F4}) r={host.MaskRadius:F4}" );
+      }
+    }
+#endif
 
     // ItemFactory cannot exist before /client/items is parsed, so the first Apply call cannot
     // patch templates. Retried once the singleton appears.

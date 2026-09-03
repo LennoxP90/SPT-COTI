@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "device": "vanilla_pnv10t",
-  "displayName": "nvg_alfa_pnv-10t",
+  "displayName": "PNV-10T",
   "tuned": true,
   "hosts": [
     {
@@ -18,15 +18,15 @@
   },
   "mount": {
     "anchorBone": "",
-    "positionX": 0.0005,
-    "positionY": -0.032,
-    "positionZ": 0.067,
-    "rotationX": 0.0,
-    "rotationY": 0.0,
-    "rotationZ": 0.0,
-    "rollDegrees": 12.0,
-    "pitchDegrees": -90.0,
-    "yawDegrees": -11.0,
-    "scale": 0.91
+    "positionX": 0.001,
+    "positionY": -0.035,
+    "positionZ": 0.075,
+    "rotationX": 0,
+    "rotationY": 0,
+    "rotationZ": 0,
+    "rollDegrees": 12,
+    "pitchDegrees": -90,
+    "yawDegrees": -11,
+    "scale": 1
   }
 }

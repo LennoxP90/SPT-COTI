@@ -16,15 +16,15 @@
   },
   "mount": {
     "anchorBone": "",
-    "positionX": 0.033,
-    "positionY": -0.023,
-    "positionZ": 0.037,
-    "rotationX": -90.0,
-    "rotationY": 0.0,
-    "rotationZ": 0.0,
-    "rollDegrees": -42.0,
-    "pitchDegrees": 0.0,
-    "yawDegrees": 0.0,
-    "scale": 1.24
+    "positionX": 0.0305,
+    "positionY": -0.0205,
+    "positionZ": 0.034,
+    "rotationX": -90,
+    "rotationY": 0,
+    "rotationZ": 0,
+    "rollDegrees": -42,
+    "pitchDegrees": 0,
+    "yawDegrees": 0,
+    "scale": 1.2
   }
 }

@@ -62,6 +62,17 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0' And '$(SptRefsPresent)' != 'true'">
+    <PackageReference Include="SPTushonka.Server.Web" Version="$(SptPackageVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0' And '$(SptRefsPresent)' == 'true'">
+    <Reference Include="SPTarkov.Server.Web">
+      <HintPath>$(SptRefDir)\SPTarkov.Server.Web.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
   <Target Name="ReportSptRefs" BeforeTargets="ResolveAssemblyReferences">
     <Message Importance="high" Condition="'$(SptRefsPresent)' == 'true'"
              Text="Coti.Server ($(TargetFramework)): referencing the install at $(SptRefDir)" />

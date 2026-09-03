@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Coti.Shared;
 using Newtonsoft.Json;
 
 namespace Coti.Client
@@ -213,5 +214,26 @@ namespace Coti.Client
     /// </summary>
     [JsonProperty( "mountScale" )]
     public float MountScale { get; set; } = 1f;
+
+    /// <summary>
+    /// The same fields in the shape CotiMountTransform takes.
+    /// </summary>
+    public CotiMountBlock ToMountBlock()
+    {
+      return new CotiMountBlock
+      {
+        AnchorBone = MountAnchorBone,
+        PositionX = MountPositionX,
+        PositionY = MountPositionY,
+        PositionZ = MountPositionZ,
+        RotationX = MountRotationX,
+        RotationY = MountRotationY,
+        RotationZ = MountRotationZ,
+        RollDegrees = MountRollDegrees,
+        PitchDegrees = MountPitchDegrees,
+        YawDegrees = MountYawDegrees,
+        Scale = MountScale,
+      };
+    }
   }
 }

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "device": "vanilla_pnv57e",
-  "displayName": "nvg_57em",
+  "displayName": "PNV-57E",
   "tuned": true,
   "hosts": [
     {

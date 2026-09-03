@@ -1,0 +1,130 @@
+@page "/coti"
+@* Administrator, matching every other page that writes config or profile state. *@
+@attribute [Authorize(Policy = "Administrator")]
+@layout SPTarkov.Server.Web.Layout.BaseMudBlazorLayout
+
+@inject CotiServerConfig Config
+@inject CotiConfigApplier Applier
+
+<PageTitle>ECOTI</PageTitle>
+
+<MudMainContent>
+  <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-6">
+
+    <CotiNav />
+
+    <MudPaper Class="pa-6 mb-4" Elevation="4">
+      <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <div>
+          <MudText Typo="Typo.h4">ECOTI</MudText>
+          <MudText Typo="Typo.body2" Class="mud-text-secondary">AN/PAS-29B clip-on thermal imager</MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+          <MudButton StartIcon="@Icons.Material.Filled.Refresh" Variant="Variant.Outlined"
+                     Color="Color.Default" OnClick="Reload">Reload</MudButton>
+          <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled"
+                     Color="Color.Primary" OnClick="Save" Disabled="@(!dirty)">Save changes</MudButton>
+        </MudStack>
+      </MudStack>
+    </MudPaper>
+
+    @if (message is not null)
+    {
+      <MudAlert Severity="@severity" Class="mb-4" ShowCloseIcon="true"
+                CloseIconClicked="@(() => message = null)">@message</MudAlert>
+    }
+
+    <MudPaper Class="pa-6 mb-4" Elevation="2">
+      @Header("Trader", "Peacekeeper's offer. Applied to the running server on save; relaunch the game client to see it.")
+      <MudNumericField T="int" Label="Loyalty level" Min="1" Max="4" Variant="Variant.Outlined"
+                       Value="@file.Trader.LoyaltyLevel" ValueChanged="@(v => Set(() => file.Trader.LoyaltyLevel = v))" />
+      <MudNumericField T="int" Label="Price (USD)" Min="1" Variant="Variant.Outlined" Class="mt-4"
+                       Value="@file.Trader.PriceUsd" ValueChanged="@(v => Set(() => file.Trader.PriceUsd = v))" />
+      <MudNumericField T="int" Label="Purchases per restock" Min="1" Variant="Variant.Outlined" Class="mt-4"
+                       Value="@file.Trader.BuyLimit" ValueChanged="@(v => Set(() => file.Trader.BuyLimit = v))" />
+    </MudPaper>
+
+    <MudPaper Class="pa-6 mb-4" Elevation="2">
+      @Header("Flea market", "Peacekeeper's offer reaches the flea either way. This only decides whether simulated player offers are generated, and whether you can list one yourself. Relaunch the game client to see it.")
+      <MudSwitch T="bool" Color="Color.Primary" Label="Players can sell it on the flea"
+                 Value="@file.Flea.PlayerSellable" ValueChanged="@(v => Set(() => file.Flea.PlayerSellable = v))" />
+    </MudPaper>
+
+    <MudPaper Class="pa-6 mb-4" Elevation="2">
+      @Header("Loot", "Applies at the next raid. No restart, no relaunch.")
+      <MudSwitch T="bool" Color="Color.Primary" Label="Spawns in loot"
+                 Value="@file.Loot.Enabled" ValueChanged="@(v => Set(() => file.Loot.Enabled = v))" />
+      <MudSlider T="double" Min="0" Max="1" Step="0.05" Class="mt-4" Color="Color.Primary"
+                 Value="@file.Loot.WeightFraction" ValueChanged="@(v => Set(() => file.Loot.WeightFraction = v))">
+        Weight relative to the night vision at each spot: @file.Loot.WeightFraction.ToString("P0")
+      </MudSlider>
+    </MudPaper>
+
+    <MudPaper Class="pa-6" Elevation="2">
+      @Header("Host editor", "Saved to disk, but NOT applied to the running server. This one needs a server restart.")
+      <MudSwitch T="bool" Color="Color.Warning" Label="Auto-discover night vision hosts"
+                 Value="@file.HostEditor.AutoDiscover" ValueChanged="@(v => Set(() => file.HostEditor.AutoDiscover = v))" />
+    </MudPaper>
+
+  </MudContainer>
+</MudMainContent>
+
+@code {
+  private CotiConfigFile file = new();
+  private bool dirty;
+  private string? message;
+  private Severity severity = Severity.Success;
+
+  protected override void OnInitialized() => file = Config.ReadFromDisk();
+
+  private RenderFragment Header( string title, string note ) => @<div class="mb-4">
+      <MudText Typo="Typo.h6">@title</MudText>
+      <MudText Typo="Typo.body2" Class="mud-text-secondary">@note</MudText>
+    </div>;
+
+  private void Set( Action assign )
+  {
+    assign();
+    dirty = true;
+  }
+
+  private void Reload()
+  {
+    file = Config.ReadFromDisk();
+    dirty = false;
+    message = "Reloaded from config.json. Unsaved changes discarded.";
+    severity = Severity.Info;
+  }
+
+  private async Task Save()
+  {
+    bool written;
+
+    // A read-only or locked config.json throws out of the handler.
+    try
+    {
+      written = await Config.SaveToDiskAsync( file );
+    }
+    catch( Exception ex )
+    {
+      message = $"config.json could not be written: {ex.Message}";
+      severity = Severity.Error;
+      return;
+    }
+
+    if( !written )
+    {
+      message = "Could not resolve the mod folder, so config.json was not written.";
+      severity = Severity.Error;
+      return;
+    }
+
+    var applied = Applier.Apply( file );
+    dirty = false;
+
+    message = applied
+        ? "Saved and applied. Relaunch the game client to see trader and flea changes; host editor needs a server restart."
+        : "Saved, but the trader assort could not be reached, so those values take effect on restart.";
+    severity = applied ? Severity.Success : Severity.Warning;
+  }
+}

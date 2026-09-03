@@ -10,5 +10,8 @@
   },
   "hostEditor": {
     "autoDiscover": true
+  },
+  "flea": {
+    "playerSellable": false
   }
 }

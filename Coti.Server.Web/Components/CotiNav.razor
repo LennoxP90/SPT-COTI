@@ -1,0 +1,37 @@
+@* The page switcher, shared by every ECOTI page. Add entries to Pages and they appear on all
+   of them. *@
+
+@inject NavigationManager Nav
+
+<MudPaper Class="pa-1 mb-3" Elevation="1">
+  <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+    <MudIcon Icon="@Icons.Material.Filled.Visibility" Class="ml-2 mr-1" Color="Color.Warning" />
+    <MudText Typo="Typo.subtitle2" Class="mr-3">ECOTI</MudText>
+
+    @foreach (var (href, label, icon) in Pages)
+    {
+      <MudButton Href="@href"
+                 StartIcon="@icon"
+                 Size="Size.Small"
+                 Variant="@(IsCurrent(href) ? Variant.Filled : Variant.Text)"
+                 Color="@(IsCurrent(href) ? Color.Primary : Color.Default)">@label</MudButton>
+    }
+  </MudStack>
+</MudPaper>
+
+@code {
+  private static readonly (string Href, string Label, string Icon)[] Pages =
+  {
+    ("/coti", "Settings", Icons.Material.Filled.Tune),
+    ("/coti/model", "Mount editor", Icons.Material.Filled.ViewInAr),
+  };
+
+  /// <summary>
+  /// Exact match, not StartsWith: "/coti" is a prefix of every other page here.
+  /// </summary>
+  private bool IsCurrent(string href)
+  {
+    var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
+    return string.Equals(path.Length == 0 ? "/" : path, href, StringComparison.OrdinalIgnoreCase);
+  }
+}

@@ -35,7 +35,7 @@ public sealed class CotiPublishRequestDto : CotiDeviceDto, IRequestData
 #if SPT40
 [Injectable]
 public class CotiDeviceRoutes( JsonUtil jsonUtil, HttpResponseUtil httpResponseUtil,
-    ISptLogger<CotiDeviceRoutes> logger, CotiDeviceStore deviceStore, CotiSlotInjector slotInjector,
+    ISptLogger<CotiDeviceRoutes> logger, CotiDeviceStore deviceStore, CotiDevicePublisher publisher,
     ProfileHelper profileHelper )
   : StaticRouter(
       jsonUtil,
@@ -44,12 +44,12 @@ public class CotiDeviceRoutes( JsonUtil jsonUtil, HttpResponseUtil httpResponseU
             async ( url, info, sessionID, output ) => await GetHosts( deviceStore, httpResponseUtil ) ),
         new RouteAction<CotiPublishRequestDto>( "/coti/hosts/publish",
             async ( url, info, sessionID, output ) =>
-                await PublishDevice( info, sessionID, deviceStore, slotInjector, profileHelper, logger, httpResponseUtil ) ),
+                await PublishDevice( info, sessionID, publisher, profileHelper, logger, httpResponseUtil ) ),
       ] )
 #else
 [Injectable]
 public class CotiDeviceRoutes( JsonUtil jsonUtil, HttpResponseUtil httpResponseUtil,
-    ISptLogger<CotiDeviceRoutes> logger, CotiDeviceStore deviceStore, CotiSlotInjector slotInjector,
+    ISptLogger<CotiDeviceRoutes> logger, CotiDeviceStore deviceStore, CotiDevicePublisher publisher,
     ProfileHelper profileHelper )
   : StaticRouter(
       jsonUtil,
@@ -58,7 +58,7 @@ public class CotiDeviceRoutes( JsonUtil jsonUtil, HttpResponseUtil httpResponseU
             async ( url, info, sessionID, output, cancellationToken ) => await GetHosts( deviceStore, httpResponseUtil ) ),
         new RouteAction<CotiPublishRequestDto>( "/coti/hosts/publish",
             async ( url, info, sessionID, output, cancellationToken ) =>
-                await PublishDevice( info, sessionID, deviceStore, slotInjector, profileHelper, logger, httpResponseUtil ) ),
+                await PublishDevice( info, sessionID, publisher, profileHelper, logger, httpResponseUtil ) ),
       ] )
 #endif
 {
@@ -86,81 +86,12 @@ public class CotiDeviceRoutes( JsonUtil jsonUtil, HttpResponseUtil httpResponseU
   }
 
   private static Task<string> PublishDevice( CotiPublishRequestDto request, MongoId sessionID,
-      CotiDeviceStore deviceStore, CotiSlotInjector slotInjector, ProfileHelper profileHelper,
+      CotiDevicePublisher publisher, ProfileHelper profileHelper,
       ISptLogger<CotiDeviceRoutes> logger, HttpResponseUtil httpResponseUtil )
   {
     var nickname = ResolveNickname( sessionID, profileHelper, logger );
-    var device = request.ToShared();
 
-    // The same shared path a file on disk takes, over a list of exactly one: every per-file rule
-    // CotiDeviceMerge enforces (current schema, non-blank device/displayName, a positive mask
-    // radius, non-null hosts/mount) applies here too, so a publish cannot bypass anything a
-    // hand-authored file is rejected for. It cannot see cross-file conflicts - a device name or
-    // host id already owned by a DIFFERENT file - because there is only one file in this list;
-    // that is deliberate. TryWrite's own Reload() below re-reads every file on disk together and
-    // is what actually enforces cross-file uniqueness, exactly as it would for two hand-authored
-    // files sharing a name or a host. A republish under the SAME device name is therefore an
-    // update by design, backed by the .bak TryWrite takes - not a second, competing device.
-    var merged = CotiDeviceMerge.Merge( new[] { new CotiParsedFile { Path = "<published>", Device = device } } );
-
-    if( merged.Devices.Count == 0 )
-    {
-      var reason = merged.Warnings.FirstOrDefault() ?? "rejected by validation";
-      logger.Warning( $"[COTI] {nickname} tried to publish \"{request.Device}\" - rejected: {reason}" );
-      return Task.FromResult( httpResponseUtil.NoBody( new CotiPublishResultDto { Ok = false, Error = reason } ) );
-    }
-
-    if( !deviceStore.TryWrite( device, out var writeError ) )
-    {
-      logger.Warning( $"[COTI] {nickname} tried to publish \"{device.Device}\" - could not write: {writeError}" );
-      return Task.FromResult( httpResponseUtil.NoBody( new CotiPublishResultDto { Ok = false, Error = writeError } ) );
-    }
-
-    // Every host the published device declares, not just newly-added ones - InjectInto is its own
-    // idempotency check (AlreadyPresent is silent, see CotiSlotInjector), so re-offering a host
-    // that already has the slot costs nothing and needs no separate "is this new" computation of
-    // our own to get right. The outcome is inspected, not discarded: InvalidId and
-    // NoSlotsCollection are real failures - CotiSlotInjector already logs the detail for each at
-    // the point it happens, so this only tracks which hosts to report back to the caller.
-    var unfitHosts = new List<string>();
-
-    foreach( var host in device.Hosts )
-    {
-      if( host?.Id == null )
-        continue;
-
-      var outcome = slotInjector.InjectInto( host.Id, device.DisplayName ?? device.Device ?? host.Id );
-
-      if( outcome == CotiInjectOutcome.InvalidId || outcome == CotiInjectOutcome.NoSlotsCollection )
-        unfitHosts.Add( $"{host.Id}: {outcome}" );
-    }
-
-    if( unfitHosts.Count > 0 )
-    {
-      logger.Warning(
-          $"[COTI] {nickname}'s publish of \"{device.Device}\" wrote the file but could not fit " +
-          $"{unfitHosts.Count} host(s) - see the CotiSlotInjector line(s) above for why: " +
-          string.Join( ", ", unfitHosts ) );
-    }
-
-    // TryWrite already reloaded once, from disk, before InjectInto ran above - that is what makes
-    // the cross-file enforcement described above real. This second Reload is for InjectInto's own
-    // sake: InjectInto never touches deviceStore state (it mutates the live item template
-    // directly), so nothing here strictly depends on calling Reload again, but doing so keeps
-    // "publish leaves the store exactly as fresh as a restart would" true even if TryWrite is ever
-    // changed to stop reloading itself.
-    deviceStore.Reload();
-
-    logger.Success(
-        $"[COTI] {nickname} published \"{device.Device}\", covering {device.Hosts.Count} host(s)" );
-
-    return Task.FromResult( httpResponseUtil.NoBody(
-        new CotiPublishResultDto
-        {
-          Ok = true,
-          Device = CotiDeviceDto.FromShared( device ),
-          UnfitHosts = unfitHosts,
-        } ) );
+    return Task.FromResult( httpResponseUtil.NoBody( publisher.Publish( request.ToShared(), nickname ) ) );
   }
 
   /// <summary>

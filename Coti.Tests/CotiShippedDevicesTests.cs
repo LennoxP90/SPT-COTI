@@ -159,15 +159,15 @@ public class CotiShippedDevicesTests
     [InlineData("vanilla_n15.json",
         0.5361f, 0.5f, 0.274f, 0.01f,
         "",
-        0.033f, -0.023f, 0.037f,
+        0.0305f, -0.0205f, 0.034f,
         -90f, 0f, 0f,
-        -42f, 0f, 0f, 1.24f)]
+        -42f, 0f, 0f, 1.2f)]
     [InlineData("vanilla_pnv10t.json",
         0.5011f, 0.5f, 0.274f, 0.01f,
         "",
-        0.0005f, -0.032f, 0.067f,
+        0.001f, -0.035f, 0.075f,
         0f, 0f, 0f,
-        12f, -90f, -11f, 0.91f)]
+        12f, -90f, -11f, 1f)]
     [InlineData("vanilla_pnv57e.json",
         0.5361f, 0.5f, 0.274f, 0.01f,
         "axis",
