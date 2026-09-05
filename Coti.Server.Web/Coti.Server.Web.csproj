@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <SptRefDir>F:\Games\SPT-4.1\SPT-4.1-Clean\SPT_Runtime</SptRefDir>
+    <SptRefDir></SptRefDir>
     <SptPackageVersion>4.1.3</SptPackageVersion>
     <SptRefsPresent>false</SptRefsPresent>
     <SptRefsPresent Condition="Exists('$(SptRefDir)\SPTarkov.Server.Core.dll')">true</SptRefsPresent>
@@ -21,13 +21,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Coti.Server\Coti.Server.csproj" Private="false" />
     <PackageReference Include="SharpCompress" Version="0.50.4" />
+    <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
+    <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.6" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(SptRefsPresent)' != 'true'">
-    <PackageReference Include="SPTushonka.Server.Core" Version="$(SptPackageVersion)" />
-    <PackageReference Include="SPTushonka.Server.Web" Version="$(SptPackageVersion)" />
-    <PackageReference Include="SPTushonka.DI" Version="$(SptPackageVersion)" />
-    <PackageReference Include="SPTushonka.Common" Version="$(SptPackageVersion)" />
+    <PackageReference Include="SPTushonka.Server.Core" Version="$(SptPackageVersion)" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTushonka.Server.Web" Version="$(SptPackageVersion)" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTushonka.DI" Version="$(SptPackageVersion)" ExcludeAssets="runtime" />
+    <PackageReference Include="SPTushonka.Common" Version="$(SptPackageVersion)" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(SptRefsPresent)' == 'true'">

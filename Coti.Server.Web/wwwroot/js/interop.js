@@ -18,7 +18,8 @@ export async function start(root, hostsJson, hostId, dotNetRef, version) {
   ensureStylesheet(version);
   dotNet = dotNetRef;
   viewer = new CotiViewer(root, JSON.parse(hostsJson),
-    dirty => dotNet?.invokeMethodAsync('OnDirty', dirty));
+    dirty => dotNet?.invokeMethodAsync('OnDirty', dirty),
+    preset => dotNet?.invokeMethodAsync('OnMask', preset));
   await viewer.setHost(hostId);
   // Debug handle.
   window.__coti = viewer;

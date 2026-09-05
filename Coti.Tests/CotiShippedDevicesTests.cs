@@ -162,8 +162,10 @@ public class CotiShippedDevicesTests
         0.0305f, -0.0205f, 0.034f,
         -90f, 0f, 0f,
         -42f, 0f, 0f, 1.2f)]
+    // Retuned in the mount editor to the single tube preset, which the biocular now matches.
+    // The 0.5011/0.274 it carried before was a separate hand-tuning of the same position.
     [InlineData("vanilla_pnv10t.json",
-        0.5011f, 0.5f, 0.274f, 0.01f,
+        0.5f, 0.5f, 0.273f, 0.01f,
         "",
         0.001f, -0.035f, 0.075f,
         0f, 0f, 0f,

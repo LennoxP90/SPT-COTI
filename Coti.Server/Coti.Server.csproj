@@ -13,7 +13,7 @@
 
   <PropertyGroup>
     <SptRef40Dir>F:\Games\SPT-4.0\Clean\SPT</SptRef40Dir>
-    <SptRef41Dir>F:\Games\SPT-4.1\SPT-4.1-Clean\SPT_Runtime</SptRef41Dir>
+    <SptRef41Dir></SptRef41Dir>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
@@ -36,7 +36,7 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(SptRefsPresent)' != 'true'">
-    <PackageReference Include="$(SptPackageId)" Version="$(SptPackageVersion)" />
+    <PackageReference Include="$(SptPackageId)" Version="$(SptPackageVersion)" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(SptRefsPresent)' == 'true'">
@@ -63,7 +63,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0' And '$(SptRefsPresent)' != 'true'">
-    <PackageReference Include="SPTushonka.Server.Web" Version="$(SptPackageVersion)" />
+    <PackageReference Include="SPTushonka.Server.Web" Version="$(SptPackageVersion)" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0' And '$(SptRefsPresent)' == 'true'">

@@ -26,10 +26,11 @@ function mountQuat(m) {
 }
 
 export class CotiViewer {
-  constructor(root, hosts, onDirty) {
+  constructor(root, hosts, onDirty, onMask) {
     this.root = root;
     this.hosts = hosts;
     this.onDirty = onDirty || (() => {});
+    this.onMask = onMask || (() => {});
     // index into STEPS
     this.step = 1;
     this.mount = null;
@@ -131,18 +132,35 @@ export class CotiViewer {
     this.ecotiHolder.clear();
     this.flip = 0;
 
-    this.hostGroup.add(this.paint(await this.load(`/coti/mesh/${this.host.slug}`), 0x99a3ae, 0.15));
+    // A host whose whole body flips has no static half; there is nothing to put in hostGroup.
+    if (this.host.hasStaticMesh !== false) {
+      this.hostGroup.add(this.paint(await this.load(`/coti/mesh/${this.host.slug}`), 0x99a3ae, 0.15));
+    }
     if (this.host.hasPivotMesh) {
       this.pivotNode.add(this.paint(await this.load(`/coti/mesh/${this.host.slug}_pivot`), 0x99a3ae, 0.15));
     }
     this.ecotiHolder.add(this.paint(await this.load('/coti/mesh/ecoti'), 0xd9772a, 0.25));
     this.pivotNode.add(this.ecotiHolder);
 
+    this.maskPreset = this.host.maskPreset;
+    this.paintMask();
+
     this.apply();
     this.frame();
     this.setView('game');
     this.refresh();
     this.resize();
+  }
+
+  // Marks the layout in effect and says what to compare it against.
+  paintMask() {
+    const masks = this.panel.querySelector('#c-mask');
+    if (!masks) return;
+
+    [...masks.children].forEach(b => b.className = b.dataset.mask === this.maskPreset ? 'on' : '');
+
+    const note = this.panel.querySelector('#c-masknote');
+    if (note) note.textContent = this.host.maskBlurb || '';
   }
 
   // Fits both objects to the viewport. Distance comes from the bounding sphere and the vertical
@@ -257,14 +275,32 @@ export class CotiViewer {
 
   isDirty() { return JSON.stringify(this.mount) !== JSON.stringify(this.original); }
 
-  revert() { this.mount = structuredClone(this.original); this.apply(); this.refresh(); this.onDirty(false); }
+  revert() {
+    this.mount = structuredClone(this.original);
+    this.maskPreset = this.host.maskPreset;
+    this.paintMask();
+    this.apply();
+    this.refresh();
+    this.onDirty(false);
+  }
 
-  markSaved() { this.original = structuredClone(this.mount); this.onDirty(false); }
+  markSaved() {
+    this.original = structuredClone(this.mount);
+    // The pick is the device's own from here, so reverting later must not undo it.
+    this.host.maskPreset = this.maskPreset;
+    this.onDirty(false);
+  }
 
   getMount() { return structuredClone(this.mount); }
 
   buildPanel() {
     this.panel.innerHTML = `
+      <div class="coti-sec">
+        <div class="coti-sec-h">Thermal overlay</div>
+        <div class="coti-steps" id="c-mask"></div>
+        <div class="coti-readout" id="c-masknote" style="text-align:left"></div>
+      </div>
+
       <div class="coti-sec">
         <div class="coti-frame">
           <button id="c-frame">Frame device</button>
@@ -337,6 +373,21 @@ export class CotiViewer {
         [...steps.children].forEach((c, j) => c.className = j === i ? 'on' : '');
       };
       steps.appendChild(b);
+    });
+
+    const masks = this.panel.querySelector('#c-mask');
+    MASK_PRESETS.forEach(name => {
+      const b = document.createElement('button');
+      // The panel is narrow, so the button drops "tube" and the title carries it.
+      b.textContent = name.replace(' tube', '');
+      b.title = name;
+      b.dataset.mask = name;
+      b.onclick = () => {
+        this.maskPreset = name;
+        this.paintMask();
+        this.onMask(name);
+      };
+      masks.appendChild(b);
     });
 
     this.panel.querySelectorAll('[data-f]').forEach(b =>
@@ -443,6 +494,9 @@ export class CotiViewer {
     });
   }
 }
+
+// Must match CotiMaskPresets, which owns the values these names stand for.
+const MASK_PRESETS = ['Single tube', 'Dual tube', 'Quad tube'];
 
 const STEPS = [
   { name: 'Fine', pos: 0.0005, ang: 0.5, scale: 0.005 },

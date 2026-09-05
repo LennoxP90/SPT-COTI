@@ -11,9 +11,9 @@
     }
   ],
   "mask": {
-    "centerX": 0.5011,
+    "centerX": 0.5,
     "centerY": 0.5,
-    "radius": 0.274,
+    "radius": 0.273,
     "feather": 0.01
   },
   "mount": {

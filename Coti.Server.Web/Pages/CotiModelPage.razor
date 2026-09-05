@@ -12,7 +12,8 @@
 <PageTitle>ECOTI mount editor</PageTitle>
 
 <MudMainContent>
-  <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
+  @* No cap: the viewport is a 3D canvas, so width is usable space rather than line length. *@
+  <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
 
     <CotiNav />
 
@@ -25,13 +26,23 @@
               Drag to orbit, scroll to zoom, click a cube face to look down that axis.
             </MudText>
           </div>
-          <MudSelect T="string" Value="@hostId" ValueChanged="SelectHost" Dense="true"
-                     Variant="Variant.Outlined" Style="min-width:220px" Label="Host">
-            @foreach (var h in devices)
+          <MudSelect T="string" Value="@CurrentDevice?.Key" ValueChanged="SelectDevice" Dense="true"
+                     Variant="Variant.Outlined" Style="min-width:250px" Label="Night vision device">
+            @foreach (var d in deviceList)
             {
-              <MudSelectItem T="string" Value="@h.Key">@h.Value</MudSelectItem>
+              <MudSelectItem T="string" Value="@d.Key">@d.Name</MudSelectItem>
             }
           </MudSelect>
+          @if (CurrentDevice is { Hosts.Count: > 1 } current)
+          {
+            <MudSelect T="string" Value="@hostId" ValueChanged="SelectHost" Dense="true"
+                       Variant="Variant.Outlined" Style="min-width:150px" Label="Variant">
+              @foreach (var h in current.Hosts)
+              {
+                <MudSelectItem T="string" Value="@h.Id">@h.Label</MudSelectItem>
+              }
+            </MudSelect>
+          }
           <MudTooltip Text="@sourceTooltip">
             <MudChip T="string" Size="Size.Small" Variant="Variant.Text"
                      Color="@(addonMod is null ? Color.Default : Color.Secondary)"
@@ -42,8 +53,11 @@
         <MudStack Row="true" Spacing="2">
           @if (addonMod is not null)
           {
+            @* The controller already sets Content-Disposition; naming it here as well costs
+               nothing and does not depend on the header surviving a proxy. *@
             <MudButton StartIcon="@Icons.Material.Filled.Archive" Variant="Variant.Outlined"
                        Color="Color.Secondary" Href="@($"/coti/addon/{addonMod}")"
+                       download="@CotiAddonPackager.FileNameFor(addonMod!)"
                        Disabled="@dirty">Export addon</MudButton>
           }
           <MudButton StartIcon="@Icons.Material.Filled.Undo" Variant="Variant.Outlined"
@@ -56,10 +70,12 @@
 
     @if (withoutMesh.Count > 0)
     {
+      @* Was "converting mod bundles is not built yet". It is, so a device only lands here now
+         when its bundle could not be read at all. *@
       <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
-        No mesh shipped for @string.Join(", ", withoutMesh), so @(withoutMesh.Count == 1 ? "it has" : "they have")
-        no preview. Mod-added hosts keep their bundles in their own mod folder; converting those
-        at runtime is not built yet.
+        No preview for @string.Join(", ", withoutMesh).
+        COTI could not read a mesh out of @(withoutMesh.Count == 1 ? "its" : "their")
+        bundle, and the server log says why.
       </MudAlert>
     }
 
@@ -71,7 +87,9 @@
 
     @if (hostId is null)
     {
-      <MudAlert Severity="Severity.Warning">No host has a shipped mesh, so there is nothing to edit.</MudAlert>
+      <MudAlert Severity="Severity.Warning">
+        No night vision device has a usable mesh, so there is nothing to edit.
+      </MudAlert>
     }
     else
     {
@@ -88,8 +106,12 @@
   private IJSObjectReference? module;
   private DotNetObjectReference<CotiModelPage>? selfRef;
 
-  private Dictionary<string, string> devices = new();
+  /// <summary>One picker row. The mount is per device, so its hosts are variants of one entry.</summary>
+  private sealed record DeviceEntry(string Key, string Name, List<(string Id, string Label)> Hosts);
+
+  private readonly List<DeviceEntry> deviceList = new();
   private readonly List<string> withoutMesh = new();
+  private CotiMaskBlock? maskOverride;
   private string? hostId;
   private bool dirty;
   private string? message;
@@ -107,20 +129,33 @@
           continue;
         }
 
-        var label = device.DisplayName ?? device.Device ?? host.Id;
+        var deviceName = device.DisplayName ?? device.Device ?? host.Id;
 
-        if (CotiHostMeshes.TryGetSlug(host.Id, out _))
+        if (!CotiHostMeshes.TryGetSlug(host.Id, out _))
         {
-          devices[host.Id] = label;
+          // One entry per device, not per host: a device with three hosts was named three times.
+          if (!withoutMesh.Contains(deviceName))
+          {
+            withoutMesh.Add(deviceName);
+          }
+
+          continue;
         }
-        else
+
+        var key = device.Device ?? deviceName;
+        var entry = deviceList.FirstOrDefault(d => d.Key == key);
+
+        if (entry is null)
         {
-          withoutMesh.Add(label);
+          entry = new DeviceEntry(key, deviceName, new List<(string, string)>());
+          deviceList.Add(entry);
         }
+
+        entry.Hosts.Add((host.Id, LabelFor(entry, host)));
       }
     }
 
-    hostId = devices.Keys.FirstOrDefault();
+    hostId = deviceList.FirstOrDefault()?.Hosts.FirstOrDefault().Id;
   }
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -135,8 +170,9 @@
     {
       selfRef = DotNetObjectReference.Create(this);
       module = await JS.InvokeAsync<IJSObjectReference>(
-        "import", $"/coti-assets/js/interop.js?v={CotiVersion.Current}");
-      await module.InvokeVoidAsync("start", mountRoot, BuildHostTable(), hostId, selfRef, CotiVersion.Current);
+        "import", $"/coti-assets/js/interop.js?v={CotiAssetStamp.Current}");
+      await module.InvokeVoidAsync(
+        "start", mountRoot, BuildHostTable(), hostId, selfRef, CotiAssetStamp.Current);
     }
     catch (Exception ex)
     {
@@ -144,6 +180,40 @@
       severity = Severity.Error;
       await InvokeAsync(StateHasChanged);
     }
+  }
+
+  /// <summary>
+  /// <summary>The viewer's overlay buttons land here; the pick is saved with the mount.</summary>
+  [JSInvokable]
+  public Task OnMask(string name)
+  {
+    var preset = CotiMaskPresets.ByName(name);
+
+    if (preset is null)
+    {
+      return Task.CompletedTask;
+    }
+
+    maskOverride = preset;
+    dirty = true;
+    return InvokeAsync(StateHasChanged);
+  }
+
+  /// <summary>The device whose variant is on screen.</summary>
+  private DeviceEntry? CurrentDevice =>
+    deviceList.FirstOrDefault(d => d.Hosts.Any(h => h.Id == hostId));
+
+  /// <summary>A variant's own name. Devices that never labelled their hosts get a position.</summary>
+  private static string LabelFor(DeviceEntry entry, CotiHostRef host)
+  {
+    return string.IsNullOrWhiteSpace(host.Label) ? $"Variant {entry.Hosts.Count + 1}" : host.Label;
+  }
+
+  /// <summary>Picking a device shows its first variant; they share one mount either way.</summary>
+  private Task SelectDevice(string key)
+  {
+    var entry = deviceList.FirstOrDefault(d => d.Key == key);
+    return entry is null ? Task.CompletedTask : SelectHost(entry.Hosts[0].Id);
   }
 
   /// <summary>
@@ -164,13 +234,19 @@
         }
 
         var (pivot, hasPivotMesh) = CotiHostMeshes.PivotFor(host.Id);
+        var hasStaticMesh = CotiHostMeshes.HasStaticMesh(host.Id);
 
         table[host.Id] = new
         {
           slug,
           pivot,
           hasPivotMesh,
+          hasStaticMesh,
           name = device.DisplayName ?? device.Device,
+          maskPreset = CotiMaskPresets.NameFor(device.Mask),
+          maskBlurb = CotiMaskPresets.NameFor(device.Mask) == CotiMaskPresets.Custom
+            ? CotiMaskPresets.CustomGuidance
+            : CotiMaskPresets.Guidance,
           device = device.Device,
           // The DTO carries the camelCase names the device files and the viewer both use.
           mount = CotiMountBlockDto.FromShared(device.Mount),
@@ -202,6 +278,7 @@
   private async Task SelectHost(string value)
   {
     hostId = value;
+    maskOverride = null;
     dirty = false;
     if (module is not null)
     {
@@ -223,6 +300,7 @@
       await module.InvokeVoidAsync("revert");
     }
 
+    maskOverride = null;
     dirty = false;
   }
 
@@ -248,13 +326,21 @@
 
     if (device is null)
     {
-      message = "That host is no longer in the device store.";
+      message = "That device is no longer in the device store.";
       severity = Severity.Error;
       return;
     }
 
     // Rounded through the same helper the in-game tuner uses.
     device.Mount = CotiMountRounding.Round(edited);
+
+    if (maskOverride is not null)
+    {
+      device.Mask = maskOverride;
+    }
+
+    // Saving makes this device a seed donor for its family, so a wrong mask here does not stay
+    // local - it becomes the starting point for every device discovered after it.
     device.Tuned = true;
 
     var result = Publisher.Publish(device, "web mount editor");
@@ -267,6 +353,7 @@
     }
 
     await module.InvokeVoidAsync("markSaved");
+    maskOverride = null;
     dirty = false;
     message = "Saved and pushed. A running client re-poses immediately; no restart.";
     severity = Severity.Success;

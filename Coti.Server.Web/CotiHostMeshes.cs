@@ -7,16 +7,16 @@ namespace Coti.Server.Web;
 /// Which glTF file a host uses, and the world transform of every bone a mount can anchor to.
 /// Written by scripts/export-host-meshes.py and read once.
 ///
-/// Two folders, merged. "meshes" ships with the mod and covers the vanilla hosts. "meshes-local"
-/// is generated per install for mod-added hosts, and is neither committed nor shipped. A local
-/// entry wins. A host with no entry in either has no preview.
+/// Two folders, merged. "meshes" ships with the mod and covers the vanilla hosts. "meshes-auto"
+/// is written by CotiHostMeshSync from mod-added hosts' own bundles, and is neither committed nor
+/// shipped. A generated entry wins. A host with no entry in either has no preview.
 /// </summary>
 public static class CotiHostMeshes
 {
   public const string ShippedFolder = "meshes";
-  public const string LocalFolder = "meshes-local";
+  public const string GeneratedFolder = "meshes-auto";
 
-  private static readonly Lazy<Dictionary<string, MeshEntry>> Entries = new(Load);
+  private static Lazy<Dictionary<string, MeshEntry>> Entries = new(Load);
 
   public static bool TryGetSlug(string hostId, out string slug)
   {
@@ -40,6 +40,12 @@ public static class CotiHostMeshes
       : (null, false);
   }
 
+  /// <summary>False for a host whose whole body hangs off the flip axis.</summary>
+  public static bool HasStaticMesh(string hostId)
+  {
+    return !Entries.Value.TryGetValue(hostId, out var entry) || entry.HasStaticMesh;
+  }
+
   public static IReadOnlyDictionary<string, Bone> BonesFor(string hostId)
   {
     return Entries.Value.TryGetValue(hostId, out var entry)
@@ -47,20 +53,40 @@ public static class CotiHostMeshes
       : new Dictionary<string, Bone>();
   }
 
-  /// <summary>The directory holding a slug's glTF, local first. Empty when neither has it.</summary>
+  /// <summary>The directory holding a slug's glTF, generated first. Empty when neither has it.</summary>
   public static string FolderFor(string slug)
   {
     var root = MeshRoot();
 
-    foreach (var folder in new[] { LocalFolder, ShippedFolder })
+    foreach (var folder in new[] { GeneratedFolder, ShippedFolder })
     {
-      if (File.Exists(Path.Combine(root, folder, slug + ".glb")))
+      var dir = Path.Combine(root, folder);
+
+      // A host whose whole body flips has only the pivot half, so either file claims the folder.
+      if (File.Exists(Path.Combine(dir, slug + ".glb")) || File.Exists(Path.Combine(dir, slug + "_pivot.glb")))
       {
-        return Path.Combine(root, folder);
+        return dir;
       }
     }
 
     return string.Empty;
+  }
+
+  /// <summary>True when the mod ships a mesh for this host, so nothing needs generating.</summary>
+  public static bool HasShippedMesh(string hostId)
+  {
+    return ReadIndex(Path.Combine(MeshRoot(), ShippedFolder, "index.json")).ContainsKey(hostId);
+  }
+
+  /// <summary>Drops the cached index so a regenerated folder is picked up.</summary>
+  public static void Reload()
+  {
+    Entries = new Lazy<Dictionary<string, MeshEntry>>(Load);
+  }
+
+  public static string MeshRootPath()
+  {
+    return MeshRoot();
   }
 
   private static string MeshRoot()
@@ -74,7 +100,7 @@ public static class CotiHostMeshes
     var merged = new Dictionary<string, MeshEntry>();
 
     // Shipped first, then local: a local entry replaces a shipped one of the same host.
-    foreach (var folder in new[] { ShippedFolder, LocalFolder })
+    foreach (var folder in new[] { ShippedFolder, GeneratedFolder })
     {
       foreach (var (hostId, entry) in ReadIndex(Path.Combine(MeshRoot(), folder, "index.json")))
       {
@@ -111,6 +137,10 @@ public static class CotiHostMeshes
 
     [JsonPropertyName("hasPivotMesh")]
     public bool HasPivotMesh { get; set; }
+
+    // Absent from the shipped index, whose hosts all have one, so the initialiser has to stand.
+    [JsonPropertyName("hasStaticMesh")]
+    public bool HasStaticMesh { get; set; } = true;
 
     [JsonPropertyName("bones")]
     public Dictionary<string, Bone> Bones { get; set; } = new();

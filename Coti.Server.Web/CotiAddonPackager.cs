@@ -56,6 +56,15 @@ public static class CotiAddonPackager
 
   public static string FileNameFor(string requires) => $"coti-addon-{SlugFor(requires)}.7z";
 
+  /// <summary>
+  /// Where the files land, relative to an SPT 4.1 install root. The archive carries the whole
+  /// path so extracting it over an install puts every file where it belongs.
+  ///
+  /// 4.1 only: Coti.Server.Web is absent from the 4.0 distribution, so nobody on 4.0 can reach
+  /// the export button.
+  /// </summary>
+  public const string InstallPath = "SPT_Runtime/user/mods/LennoxP90-COTI/nvghostcompat";
+
   public static byte[] Build(string requires, IReadOnlyList<CotiDeviceFile> devices)
   {
     using var buffer = new MemoryStream();
@@ -64,13 +73,16 @@ public static class CotiAddonPackager
     {
       foreach (var device in devices)
       {
-        var name = $"{device.Device}.json";
+        var name = $"{InstallPath}/{device.Device}.json";
         var json = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ToDto(device), Pretty));
         writer.Write(name, new MemoryStream(json), DateTime.UtcNow);
       }
 
+      // Every addon installs into one shared nvghostcompat folder, so a plain README.md would be
+      // overwritten by the next addon extracted, and at the archive root it would land in the
+      // install root.
       var readme = Encoding.UTF8.GetBytes(Readme(requires, devices));
-      writer.Write("README.md", new MemoryStream(readme), DateTime.UtcNow);
+      writer.Write($"{InstallPath}/README-{SlugFor(requires)}.md", new MemoryStream(readme), DateTime.UtcNow);
     }
 
     return buffer.ToArray();
@@ -99,17 +111,18 @@ public static class CotiAddonPackager
     sb.AppendLine();
     sb.AppendLine("## Installing");
     sb.AppendLine();
-    sb.AppendLine("Copy the `.json` files into your server's COTI device folder:");
+    sb.AppendLine("Extract this archive over your SPT install, keeping the folder structure. The");
+    sb.AppendLine("files land in:");
     sb.AppendLine();
     sb.AppendLine("```");
-    sb.AppendLine("<SPT>/user/mods/LennoxP90-COTI/nvghostcompat/");
+    sb.AppendLine($"{InstallPath}/");
     sb.AppendLine("```");
     sb.AppendLine();
-    sb.AppendLine("Loose, no subfolder. Restart the server. Each supported device gains a");
-    sb.AppendLine("`mod_coti` slot and the COTI mounts with the pose in the file.");
+    sb.AppendLine("Restart the server. Each supported device gains a `mod_coti` slot and the COTI");
+    sb.AppendLine("mounts with the pose in the file.");
     sb.AppendLine();
-    sb.AppendLine("The path differs between SPT versions: `SPT/user/mods/...` on 4.0 and");
-    sb.AppendLine("`SPT_Runtime/user/mods/...` on 4.1.");
+    sb.AppendLine("On SPT 4.0 the same files go in `user/mods/LennoxP90-COTI/nvghostcompat/`, with");
+    sb.AppendLine("no `SPT_Runtime`, so copy them out rather than extracting over the install.");
     sb.AppendLine();
     sb.AppendLine($"## If you do not have {requires}");
     sb.AppendLine();
@@ -130,7 +143,11 @@ public static class CotiAddonPackager
     sb.AppendLine();
     sb.AppendLine("---");
     sb.AppendLine();
-    sb.AppendLine($"Exported from the COTI mount editor, {DateTime.UtcNow:yyyy-MM-dd}.");
+    sb.AppendLine($"Device file schema {CotiDeviceFile.CurrentSchema}. A COTI too old to read it");
+    sb.AppendLine("says so in the log rather than loading the device.");
+    sb.AppendLine();
+    sb.AppendLine(
+        $"Exported from the COTI {CotiVersion.Current} mount editor, {DateTime.UtcNow:yyyy-MM-dd}.");
 
     return sb.ToString();
   }
