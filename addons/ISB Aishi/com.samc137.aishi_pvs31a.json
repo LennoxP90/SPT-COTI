@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "device": "com.samc137.aishi_pvs31a",
+  "displayName": "L3Harris PVS-31A (ISB Aishi)",
+  "requires": "com.samc137.aishi",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "6a4c74f853926ec162d22a43",
+      "prefab": "equipment/nvg_l3_pvs31a_fde_2.bundle",
+      "label": "FDE"
+    },
+    {
+      "id": "6a4c716dcbf243af9349bafd",
+      "prefab": "equipment/nvg_l3_pvs31a_black.bundle",
+      "label": "Green Phosphor"
+    },
+    {
+      "id": "6a4c7475199066d1ea0b5131",
+      "prefab": "equipment/nvg_l3_pvs31a_white_2.bundle",
+      "label": "White"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5361,
+    "centerY": 0.5,
+    "radius": 0.274,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "",
+    "positionX": 0.035,
+    "positionY": -0.0715,
+    "positionZ": 0.03,
+    "rotationX": 0,
+    "rotationY": 46,
+    "rotationZ": 0,
+    "rollDegrees": 0,
+    "pitchDegrees": -90,
+    "yawDegrees": 0,
+    "scale": 1.2
+  }
+}

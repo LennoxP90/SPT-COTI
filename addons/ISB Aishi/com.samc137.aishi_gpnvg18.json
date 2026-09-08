@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "device": "com.samc137.aishi_gpnvg18",
+  "displayName": "L3Harris GPNVG-18 (ISB Aishi)",
+  "requires": "com.samc137.aishi",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "694b2e29274ab9b2a319b6ed",
+      "prefab": "equipment/item_equipment_nvg_l3_gpnvg-18_anvis.bundle"
+    }
+  ],
+  "mask": {
+    "centerX": 0.525,
+    "centerY": 0.5,
+    "radius": 0.285,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "axis",
+    "positionX": 0.027,
+    "positionY": -0.037,
+    "positionZ": -0.075,
+    "rotationX": -90,
+    "rotationY": 0,
+    "rotationZ": 0,
+    "rollDegrees": -26,
+    "pitchDegrees": 90,
+    "yawDegrees": 2,
+    "scale": 1.46
+  }
+}
