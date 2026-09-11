@@ -21,6 +21,15 @@ namespace Coti.Client
     private static CommandBuffer _commandBuffer;
     private static Camera _attachedTo;
     private static Material _material;
+
+    private static Texture _setMainTex;
+    private static Texture _setMaskTex;
+    private static float _setThreshold = float.NaN;
+    private static float _setOutlineMix = float.NaN;
+    private static float _setOutlineWidth = float.NaN;
+    private static float _setIntensity = float.NaN;
+    private static Color? _setHotColour;
+    private static Color? _setCoolColour;
     private static RenderTexture _builtThermal;
 
     private static bool _broken;
@@ -93,6 +102,7 @@ namespace Coti.Client
           Detach();
 
         EnsureBuffer( camera );
+
         ApplyMaterialValues();
       }
       catch( Exception ex )
@@ -122,6 +132,7 @@ namespace Coti.Client
       // renders nothing while reporting isSupported=true - measured as overlay mean=0 max=0
       // against a threshold its input provably cleared.
       _material = CotiShaderBundle.OverlayMaterial;
+      ForgetMaterialValues();
 
       _commandBuffer = new CommandBuffer { name = "COTI overlay" };
 
@@ -143,19 +154,71 @@ namespace Coti.Client
       }
     }
 
+    /// <summary>
+    /// Pushes the overlay's inputs onto the material, writing only what changed.
+    ///
+    /// Every setter is a native call keyed by property id, and only the intensity moves frame to
+    /// frame - the phosphor fade rides vanilla's switch flash. The rest hold for a whole raid.
+    /// </summary>
     private static void ApplyMaterialValues()
     {
       var image = Plugin.Config.Image;
 
-      _material.SetTexture( MainTexId, CotiThermalCamera.Output );
-      _material.SetTexture( MaskTexId, CotiState.Mask );
+      SetTextureIfChanged( MainTexId, CotiThermalCamera.Output, ref _setMainTex );
+      SetTextureIfChanged( MaskTexId, CotiState.Mask, ref _setMaskTex );
+
       ApplyPhosphorTint();
-      _material.SetFloat( ThresholdId, Mathf.Clamp01( image.HeatThreshold ) );
-      _material.SetFloat( OutlineMixId, Mathf.Clamp01( image.OutlineMix ) );
-      _material.SetFloat( OutlineWidthId, CotiOverlayScale.OutlineWidth(
+
+      SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
+      SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
+      SetFloatIfChanged( OutlineWidthId, CotiOverlayScale.OutlineWidth(
           Mathf.Max( 0.5f, image.OutlineWidth ),
-          CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height ) );
-      _material.SetFloat( IntensityId, Mathf.Max( 0f, image.OverlayIntensity ) * PhosphorFade );
+          CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height ), ref _setOutlineWidth );
+      SetFloatIfChanged( IntensityId,
+          Mathf.Max( 0f, image.OverlayIntensity ) * PhosphorFade, ref _setIntensity );
+    }
+
+    private static void SetFloatIfChanged( int id, float value, ref float last )
+    {
+      if( last == value )
+        return;
+
+      _material.SetFloat( id, value );
+      last = value;
+    }
+
+    private static void SetColorIfChanged( int id, Color value, ref Color? last )
+    {
+      if( last.HasValue && last.Value == value )
+        return;
+
+      _material.SetColor( id, value );
+      last = value;
+    }
+
+    private static void SetTextureIfChanged( int id, Texture value, ref Texture last )
+    {
+      if( ReferenceEquals( last, value ) )
+        return;
+
+      _material.SetTexture( id, value );
+      last = value;
+    }
+
+    /// <summary>
+    /// Drops what this compositor believes the material already holds. Called wherever _material is
+    /// reassigned or the buffer detached, since the values are the material's and not ours.
+    /// </summary>
+    private static void ForgetMaterialValues()
+    {
+      _setMainTex = null;
+      _setMaskTex = null;
+      _setThreshold = float.NaN;
+      _setOutlineMix = float.NaN;
+      _setOutlineWidth = float.NaN;
+      _setIntensity = float.NaN;
+      _setHotColour = null;
+      _setCoolColour = null;
     }
 
     /// <summary>
@@ -196,8 +259,8 @@ namespace Coti.Client
       HotColour = new Color( hotR, hotG, hotB, 1f );
       CoolColour = new Color( hueR, hueG, hueB, 1f );
 
-      _material.SetColor( HotColourId, HotColour );
-      _material.SetColor( CoolColourId, CoolColour );
+      SetColorIfChanged( HotColourId, HotColour, ref _setHotColour );
+      SetColorIfChanged( CoolColourId, CoolColour, ref _setCoolColour );
 
       if( !_loggedTint )
       {

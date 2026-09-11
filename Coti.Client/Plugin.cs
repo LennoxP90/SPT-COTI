@@ -55,6 +55,10 @@ namespace Coti.Client
 
       TryEnable( nameof( ThermalParametersPatch ), () => new ThermalParametersPatch() );
       TryEnable( nameof( GameStartedPatch ), () => new GameStartedPatch() );
+
+      // If this one fails to enable, the attach state is only refreshed when the equipped device
+      // itself changes - so a COTI added to goggles already worn would not be noticed.
+      TryEnable( nameof( CotiInventoryChangePatch ), () => new CotiInventoryChangePatch() );
       TryEnable( nameof( GoggleToggleSuppressPatch ), () => new GoggleToggleSuppressPatch() );
 
       // Must be enabled unconditionally, not gated on being in a raid: the device has to appear
@@ -191,9 +195,6 @@ namespace Coti.Client
         // buffer, and skipping it leaves the circle drawn with the device inactive.
         CotiOverlayCompositor.Sync();
         CotiOpticOverlayCompositor.Sync();
-
-        // Last, so it reports the state the frame was actually composited with.
-        CotiRenderStateLog.Tick();
       }
     }
 
@@ -216,7 +217,7 @@ namespace Coti.Client
       var hostNvgOn = tube != null
           ? tube.On
           : ( nvgComponent?.Togglable?.On ?? false );
-      var cotiAttached = CotiSlotProbe.IsCotiAttached( hostItem );
+      var cotiAttached = CotiEquippedCoti.IsAttached( hostItem );
 
       CotiState.Update( hostTemplateId, cotiAttached, hostNvgOn );
 

@@ -36,6 +36,29 @@ namespace Coti.Client
     private static int _rtWidth;
     private static int _rtHeight;
 
+    // What Configure last wrote onto _cam and _tv. Cleared with the camera in Teardown - a fresh
+    // clone carries the prefab's values, and a cache that outlived it would leave them unwritten.
+    private static bool _mirrored;
+    private static RenderingPath _mirroredPath;
+    private static int _mirroredCullingMask;
+    private static CameraClearFlags _mirroredClearFlags;
+    private static Color _mirroredBackground;
+    private static float _mirroredNearClip;
+    private static float _mirroredFarClip;
+    private static bool _mirroredHdr;
+    private static bool _mirroredOcclusion;
+    private static float _mirroredDepth;
+    private static float _mirroredFov = float.NaN;
+    private static float _mirroredAspect = float.NaN;
+
+    private static bool _tuned;
+    private static int _tunedHz;
+    private static bool _tunedPixelated;
+    private static bool _tunedNoisy;
+    private static bool _tunedMotionBlurred;
+    private static float _tunedUnsharpRadius;
+    private static float _tunedUnsharpBias;
+
     /// <summary>
     /// Latches on failure so the camera stays down and logs once, rather than throwing every
     /// frame - a per-frame NRE elsewhere in this game leaked 72GB. Cleared by Teardown.
@@ -246,15 +269,58 @@ namespace Coti.Client
     /// </summary>
     private static void Configure( Camera main, CotiCameraConfig cfg )
     {
-      if( _followed != main.transform )
+      Follow( main );
+      MirrorSettings( main );
+
+      EnsureRenderTexture( cfg );
+
+      // aspect AFTER targetTexture: assigning a target texture recomputes aspect from that
+      // texture's dimensions, which would undo this and squash the image.
+      if( _mirroredFov != main.fieldOfView )
       {
-        _go.transform.SetParent( main.transform, worldPositionStays: false );
-        _followed = main.transform;
+        _cam.fieldOfView = main.fieldOfView;
+        _mirroredFov = main.fieldOfView;
       }
 
+      if( _mirroredAspect != main.aspect )
+      {
+        _cam.aspect = main.aspect;
+        _mirroredAspect = main.aspect;
+      }
+
+      _tv.enabled = true;
+      _tv.On = true;
+
+      ApplyTuning( cfg );
+
+    }
+
+    private static void Follow( Camera main )
+    {
+      if( _followed == main.transform )
+        return;
+
+      _go.transform.SetParent( main.transform, worldPositionStays: false );
+
+      // Only on re-parent: SetParent with worldPositionStays false is what makes the reset
+      // necessary, and nothing else moves this object.
       _go.transform.localPosition = Vector3.zero;
       _go.transform.localRotation = Quaternion.identity;
       _go.transform.localScale = Vector3.one;
+
+      _followed = main.transform;
+    }
+
+    /// <summary>
+    /// Copies the main camera's settings onto ours, writing only what changed.
+    ///
+    /// Each of these is a native property, so writing all of them unconditionally pays a
+    /// managed-to-native call per field per frame for values that move perhaps once a raid.
+    /// </summary>
+    private static void MirrorSettings( Camera main )
+    {
+      var first = !_mirrored;
+      _mirrored = true;
 
       // Tried RenderingPath.Forward here once, on the theory that a heat map thrown away after
       // post-processing didn't need deferred's G-buffer and lighting passes. Measured in raid: it
@@ -263,42 +329,100 @@ namespace Coti.Client
       // reads G-buffer data that only exists in deferred - in forward a warm object like a fire
       // barrel renders cold, and only emissive sources such as the flames still register. Reverted
       // to copying main's path.
-      _cam.renderingPath = main.renderingPath;
+      if( first || _mirroredPath != main.renderingPath )
+      {
+        _cam.renderingPath = main.renderingPath;
+        _mirroredPath = main.renderingPath;
+      }
 
       CotiDevTools.ReportCullingMasks( _prefabCullingMask, main.cullingMask );
 
       // Intersected with BSG's own scope mask, which omits Weapon Preview, Menu Environment and
       // three unused layers. A zero prefab mask would render nothing, so it defers to the player's.
-      _cam.cullingMask = _prefabCullingMask == 0
-          ? main.cullingMask
-          : main.cullingMask & _prefabCullingMask;
+      if( first || _mirroredCullingMask != main.cullingMask )
+      {
+        _cam.cullingMask = _prefabCullingMask == 0
+            ? main.cullingMask
+            : main.cullingMask & _prefabCullingMask;
+        _mirroredCullingMask = main.cullingMask;
+      }
 
-      _cam.clearFlags = main.clearFlags;
-      _cam.backgroundColor = main.backgroundColor;
-      _cam.nearClipPlane = main.nearClipPlane;
-      _cam.farClipPlane = main.farClipPlane;
-      _cam.allowHDR = main.allowHDR;
-      _cam.useOcclusionCulling = main.useOcclusionCulling;
+      if( first || _mirroredClearFlags != main.clearFlags )
+      {
+        _cam.clearFlags = main.clearFlags;
+        _mirroredClearFlags = main.clearFlags;
+      }
+
+      if( first || _mirroredBackground != main.backgroundColor )
+      {
+        _cam.backgroundColor = main.backgroundColor;
+        _mirroredBackground = main.backgroundColor;
+      }
+
+      if( first || _mirroredNearClip != main.nearClipPlane )
+      {
+        _cam.nearClipPlane = main.nearClipPlane;
+        _mirroredNearClip = main.nearClipPlane;
+      }
+
+      if( first || _mirroredFarClip != main.farClipPlane )
+      {
+        _cam.farClipPlane = main.farClipPlane;
+        _mirroredFarClip = main.farClipPlane;
+      }
+
+      if( first || _mirroredHdr != main.allowHDR )
+      {
+        _cam.allowHDR = main.allowHDR;
+        _mirroredHdr = main.allowHDR;
+      }
+
+      if( first || _mirroredOcclusion != main.useOcclusionCulling )
+      {
+        _cam.useOcclusionCulling = main.useOcclusionCulling;
+        _mirroredOcclusion = main.useOcclusionCulling;
+      }
 
       // Render BEFORE the main camera. Unity orders cameras by depth, and the compositor's
       // buffer runs on the main camera's
       // AfterEverything - so a higher depth here would composite the PREVIOUS frame's heat.
       // Irrelevant while parked, visible as lag the moment the player turns.
-      _cam.depth = main.depth - 1f;
+      if( first || _mirroredDepth != main.depth )
+      {
+        _cam.depth = main.depth - 1f;
+        _mirroredDepth = main.depth;
+      }
+    }
 
-      EnsureRenderTexture( cfg );
+    /// <summary>
+    /// Refresh rate and image tuning come from config alone, so they are re-applied only when one
+    /// of those values moves - nine native writes a frame otherwise.
+    /// </summary>
+    private static void ApplyTuning( CotiCameraConfig cfg )
+    {
+      var image = Plugin.Config.Image;
 
-      // aspect AFTER targetTexture: assigning a target texture recomputes aspect from that
-      // texture's dimensions, which would undo this and squash the image.
-      _cam.fieldOfView = main.fieldOfView;
-      _cam.aspect = main.aspect;
-
-      _tv.enabled = true;
-      _tv.On = true;
+      if( _tunedHz == cfg.Hz
+          && _tunedPixelated == image.IsPixelated
+          && _tunedNoisy == image.IsNoisy
+          && _tunedMotionBlurred == image.IsMotionBlurred
+          && _tunedUnsharpRadius == image.UnsharpRadiusBlur
+          && _tunedUnsharpBias == image.UnsharpBias
+          && _tuned )
+      {
+        return;
+      }
 
       CotiThermalRig.SetRefreshRate( _tv, cfg.Hz );
+      CotiThermalRig.ApplyImageTuning( _tv, image );
 
-      CotiThermalRig.ApplyImageTuning( _tv, Plugin.Config.Image );
+      _tuned = true;
+      _tunedHz = cfg.Hz;
+      _tunedPixelated = image.IsPixelated;
+      _tunedNoisy = image.IsNoisy;
+      _tunedMotionBlurred = image.IsMotionBlurred;
+      _tunedUnsharpRadius = image.UnsharpRadiusBlur;
+      _tunedUnsharpBias = image.UnsharpBias;
     }
 
     /// <summary>
@@ -444,8 +568,6 @@ namespace Coti.Client
     }
 #endif
 
-
-
     private static void MarkBroken( string what, Exception ex )
     {
       if( _broken )
@@ -475,6 +597,11 @@ namespace Coti.Client
       _followed = null;
       _broken = false;
       _loggedCreated = false;
+
+      _mirrored = false;
+      _mirroredFov = float.NaN;
+      _mirroredAspect = float.NaN;
+      _tuned = false;
 
       ReleaseRenderTexture();
     }

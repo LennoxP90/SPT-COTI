@@ -34,5 +34,6 @@
     <Compile Include="..\Coti.Client\CotiLayerMask.cs" Link="Client\CotiLayerMask.cs" />
     <Compile Include="..\Coti.Client\CotiPublishReport.cs" Link="Client\CotiPublishReport.cs" />
     <Compile Include="..\Coti.Client\CotiMaskNudge.cs" Link="Client\CotiMaskNudge.cs" />
+    <Compile Include="..\Coti.Client\CotiAttachCache.cs" Link="Client\CotiAttachCache.cs" />
   </ItemGroup>
 </Project>

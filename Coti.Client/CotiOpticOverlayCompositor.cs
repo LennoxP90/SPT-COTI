@@ -36,6 +36,16 @@ namespace Coti.Client
     /// </summary>
     private static Material _material;
 
+    private static Texture _setMainTex;
+    private static Texture _setMaskTex;
+    private static float _setCircleGlow = float.NaN;
+    private static float _setThreshold = float.NaN;
+    private static float _setOutlineMix = float.NaN;
+    private static float _setOutlineWidth = float.NaN;
+    private static float _setIntensity = float.NaN;
+    private static Color? _setHotColour;
+    private static Color? _setCoolColour;
+
     private static bool _broken;
     private static bool _loggedAttached;
 
@@ -141,40 +151,93 @@ namespace Coti.Client
       // From the bundle material, never from the shader: a material built from a shader whose
       // programs were stripped renders nothing while reporting isSupported=true.
       _material = new Material( shared ) { name = "CotiMagnifiedOverlay" };
+      ForgetMaterialValues();
       return true;
     }
 
+    /// <summary>
+    /// Pushes the magnified overlay's inputs onto its own material, writing only what changed.
+    ///
+    /// Same reasoning as the 1x compositor: these are native setters, and only the intensity moves
+    /// frame to frame.
+    /// </summary>
     private static void ApplyMaterialValues()
     {
       var image = Plugin.Config.Image;
 
-      _material.SetTexture( MainTexId, CotiOpticThermalCamera.Output );
+      SetTextureIfChanged( MainTexId, CotiOpticThermalCamera.Output, ref _setMainTex );
 
       // No circle mask: inside the lens the whole picture is the sensor's view, and the lens is
       // already a circle the game draws. White passes the shader's multiply through.
-      _material.SetTexture( MaskTexId, Texture2D.whiteTexture );
+      SetTextureIfChanged( MaskTexId, Texture2D.whiteTexture, ref _setMaskTex );
 
       // Same reason: the disc marks where the sensor points inside the tube image, and with the
       // mask open it would just lift the whole scope picture by a constant.
-      _material.SetFloat( CircleGlowId, 0f );
+      SetFloatIfChanged( CircleGlowId, 0f, ref _setCircleGlow );
 
-      _material.SetFloat( ThresholdId, Mathf.Clamp01( image.HeatThreshold ) );
-      _material.SetFloat( OutlineMixId, Mathf.Clamp01( image.OutlineMix ) );
-      _material.SetFloat( OutlineWidthId, CotiOverlayScale.OutlineWidth(
+      SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
+      SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
+      SetFloatIfChanged( OutlineWidthId, CotiOverlayScale.OutlineWidth(
           Mathf.Max( 0.5f, image.OutlineWidth ),
-          CotiOpticThermalCamera.Output == null ? 0 : CotiOpticThermalCamera.Output.height ) );
+          CotiOpticThermalCamera.Output == null ? 0 : CotiOpticThermalCamera.Output.height ),
+          ref _setOutlineWidth );
 
       // Phosphor and switching fade from the 1x path: the magnified image sits inside the same
       // tube, so a different tint would read as two instruments.
-      _material.SetColor( HotColourId, CotiOverlayCompositor.HotColour );
-      _material.SetColor( CoolColourId, CotiOverlayCompositor.CoolColour );
+      SetColorIfChanged( HotColourId, CotiOverlayCompositor.HotColour, ref _setHotColour );
+      SetColorIfChanged( CoolColourId, CotiOverlayCompositor.CoolColour, ref _setCoolColour );
+
       // Scaled down - see CotiImageConfig.MagnifiedIntensityScale. Without the circle glow beneath
       // it, the 1x value drives contours past full scale and they clip to a solid mass.
-      _material.SetFloat(
-          IntensityId,
+      SetFloatIfChanged( IntensityId,
           Mathf.Max( 0f, image.OverlayIntensity )
               * Mathf.Clamp( image.MagnifiedIntensityScale, 0.05f, 1f )
-              * CotiOverlayCompositor.PhosphorFade );
+              * CotiOverlayCompositor.PhosphorFade,
+          ref _setIntensity );
+    }
+
+    private static void SetFloatIfChanged( int id, float value, ref float last )
+    {
+      if( last == value )
+        return;
+
+      _material.SetFloat( id, value );
+      last = value;
+    }
+
+    private static void SetColorIfChanged( int id, Color value, ref Color? last )
+    {
+      if( last.HasValue && last.Value == value )
+        return;
+
+      _material.SetColor( id, value );
+      last = value;
+    }
+
+    private static void SetTextureIfChanged( int id, Texture value, ref Texture last )
+    {
+      if( ReferenceEquals( last, value ) )
+        return;
+
+      _material.SetTexture( id, value );
+      last = value;
+    }
+
+    /// <summary>
+    /// Drops what this compositor believes its material already holds. Called wherever the material
+    /// is built, since the values are the material's and not ours.
+    /// </summary>
+    private static void ForgetMaterialValues()
+    {
+      _setMainTex = null;
+      _setMaskTex = null;
+      _setCircleGlow = float.NaN;
+      _setThreshold = float.NaN;
+      _setOutlineMix = float.NaN;
+      _setOutlineWidth = float.NaN;
+      _setIntensity = float.NaN;
+      _setHotColour = null;
+      _setCoolColour = null;
     }
 
     /// <summary>

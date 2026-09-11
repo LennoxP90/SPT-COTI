@@ -27,6 +27,29 @@ namespace Coti.Client
     private static int _rtWidth;
     private static int _rtHeight;
 
+    // What Configure last wrote onto _cam and _tv. Cleared with the camera in Teardown - a fresh
+    // clone carries the prefab's values, and a cache that outlived it would leave them unwritten.
+    private static bool _mirrored;
+    private static RenderingPath _mirroredPath;
+    private static int _mirroredCullingMask;
+    private static CameraClearFlags _mirroredClearFlags;
+    private static Color _mirroredBackground;
+    private static bool _mirroredHdr;
+    private static bool _mirroredOcclusion;
+    private static float _mirroredNearClip = float.NaN;
+    private static float _mirroredFarClip = float.NaN;
+    private static float _mirroredDepth = float.NaN;
+    private static float _mirroredFov = float.NaN;
+    private static float _mirroredAspect = float.NaN;
+
+    private static bool _tuned;
+    private static int _tunedHz;
+    private static bool _tunedPixelated;
+    private static bool _tunedNoisy;
+    private static bool _tunedMotionBlurred;
+    private static float _tunedUnsharpRadius;
+    private static float _tunedUnsharpBias;
+
     /// <summary>
     /// BSG's own mask for a scope camera, before Configure narrows it.
     /// </summary>
@@ -208,40 +231,132 @@ namespace Coti.Client
       _go.transform.SetPositionAndRotation( sourceTransform.position, sourceTransform.rotation );
       _go.transform.localScale = Vector3.one;
 
-      // From MAIN, not the optic. Forward breaks the thermal image outright: ThermalVision reads
-      // G-buffer data that only exists in deferred, so a warm object renders cold.
-      _cam.renderingPath = main.renderingPath;
-
-      // Intersected with BSG's scope mask. A zero prefab mask would render nothing, so it defers.
-      _cam.cullingMask = _prefabCullingMask == 0
-          ? main.cullingMask
-          : main.cullingMask & _prefabCullingMask;
-
-      _cam.clearFlags = main.clearFlags;
-      _cam.backgroundColor = main.backgroundColor;
-      _cam.allowHDR = main.allowHDR;
-      _cam.useOcclusionCulling = main.useOcclusionCulling;
-
-      // Clip planes from the OPTIC: a near plane taken from the eye would clip the barrel out of a
-      // frame the scope renders.
-      _cam.nearClipPlane = source.nearClipPlane;
-      _cam.farClipPlane = source.farClipPlane;
-
-      // Before the optic camera, whose AfterEverything composites this - otherwise the composite
-      // takes the PREVIOUS frame's heat, which reads as lag the moment the player turns.
-      _cam.depth = source.depth - 1f;
+      MirrorSettings( main, source );
 
       EnsureRenderTexture( source, cfg );
 
       // aspect AFTER targetTexture: assigning a target recomputes aspect and would squash this.
-      _cam.fieldOfView = source.fieldOfView;
-      _cam.aspect = source.aspect;
+      if( _mirroredFov != source.fieldOfView )
+      {
+        _cam.fieldOfView = source.fieldOfView;
+        _mirroredFov = source.fieldOfView;
+      }
+
+      if( _mirroredAspect != source.aspect )
+      {
+        _cam.aspect = source.aspect;
+        _mirroredAspect = source.aspect;
+      }
 
       _tv.enabled = true;
       _tv.On = true;
 
+      ApplyTuning( cfg );
+    }
+
+    /// <summary>
+    /// Copies the settings this camera takes from the eye and from the optic, writing only what
+    /// changed - same reasoning as the 1x camera, where these were fifteen native writes a frame
+    /// for values that move about once a raid.
+    /// </summary>
+    private static void MirrorSettings( Camera main, Camera source )
+    {
+      var first = !_mirrored;
+      _mirrored = true;
+
+      // From MAIN, not the optic. Forward breaks the thermal image outright: ThermalVision reads
+      // G-buffer data that only exists in deferred, so a warm object renders cold.
+      if( first || _mirroredPath != main.renderingPath )
+      {
+        _cam.renderingPath = main.renderingPath;
+        _mirroredPath = main.renderingPath;
+      }
+
+      // Intersected with BSG's scope mask. A zero prefab mask would render nothing, so it defers.
+      if( first || _mirroredCullingMask != main.cullingMask )
+      {
+        _cam.cullingMask = _prefabCullingMask == 0
+            ? main.cullingMask
+            : main.cullingMask & _prefabCullingMask;
+        _mirroredCullingMask = main.cullingMask;
+      }
+
+      if( first || _mirroredClearFlags != main.clearFlags )
+      {
+        _cam.clearFlags = main.clearFlags;
+        _mirroredClearFlags = main.clearFlags;
+      }
+
+      if( first || _mirroredBackground != main.backgroundColor )
+      {
+        _cam.backgroundColor = main.backgroundColor;
+        _mirroredBackground = main.backgroundColor;
+      }
+
+      if( first || _mirroredHdr != main.allowHDR )
+      {
+        _cam.allowHDR = main.allowHDR;
+        _mirroredHdr = main.allowHDR;
+      }
+
+      if( first || _mirroredOcclusion != main.useOcclusionCulling )
+      {
+        _cam.useOcclusionCulling = main.useOcclusionCulling;
+        _mirroredOcclusion = main.useOcclusionCulling;
+      }
+
+      // Clip planes from the OPTIC: a near plane taken from the eye would clip the barrel out of a
+      // frame the scope renders.
+      if( first || _mirroredNearClip != source.nearClipPlane )
+      {
+        _cam.nearClipPlane = source.nearClipPlane;
+        _mirroredNearClip = source.nearClipPlane;
+      }
+
+      if( first || _mirroredFarClip != source.farClipPlane )
+      {
+        _cam.farClipPlane = source.farClipPlane;
+        _mirroredFarClip = source.farClipPlane;
+      }
+
+      // Before the optic camera, whose AfterEverything composites this - otherwise the composite
+      // takes the PREVIOUS frame's heat, which reads as lag the moment the player turns.
+      if( first || _mirroredDepth != source.depth )
+      {
+        _cam.depth = source.depth - 1f;
+        _mirroredDepth = source.depth;
+      }
+    }
+
+    /// <summary>
+    /// Refresh rate and image tuning come from config alone, so they are re-applied only when one
+    /// of those values moves.
+    /// </summary>
+    private static void ApplyTuning( CotiCameraConfig cfg )
+    {
+      var image = Plugin.Config.Image;
+
+      if( _tuned
+          && _tunedHz == cfg.Hz
+          && _tunedPixelated == image.IsPixelated
+          && _tunedNoisy == image.IsNoisy
+          && _tunedMotionBlurred == image.IsMotionBlurred
+          && _tunedUnsharpRadius == image.UnsharpRadiusBlur
+          && _tunedUnsharpBias == image.UnsharpBias )
+      {
+        return;
+      }
+
       CotiThermalRig.SetRefreshRate( _tv, cfg.Hz );
-      CotiThermalRig.ApplyImageTuning( _tv, Plugin.Config.Image );
+      CotiThermalRig.ApplyImageTuning( _tv, image );
+
+      _tuned = true;
+      _tunedHz = cfg.Hz;
+      _tunedPixelated = image.IsPixelated;
+      _tunedNoisy = image.IsNoisy;
+      _tunedMotionBlurred = image.IsMotionBlurred;
+      _tunedUnsharpRadius = image.UnsharpRadiusBlur;
+      _tunedUnsharpBias = image.UnsharpBias;
     }
 
     /// <summary>
@@ -519,6 +634,14 @@ namespace Coti.Client
       _broken = false;
       _loggedCreated = false;
       Optic = default( CotiOpticView );
+
+      _mirrored = false;
+      _mirroredNearClip = float.NaN;
+      _mirroredFarClip = float.NaN;
+      _mirroredDepth = float.NaN;
+      _mirroredFov = float.NaN;
+      _mirroredAspect = float.NaN;
+      _tuned = false;
 
       ReleaseRenderTexture();
     }
