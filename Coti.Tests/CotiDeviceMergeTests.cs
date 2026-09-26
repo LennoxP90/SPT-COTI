@@ -29,14 +29,11 @@ public class CotiDeviceMergeTests
     [Fact]
     public void ADeviceWhoseRequiredModIsAbsentLeavesItsHostsFreeForAnotherFile()
     {
-        // The requirement, stated as a consequence rather than as an implementation detail: if a
-        // device cannot be used, whatever else covers that host must be free to.
+        // If a device cannot be used, whatever else covers that host must be free to.
         //
-        // "a-gated" sorts BEFORE "z-fallback", so without gating before the host claim the gated
-        // device wins the host, the fallback is warned off as a duplicate, and the gate then drops
-        // the winner - leaving the host covered by nothing at all. That is exactly what happened
-        // in a real session: auto-discovery re-stubbed the host every restart and each reload
-        // logged "already belongs to" against a file that was never going to be used.
+        // "a-gated" sorts before "z-fallback", so without gating before the host claim the gated
+        // device would win the host, the fallback would be warned off as a duplicate, and the gate
+        // would then drop the winner, leaving the host covered by nothing.
         var r = CotiDeviceMerge.Merge(
             new[]
             {
@@ -67,7 +64,7 @@ public class CotiDeviceMergeTests
     public void WithNoLoadedModListNothingIsGated()
     {
         // Merge is called this way by the tests above and by anything that has no server context;
-        // a null list must not silently drop every device that declares a requirement.
+        // a null list must not drop every device that declares a requirement.
         var r = CotiDeviceMerge.Merge(new[] { Requiring("a.json", "chimera", "com.absent.mod", "H1") });
 
         Assert.Single(r.Devices);
@@ -84,12 +81,11 @@ public class CotiDeviceMergeTests
     [Fact]
     public void AMeasuredPoseBeatsAnAutoDiscoveredStubWhateverTheFileNames()
     {
-        // The scenario this exists for: a player runs with a host mod but no addon, so
-        // auto-discovery writes a seeded stub to the folder ROOT. They install the addon later,
-        // which lives in a SUBFOLDER. Both files then claim the host.
+        // A player runs with a host mod but no addon, so auto-discovery writes a seeded stub to the
+        // folder root. The addon, installed later, lives in a subfolder. Both files claim the host.
         //
-        // Sorted by path, "nvg_dtnvg.json" comes before "wtt-cag/dtnvs.json" - so ordering by path
-        // alone handed the host to the stub and the measured pose was silently ignored.
+        // Sorted by path, "nvg_dtnvg.json" comes before "wtt-cag/dtnvs.json", so ordering by path
+        // alone would hand the host to the stub and ignore the measured pose.
         var r = CotiDeviceMerge.Merge(new[]
         {
             Untuned("nvg_dtnvg.json", "nvg_dtnvg", "H1"),
@@ -105,7 +101,7 @@ public class CotiDeviceMergeTests
     public void TheSupersededStubIsANoteNotAWarning()
     {
         // Installing an addon over a stub is the intended workflow, so it must not look like a
-        // fault - but it is worth saying, because the stub is now dead weight.
+        // fault, but it is reported because the stub is now unused.
         var r = CotiDeviceMerge.Merge(new[]
         {
             Untuned("nvg_dtnvg.json", "nvg_dtnvg", "H1"),
@@ -157,9 +153,9 @@ public class CotiDeviceMergeTests
     [Fact]
     public void DuplicateDeviceNameKeepsTheFirstSortedPathAndWarns()
     {
-        // Sorted by path, so "a.json" wins over "z.json" deterministically. Order of the
-        // INPUT must not decide the outcome, which is what makes this reproducible across
-        // filesystems that enumerate differently.
+        // Sorted by path, so "a.json" wins over "z.json" deterministically. Input order must not
+        // decide the outcome, so results are reproducible across filesystems that enumerate
+        // differently.
         var r = CotiDeviceMerge.Merge(new[] { File("z.json", "pvs14", "222"), File("a.json", "pvs14", "111") });
 
         Assert.Single(r.Devices);
@@ -170,8 +166,8 @@ public class CotiDeviceMergeTests
     [Fact]
     public void DuplicateHostIdAcrossDevicesDropsTheLoserAndWarns()
     {
-        // One id cannot have two poses. The whole losing FILE is dropped, not just the
-        // clashing entry, because a file claiming someone else's host is not trustworthy.
+        // One id cannot have two poses. The whole losing file is dropped along with the clashing
+        // entry, because a file claiming another file's host is not trustworthy.
         var r = CotiDeviceMerge.Merge(new[] { File("a.json", "pvs14", "111"), File("b.json", "clone", "111") });
 
         Assert.Single(r.Devices);
@@ -218,8 +214,8 @@ public class CotiDeviceMergeTests
     {
         // An explicit "hosts": null in a hand-edited file overwrites the property
         // initialiser, so the guard cannot rely on construction. Merge throwing here would
-        // take down the whole table over one bad file, which is exactly what the
-        // skips-itself-only contract forbids.
+        // take down the whole table over one bad file, which the skips-itself-only contract
+        // forbids.
         var f = File("nullhosts.json", "broken", "111");
         f.Device!.Hosts = null!;
 
@@ -233,9 +229,9 @@ public class CotiDeviceMergeTests
     public void AnEmptyHostsListSkipsTheFileToo()
     {
         // Empty is as useless as null: nothing can mount the device, and it would otherwise
-        // vanish silently at resolve time with no line naming the file. It is also what a
-        // published "hosts": null or "hosts": [null] now arrives as, since the DTO substitutes
-        // rather than throwing on the ungated publish route.
+        // vanish at resolve time with no line naming the file. It is also what a published
+        // "hosts": null or "hosts": [null] arrives as, since the DTO substitutes rather than
+        // throwing on the ungated publish route.
         var f = File("nohosts.json", "broken", "111");
         f.Device!.Hosts.Clear();
 
@@ -250,7 +246,7 @@ public class CotiDeviceMergeTests
     {
         // A hand-edited "hosts": [null, {...}] deserialises to a list containing a null entry.
         // Both the clash scan and the registration loop walk Hosts, so a null entry must not
-        // throw in either one - the entry is skipped, not the whole file.
+        // throw in either one. The entry is skipped and the rest of the file kept.
         var f = File("nullentry.json", "pvs14", "111");
         f.Device!.Hosts.Add(null!);
 
@@ -264,7 +260,7 @@ public class CotiDeviceMergeTests
     [Fact]
     public void SlotNameMatchesTheTransformTheClientCreates()
     {
-        // Pins the literal rather than the constant, so a rename of the constant cannot silently
+        // Pins the literal rather than the constant, so a change to the constant cannot quietly
         // change what the client and server agree the slot is called.
         Assert.Equal("mod_coti", CotiIds.ModSlotName);
     }

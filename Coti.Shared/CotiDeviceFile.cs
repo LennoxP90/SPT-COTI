@@ -3,13 +3,13 @@ using System.Collections.Generic;
 namespace Coti.Shared
 {
   /// <summary>
-  /// One physical night vision device. SCHEMA 1 IS PERMANENT: SPT 4.0's 2.0.0 is the last
-  /// release of that line, so a 4.0 addon can never be re-issued against a newer shape.
-  /// Fields may be ADDED; none may be removed or repurposed.
+  /// One physical night vision device. Schema 1 is permanent: the SPT 4.0 line receives no
+  /// further releases, so a 4.0 addon can never be re-issued against a newer shape.
+  /// Fields may be added; none may be removed or repurposed.
   ///
-  /// No serializer attributes here deliberately - Coti.Shared must reference neither
-  /// System.Text.Json nor Newtonsoft. Each half owns its own attributed DTO and maps across,
-  /// and CotiWireContractTests pins the two together.
+  /// No serializer attributes: Coti.Shared must reference neither System.Text.Json nor
+  /// Newtonsoft. Each half owns its own attributed DTO and maps across, and
+  /// CotiWireContractTests pins the two together.
   /// </summary>
   public class CotiDeviceFile
   {
@@ -35,8 +35,8 @@ namespace Coti.Shared
     public string? Id { get; set; }
 
     /// <summary>
-    /// Prefab path, the fallback identity. The pose is a function of the MESH, not of the id,
-    /// so this survives a host mod renumbering its items.
+    /// Prefab path, the fallback identity. The pose depends on the mesh rather than the id, so
+    /// this survives a host mod renumbering its items.
     /// </summary>
     public string? Prefab { get; set; }
 

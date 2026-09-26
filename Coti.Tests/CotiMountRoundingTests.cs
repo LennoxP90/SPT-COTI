@@ -4,7 +4,7 @@ using Xunit;
 
 public class CotiMountRoundingTests
 {
-    // The exact values a real publish produced, before rounding existed.
+    // Unrounded values of the kind a publish produces.
     private static CotiMountBlock Published() => new CotiMountBlock
     {
         AnchorBone = "axis_2",
@@ -28,8 +28,8 @@ public class CotiMountRoundingTests
     [Fact]
     public void APositionKeepsATenthOfAMillimetre()
     {
-        // The requirement, not the constant: the editor's finest position step is 0.4 mm, so
-        // rounding must not be able to discard a nudge the editor can make.
+        // The editor's finest position step is 0.4 mm, so rounding must not discard a nudge the
+        // editor can make.
         var mount = new CotiMountBlock { PositionX = 0.0001f, Scale = 1f };
 
         Assert.Equal(0.0001f, CotiMountRounding.Round(mount).PositionX, 6);
@@ -46,8 +46,8 @@ public class CotiMountRoundingTests
     [Fact]
     public void RoundingIsIdempotent()
     {
-        // Publish, publish again, and the file must not drift - PublishMask sends back a mount the
-        // server already rounded, so a second pass has to be a no-op.
+        // PublishMask sends back a mount the server already rounded, so a second pass must be a
+        // no-op.
         var once = CotiMountRounding.Round(Published());
         var twice = CotiMountRounding.Round(once);
 
@@ -78,8 +78,7 @@ public class CotiMountRoundingTests
     [Fact]
     public void ANullMountIsRejectedRatherThanReturningAnEmptyPose()
     {
-        // Silently returning a zeroed block would publish a device mounted at its host's origin,
-        // which looks like a bad pose rather than a bug.
+        // A zeroed block would publish a device mounted at its host's origin.
         Assert.Throws<ArgumentNullException>(() => CotiMountRounding.Round(null!));
     }
 }

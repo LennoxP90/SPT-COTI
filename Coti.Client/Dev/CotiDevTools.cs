@@ -13,11 +13,9 @@ namespace Coti.Client.Dev
   /// Dev-only diagnostics for adding support for a new night vision device: measure its geometry
   /// and report what EFT does to the model on attach and what the optic/camera pipeline is doing.
   ///
-  /// The pose editor itself - tuning deltas, the config-changed reset, the keyboard shortcut and
-  /// the on-screen panel - was extracted to release in <see cref="CotiPoseTuner"/> and
-  /// <see cref="CotiTunerPanel"/>; it is a first-class feature reached from the inspect window's
-  /// COTI Pose button, not a debug tool that needs arming. What is left here is genuinely dev-only:
-  /// camera and lens probes with no player-facing use.
+  /// The pose editor lives in <see cref="CotiPoseTuner"/> and <see cref="CotiTunerPanel"/>, reached
+  /// from the inspect window's COTI Pose button. This class holds only dev-only camera and lens
+  /// probes with no player-facing use.
   ///
   /// Entry points are [Conditional] on COTI_DEV, defined for Debug only, so Release drops the calls
   /// rather than testing a flag every frame.
@@ -25,13 +23,11 @@ namespace Coti.Client.Dev
   public static class CotiDevTools
   {
     /// <summary>
-    /// Dumps every active camera on demand, so the optic pipeline can be read from a raid rather
-    /// than guessed at. Press once while not aiming and once while looking through a scope: the
-    /// difference identifies the optic camera, its field of view, and whether it renders into a
-    /// texture drawn onto a lens (picture in picture) or straight to the screen.
+    /// Dumps every active camera on demand. Press once while not aiming and once while looking
+    /// through a scope: the difference identifies the optic camera, its field of view, and whether
+    /// it renders into a texture drawn onto a lens (picture in picture) or straight to the screen.
     ///
-    /// On a key rather than per frame deliberately. A previous verbose session produced a 104 MB
-    /// log; two deliberate dumps are worth more than ten thousand frames of it.
+    /// Bound to a key rather than run per frame to keep the log small.
     /// </summary>
     [Conditional( "COTI_DEV" )]
     public static void TickCameraProbe()
@@ -63,9 +59,8 @@ namespace Coti.Client.Dev
             $" isMain={ReferenceEquals( cam, Camera.main )}" );
       }
 
-      // Who DRAWS the optic texture onto the lens. The overlay was measured painting straight over
-      // the lens, so a magnified thermal stays invisible until it can be masked out of exactly that
-      // shape, and this is the only thing that knows what the shape is.
+      // Which renderer draws the optic texture onto the lens. The overlay paints over the lens, so
+      // a magnified thermal needs that exact shape masked out, and this reports the shape.
       ReportLensRenderers( report );
 
       ReportOpticAlignment( report );
@@ -94,15 +89,15 @@ namespace Coti.Client.Dev
     }
 
     /// <summary>
-    /// Re-fetches the host table, which is the only way to reach CotiSlotPatcher deliberately.
+    /// Re-fetches the host table, which is the only way to exercise CotiSlotPatcher on demand.
     ///
     /// The patcher runs when the client's item templates lack a slot the server has, and the client
-    /// fetches /client/items once at login - so that gap only opens if the server gains a slot
-    /// mid-session. Nothing in the UI can produce it: a publish comes from a host whose slot the
-    /// client already has. Re-fetching applies the server's current table with patchSlots on, which
-    /// is exactly what a client that had been running through someone else's publish would do.
+    /// fetches /client/items once at login, so that gap only opens if the server gains a slot
+    /// mid-session. Nothing in the UI can produce it, since a publish comes from a host whose slot
+    /// the client already has. Re-fetching applies the server's current table with patchSlots on,
+    /// as a client running through another player's publish would.
     ///
-    /// Watch for "template(s) patched" in the log: a non-zero count is the patcher working.
+    /// A non-zero "template(s) patched" count in the log shows the patcher working.
     /// </summary>
     private static void TickRefetchKey()
     {
@@ -114,8 +109,8 @@ namespace Coti.Client.Dev
     }
 
     /// <summary>
-    /// Steps the sensor resolution, for the same reason - the comparison is between resolutions on
-    /// one unchanged view. Writes config directly; an F12 change overwrites it, which is correct.
+    /// Steps the sensor resolution on a key, so resolutions can be compared on one unchanged view.
+    /// Writes config directly; a later F12 change overwrites it.
     /// </summary>
     private static void TickResolutionKey()
     {
@@ -133,7 +128,7 @@ namespace Coti.Client.Dev
     }
 
     /// <summary>
-    /// Whether the magnified path lined UP, not just whether it ran. A mismatch in field of view or
+    /// Whether the magnified path lines up, as well as whether it ran. A mismatch in field of view or
     /// transform is invisible in the camera list, where both cameras look equally healthy.
     /// </summary>
     private static void ReportOpticAlignment( StringBuilder report )
@@ -162,8 +157,7 @@ namespace Coti.Client.Dev
           $"\n      magnifying={CotiOpticThermalCamera.Magnifying}" +
           $" output={( output == null ? "(none)" : output.width + "x" + output.height )}" );
 
-      // The optic camera's own transform, so a silent failure to copy it shows up here rather than
-      // being reported as matched on the strength of Configure having been called.
+      // The optic camera's own transform, so a silent failure to copy it shows up here.
       var theirs = optic.Camera.transform;
       report.Append( $"\n      optic at pos={theirs.position} rot={theirs.rotation.eulerAngles}" );
 
@@ -173,8 +167,7 @@ namespace Coti.Client.Dev
     /// Finds every renderer whose material samples an optic render target, and reports where it
     /// lands on screen. That is the candidate mask for keeping the 1x overlay off the lens.
     ///
-    /// Searched by TEXTURE rather than by name or shader: the thing being looked for is defined by
-    /// what it draws, which survives a rename.
+    /// Searched by texture rather than by name or shader, since what it draws survives a rename.
     /// </summary>
     private static void ReportLensRenderers( StringBuilder report )
     {
@@ -182,10 +175,8 @@ namespace Coti.Client.Dev
       var found = 0;
       var blocks = 0;
 
-      // Deliberately unfiltered. The narrow version looked for a texture named like an optic target
-      // on four guessed property names and found nothing, which could equally have meant the wrong
-      // property name, a per-instance binding, or no renderer at all. This reports every render
-      // texture reachable from any renderer, so the answer is read rather than guessed.
+      // Unfiltered: reports every render texture reachable from any renderer, since a narrow search
+      // cannot tell a wrong property name from a per-instance binding or no renderer at all.
       foreach( var renderer in UnityEngine.Object.FindObjectsOfType<Renderer>() )
       {
         if( renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy )
@@ -194,9 +185,8 @@ namespace Coti.Client.Dev
         if( renderer.HasPropertyBlock() )
           blocks++;
 
-        // Per-instance bindings first. The two searches before this found nothing on the shared
-        // materials while 1039 renderers carried a property block, which is where a per-frame
-        // texture assignment hides.
+        // Per-instance bindings first: a per-frame texture assignment lives in a property block
+        // rather than on the shared material.
         if( renderer.HasPropertyBlock() )
         {
           renderer.GetPropertyBlock( _probeBlock );
@@ -314,9 +304,9 @@ namespace Coti.Client.Dev
     ///     if (placer != null) { ...use placer's position/rotation/scale... }
     ///     else                { localPosition = zero; localRotation = Euler(90, 0, 0); scale = one; }
     ///
-    /// Our prefab carries no ModPlacer, so it always takes the second branch and is turned 90 degrees
-    /// about X no matter what the bone says. That is not a bug to fix - it is a constant the mount
-    /// rotation has to be expressed relative to, and knowing it beats trial and error.
+    /// The COTI prefab carries no ModPlacer, so it always takes the second branch and is turned 90
+    /// degrees about X regardless of the bone. The mount rotation is expressed relative to that
+    /// constant.
     /// </summary>
     [Conditional( "COTI_DEV" )]
     public static void ReportAttach( GameObject itemView, Transform bone )
@@ -346,7 +336,7 @@ namespace Coti.Client.Dev
 
         var size = bounds.size * 1000f;
 
-        // Relative to the HOST, not the bone: the bone is what we are trying to place, so
+        // Relative to the host rather than the bone: the bone is what is being placed, so
         // measuring against it would be circular.
         var host = bone.root;
         var centre = host.InverseTransformPoint( bounds.center ) * 1000f;
@@ -375,10 +365,8 @@ namespace Coti.Client.Dev
 
       _loggedCullingMasks = true;
 
-      // CotiTunerPreview.DescribeCullingMask, not a private copy here: that method has to compile
-      // in Release (it is the primary in-raid check for the preview camera's own mask), so it is
-      // the one copy of this layer-name walk that always exists - keeping a second one here would
-      // be two independently-evolving implementations of the same loop.
+      // Reuses CotiTunerPreview.DescribeCullingMask, which compiles in Release as the in-raid check
+      // for the preview camera's mask, so there is one copy of this layer-name walk.
       Plugin.Log.LogInfo( $"[COTI] culling mask prefab {prefabMask:X8} [{CotiTunerPreview.DescribeCullingMask( prefabMask )}]" );
       Plugin.Log.LogInfo( $"[COTI] culling mask main   {mainMask:X8} [{CotiTunerPreview.DescribeCullingMask( mainMask )}]" );
       Plugin.Log.LogInfo( $"[COTI] dropped by intersecting [{CotiTunerPreview.DescribeCullingMask( mainMask & ~prefabMask )}]" );

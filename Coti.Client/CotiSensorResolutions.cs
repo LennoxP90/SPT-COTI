@@ -21,7 +21,7 @@ namespace Coti.Client
 
     /// <summary>
     /// The next resolution up, wrapping at the top. A value not on the list snaps to the nearest one
-    /// above it, since config can hold anything and a key that refuses to move is worse.
+    /// above it, since config can hold anything and the key must always move.
     /// </summary>
     public static int Next( int current )
     {

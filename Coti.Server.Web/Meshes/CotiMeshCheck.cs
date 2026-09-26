@@ -8,8 +8,8 @@ namespace Coti.Server.Web.Meshes;
 /// the geometry the reader found. A half that lands anywhere but where the source sat draws in
 /// the wrong place, and reads as a broken model rather than a broken export.
 ///
-/// Comparing vertices does not catch it: the export was a quarter turn out for a while with
-/// every vertex correct, because the node transform was missing.
+/// Comparing vertices alone does not catch it: a missing node transform leaves every vertex
+/// correct and the mesh a quarter turn out.
 /// </summary>
 internal static class CotiMeshCheck
 {

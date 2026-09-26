@@ -8,9 +8,8 @@ namespace Coti.Client
   /// Composites the magnified thermal into the optic camera's own render target, which the game
   /// draws onto the lens as weapon geometry.
   ///
-  /// Writing into the target means the scope's position, size and angle stay the game's problem.
-  /// Every alternative had to locate the lens on screen, which cannot be done: the texture it
-  /// displays is published with <c>Shader.SetGlobalTexture</c>, on no material and no property block.
+  /// Writing into the target leaves the scope's position, size and angle to the game. The lens
+  /// cannot be located on screen: the texture it displays is published with <c>Shader.SetGlobalTexture</c>, on no material and no property block.
   /// </summary>
   internal static class CotiOpticOverlayCompositor
   {
@@ -31,7 +30,7 @@ namespace Coti.Client
     private static RenderTexture _builtThermal;
 
     /// <summary>
-    /// Our own copy, not the shared material. A command buffer reads the material's properties at
+    /// A private copy of the shared material. A command buffer reads the material's properties at
     /// render time, so two buffers sharing one would each draw with whatever the other set last.
     /// </summary>
     private static Material _material;
@@ -50,9 +49,9 @@ namespace Coti.Client
     private static bool _loggedAttached;
 
     /// <summary>
-    /// Whether the composite is genuinely attached and drawing. The 1x overlay gates its lens hole
-    /// on this rather than on the camera: the two fail independently, and this one latches until the
-    /// setting is toggled, so gating on the camera left a dead circle with nothing behind it.
+    /// Whether the composite is attached and drawing. The 1x overlay gates its lens hole on this
+    /// rather than on the camera: the two fail independently, and this one latches until the
+    /// setting is toggled, so gating on the camera can leave a dead circle with nothing behind it.
     /// </summary>
     internal static bool Attached => _commandBuffer != null && _attachedTo != null && !_broken;
 
@@ -120,7 +119,7 @@ namespace Coti.Client
 
       _commandBuffer = new CommandBuffer { name = "COTI magnified overlay" };
 
-      // CameraTarget on a camera rendering to a texture IS that texture, so this lands in
+      // CameraTarget on a camera rendering to a texture is that texture, so this lands in
       // SSAAOpticCurrent without naming it. Additive blend, so the destination is only written to.
       _commandBuffer.Blit( thermal, BuiltinRenderTextureType.CameraTarget, _material );
 
@@ -148,7 +147,7 @@ namespace Coti.Client
       if( shared == null )
         return false;
 
-      // From the bundle material, never from the shader: a material built from a shader whose
+      // Built from the bundle material rather than the shader: a material built from a shader whose
       // programs were stripped renders nothing while reporting isSupported=true.
       _material = new Material( shared ) { name = "CotiMagnifiedOverlay" };
       ForgetMaterialValues();
@@ -225,7 +224,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Drops what this compositor believes its material already holds. Called wherever the material
-    /// is built, since the values are the material's and not ours.
+    /// is built, since a new material holds none of the cached values.
     /// </summary>
     private static void ForgetMaterialValues()
     {
@@ -241,7 +240,7 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Renders the magnified overlay ALONE, so its contribution can be told apart from the scope
+    /// Renders the magnified overlay alone, so its contribution can be told apart from the scope
     /// picture it is added to. The optic target carries both, and a blown-out target says nothing
     /// about which of the two blew out.
     /// </summary>
@@ -266,9 +265,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// What the magnified material is ACTUALLY set to, read back off the material rather than off
-    /// config. The two differ exactly when a value fails to reach this path, which is the case
-    /// worth catching.
+    /// What the magnified material is set to, read back off the material rather than off config,
+    /// so a value that fails to reach this path shows up as a difference.
     /// </summary>
     internal static string DescribeMaterial()
     {

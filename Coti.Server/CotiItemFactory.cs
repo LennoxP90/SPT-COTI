@@ -26,8 +26,8 @@ public class CotiItemFactory(
   private const string MountItemClassId = "55818b224bdc2dde698b456f";
 
   /// <summary>
-  /// The night-vision handbook category, not the donor's inherited Mounts one. Filing it under
-  /// Mounts is what made Peacekeeper refuse to buy it back.
+  /// The night-vision handbook category, not the donor's inherited Mounts one. Under Mounts,
+  /// Peacekeeper refuses to buy it.
   /// </summary>
   public const string HandbookParentId = "5b5f749986f774094242f199";
 
@@ -44,10 +44,8 @@ public class CotiItemFactory(
   private const int PriceRoubles = 250000;
 
   /// <summary>
-  /// Hoisted for the same reason PriceRoubles was, and it is the more dangerous case: these appear
-  /// TWICE per build, once in OverrideProperties and once in the English locale, and it is the
-  /// locale copy the player actually reads. Editing one and not the other produces an item whose
-  /// template and displayed name disagree - which looks like nothing at all went wrong.
+  /// Each appears twice per build, in OverrideProperties and in the English locale, and the
+  /// player reads the locale copy. Shared so the template and the displayed name cannot disagree.
   /// </summary>
   private const string ItemName = "AN/PAS-29B ECOTI enhanced clip-on thermal imager";
 
@@ -102,18 +100,16 @@ public class CotiItemFactory(
         Description = ItemDescription,
         Weight = 0.108,
 
-        // Explicit, not inherited. The donor is a rail mount and carries -1, which showed up
-        // on the COTI as an ergonomics penalty it had no reason to have. Set deliberately to
-        // 0 - if the device should cost handling, that is a balance decision to make on
-        // purpose rather than a leftover of which item happened to be cloned.
+        // Explicit rather than inherited: the donor rail mount carries -1, and any handling cost
+        // on the COTI is a balance decision, not a leftover of the donor.
         Ergonomics = 0,
 
-        // The donor is RaidModdable false / ToolModdable true, so the clip-on inherited "needs
-        // a multitool and cannot come off in raid". A clip-on is meant to come on and off.
+        // The donor is RaidModdable false / ToolModdable true, which would mean "needs a
+        // multitool and cannot come off in raid". A clip-on comes on and off freely.
         RaidModdable = true,
         ToolModdable = false,
 
-        // The donor is a common rail mount, and its rarity, XP and handling sound came with it.
+        // Overrides the common rail mount donor's rarity, XP and handling sound.
         RarityPvE = "Superrare",
         ExamineExperience = 10,
         LootExperience = 15,
@@ -149,7 +145,7 @@ public class CotiItemFactory(
     {
       // The slot filter, the assort and the loot entries all point at this id.
       logger.Error(
-          $"[COTI] Item {CotiTplId} was NOT created: {string.Join( "; ", result.Errors ?? [] )}. " +
+          $"[COTI] Item {CotiTplId} could not be created: {string.Join( "; ", result.Errors ?? [] )}. " +
           "The slot, trader offer and loot entries that follow will reference a missing template." );
 
       return Task.CompletedTask;

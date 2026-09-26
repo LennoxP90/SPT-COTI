@@ -27,7 +27,7 @@ namespace Coti.Client
     /// </summary>
     /// <summary>
     /// True while the bind's modifiers are held and nothing else is - the same test as
-    /// KeyboardShortcut.IsDown. A looser one here suppresses the goggles on presses that never fire
+    /// KeyboardShortcut.IsDown. A looser test would suppress the goggles on presses that never fire
     /// the toggle, swallowing the key.
     /// </summary>
     internal static bool ModifierHeld
@@ -70,7 +70,7 @@ namespace Coti.Client
 
     internal static void Tick()
     {
-      // IsDown also requires that no OTHER modifier is held, so the bind cannot fire as a side effect
+      // IsDown also requires that no other modifier is held, so the bind cannot fire as a side effect
       // of a larger combination that happens to contain it.
       if( _shortcut == null || !_shortcut.Value.IsDown() )
         return;

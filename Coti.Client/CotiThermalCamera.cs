@@ -9,23 +9,19 @@ namespace Coti.Client
   /// <summary>
   /// The COTI's own off-screen thermal camera.
   ///
-  /// ThermalVision is a render-mode switch, not an image effect: it raises a GLOBAL shader value in
-  /// OnPreCull and lowers it in OnPostRender, so it thermalises whichever camera it sits on, for the
-  /// whole render span. On Camera.main that span is the player's view, so the effect cannot be
-  /// masked to a circle - the first implementation turned the entire screen thermal.
+  /// ThermalVision is a render-mode switch rather than an image effect: it raises a global shader
+  /// value in OnPreCull and lowers it in OnPostRender, so it thermalises whichever camera it sits on
+  /// for the whole render span. On Camera.main that would turn the entire screen thermal and could
+  /// not be masked to a circle.
   ///
-  /// A second camera rendering to a RenderTexture is EFT's own answer, used by its thermal scopes.
+  /// A second camera rendering to a RenderTexture is EFT's own approach, used by its thermal scopes.
   /// Once thermal is a texture it is an ordinary post-process input - see
   /// <see cref="CotiOverlayCompositor"/>. The main camera is never touched here.
   /// </summary>
   internal static class CotiThermalCamera
   {
-    // A 500m far clip on this camera was tried as a way to cut culling and submit cost, on the
-    // theory that a 640x480 sensor at 1x resolves nothing past a few hundred metres. The only
-    // test raid was Factory, where nothing is beyond 500m, so no effect - good or bad - could
-    // actually be measured, and shipping it unmeasured risks silently hiding real heat sources
-    // past that range. Only bring it back if a large map such as Woods or Lighthouse shows it
-    // actually helps.
+    // The far clip matches the main camera. A shorter clip would cut culling cost but could hide
+    // real heat sources at range on large maps.
 
     private static GameObject _go;
     private static Camera _cam;
@@ -61,7 +57,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Latches on failure so the camera stays down and logs once, rather than throwing every
-    /// frame - a per-frame NRE elsewhere in this game leaked 72GB. Cleared by Teardown.
+    /// frame, since a per-frame exception leaks memory quickly. Cleared by Teardown.
     /// </summary>
     private static bool _broken;
 
@@ -81,7 +77,7 @@ namespace Coti.Client
     internal static RenderTexture Output => _rt;
 
     /// <summary>
-    /// Whether a ThermalVision is our camera's own. Patches of SetMaterialProperties must ask, since
+    /// Whether a ThermalVision belongs to this camera. Patches of SetMaterialProperties must ask, since
     /// it runs for every instance in the game.
     /// </summary>
     internal static bool Owns( ThermalVision candidate )
@@ -110,9 +106,9 @@ namespace Coti.Client
         return;
       }
 
-      // Idle FIRST - see the same guard on CotiOpticThermalCamera. MarkBroken is reachable after
-      // the object has been activated, and a bare return leaves it rendering a scene pass that
-      // HasOutput then refuses to let anyone read.
+      // Idle before returning, as CotiOpticThermalCamera does. MarkBroken is reachable after the
+      // object has been activated, and a bare return would leave it rendering a scene pass that
+      // HasOutput refuses to let anyone read.
       if( _broken )
       {
         Idle();
@@ -121,8 +117,8 @@ namespace Coti.Client
 
       try
       {
-        // Idled, not destroyed: rebuilding it on every NVG toggle costs far more than leaving it
-        // asleep, but leaving it awake draws a whole extra scene pass nothing reads.
+        // Idled rather than destroyed: rebuilding it on every NVG toggle costs far more than
+        // leaving it asleep, and leaving it awake draws an extra scene pass nothing reads.
         if( !CotiState.Active )
         {
           Idle();
@@ -164,8 +160,8 @@ namespace Coti.Client
         return false;
       }
 
-      // Comes back INACTIVE and stripped. Everything below configures a dead object; it is only
-      // activated once a render target is proven bound. See ActivateIfReady.
+      // Comes back inactive and stripped. Everything below configures an inactive object; it is
+      // activated only once a render target is bound. See ActivateIfReady.
       _go = CotiThermalRig.Clone( prefab, "CotiThermalCamera" );
 
       _cam = _go.GetComponent<Camera>();
@@ -173,8 +169,8 @@ namespace Coti.Client
 
       if( _cam == null || _tv == null )
       {
-        // Teardown BEFORE MarkBroken: Teardown clears the latch, so marking first leaves it false
-        // and retries this whole load-strip-destroy cycle every frame.
+        // Teardown before MarkBroken: Teardown clears the latch, so marking first would leave it
+        // false and retry this load-strip-destroy cycle every frame.
         Teardown();
         MarkBroken( $"\"{CotiThermalRig.PrefabName}\" clone has camera={_cam != null} thermalVision={_tv != null}", null );
         return false;
@@ -189,10 +185,9 @@ namespace Coti.Client
       _cam.enabled = true;
       _tv.On = true;
 
-      // NO prewarm render here, and no SetActive(true). Both were here before and the prewarm
-      // was the clearest instance of the backbuffer defect: it ran before Configure had ever
-      // assigned targetTexture, so it rendered a full-screen thermal frame by construction.
-      // Activation and prewarm now happen in ActivateIfReady, after a target is bound.
+      // No prewarm render and no SetActive(true) here: before Configure assigns targetTexture, a
+      // render would go to the backbuffer as a full-screen thermal frame. Activation and prewarm
+      // happen in ActivateIfReady, after a target is bound.
       if( !_loggedCreated )
       {
         _loggedCreated = true;
@@ -206,8 +201,8 @@ namespace Coti.Client
 
     /// <summary>
     /// Activates the camera only once its render target is proven bound. An unbound target means
-    /// render-to-backbuffer, i.e. the player's whole screen replaced by a thermal view - so the
-    /// camera must never be renderable in that state. False leaves it inactive and harmless.
+    /// render-to-backbuffer, which replaces the player's whole screen with a thermal view, so the
+    /// camera is never renderable in that state. False leaves it inactive.
     /// </summary>
     private static void Idle()
     {
@@ -232,8 +227,8 @@ namespace Coti.Client
         _go.SetActive( true );
 
         // BSG's own IE_PreWarm renders one frame immediately then deactivates, to move the
-        // first-use cost off the frame where the player raises the device. Same idea, but
-        // strictly after the target is bound.
+        // first-use cost off the frame where the player raises the device. This does the same,
+        // after the target is bound.
         try
         {
           _cam.Render();
@@ -244,9 +239,8 @@ namespace Coti.Client
           return false;
         }
 
-        // Every goggle toggle reaches here, so this is gated. Ungated it filled a normal play
-        // session's log with render-target diagnostics nobody had asked for, which is how a log
-        // stops being worth reading when something does go wrong.
+        // Every goggle toggle reaches here, so this is gated behind verbose logging to keep the
+        // log readable.
         if( Plugin.Config != null && Plugin.Config.VerboseLogging )
         {
           Plugin.Log.LogInfo(
@@ -263,9 +257,9 @@ namespace Coti.Client
     /// <summary>
     /// Locks the thermal camera to the player's eye and matches the main camera's projection.
     ///
-    /// Matching is load-bearing for alignment: the thermal target is blitted over the screen 1:1, so
-    /// a narrower frustum reads as a zoomed, misaligned overlay. The device is 1x, so matching is
-    /// also the faithful choice.
+    /// Matching is required for alignment: the thermal target is blitted over the screen 1:1, so a
+    /// narrower frustum reads as a zoomed, misaligned overlay. The device is 1x, so matching is also
+    /// faithful to it.
     /// </summary>
     private static void Configure( Camera main, CotiCameraConfig cfg )
     {
@@ -274,7 +268,7 @@ namespace Coti.Client
 
       EnsureRenderTexture( cfg );
 
-      // aspect AFTER targetTexture: assigning a target texture recomputes aspect from that
+      // aspect after targetTexture: assigning a target texture recomputes aspect from that
       // texture's dimensions, which would undo this and squash the image.
       if( _mirroredFov != main.fieldOfView )
       {
@@ -322,13 +316,9 @@ namespace Coti.Client
       var first = !_mirrored;
       _mirrored = true;
 
-      // Tried RenderingPath.Forward here once, on the theory that a heat map thrown away after
-      // post-processing didn't need deferred's G-buffer and lighting passes. Measured in raid: it
-      // does apply (requestedPath=Forward actualPath=Forward), but it broke the thermal image.
-      // EFT's ThermalVision derives its output from rendering rather than real temperature, and it
-      // reads G-buffer data that only exists in deferred - in forward a warm object like a fire
-      // barrel renders cold, and only emissive sources such as the flames still register. Reverted
-      // to copying main's path.
+      // Copies main's rendering path. EFT's ThermalVision reads G-buffer data that only exists in
+      // deferred; in forward a warm object such as a fire barrel renders cold and only emissive
+      // sources register.
       if( first || _mirroredPath != main.renderingPath )
       {
         _cam.renderingPath = main.renderingPath;
@@ -383,10 +373,9 @@ namespace Coti.Client
         _mirroredOcclusion = main.useOcclusionCulling;
       }
 
-      // Render BEFORE the main camera. Unity orders cameras by depth, and the compositor's
-      // buffer runs on the main camera's
-      // AfterEverything - so a higher depth here would composite the PREVIOUS frame's heat.
-      // Irrelevant while parked, visible as lag the moment the player turns.
+      // Render before the main camera. Unity orders cameras by depth, and the compositor's buffer
+      // runs on the main camera's AfterEverything, so a higher depth here would composite the
+      // previous frame's heat, visible as lag when the player turns.
       if( first || _mirroredDepth != main.depth )
       {
         _cam.depth = main.depth - 1f;
@@ -426,12 +415,12 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Allocates the render target, reallocating only when the configured size actually changes -
-    /// so width/height are live-tunable without leaking a texture per poll.
+    /// Allocates the render target, reallocating only when the configured size changes, so
+    /// width/height are live-tunable without leaking a texture per poll.
     ///
-    /// Note these dimensions are the FULL-SCREEN render, not the circle: the circle receives
-    /// only the fraction of them its radius covers (at maskRadius 0.274 that is about 55% of the
-    /// height), so if the overlay looks too blocky the fix is to raise these.
+    /// These dimensions are the full-screen render. The circle receives only the fraction its
+    /// radius covers (at maskRadius 0.274, about 55% of the height), so a blocky overlay calls for
+    /// raising them.
     /// </summary>
     private static void EnsureRenderTexture( CotiCameraConfig cfg )
     {
@@ -484,10 +473,10 @@ namespace Coti.Client
         return;
       }
 
-      // The command-buffer counts are the diagnostic that would have found a disabled ThermalVision
-      // immediately. It attaches one buffer to each of BeforeForwardAlpha and AfterForwardAlpha in
-      // its Awake and fills them from OnPreCull, a message only an ENABLED component receives.
-      // Counts of 1/1 mean the chain is wired; 0/0 means Awake never ran on this camera.
+      // The command-buffer counts reveal a disabled ThermalVision. It attaches one buffer to each
+      // of BeforeForwardAlpha and AfterForwardAlpha in its Awake and fills them from OnPreCull, a
+      // message only an enabled component receives. Counts of 1/1 mean the chain is wired; 0/0
+      // means Awake never ran on this camera.
       var beforeAlpha = _cam.GetCommandBuffers( CameraEvent.BeforeForwardAlpha ).Length;
       var afterAlpha = _cam.GetCommandBuffers( CameraEvent.AfterForwardAlpha ).Length;
 
@@ -503,7 +492,7 @@ namespace Coti.Client
 
 #if COTI_DEV
     /// <summary>
-    /// Writes what the OVERLAY SHADER produces, alongside the raw thermal dump. The pair is the
+    /// Writes what the overlay shader produces, alongside the raw thermal dump. The pair is the
     /// diagnostic: raw thermal with content but overlay all black means the shader is the problem,
     /// and both having content means the shader works and the composite is not reaching the screen.
     /// </summary>
@@ -582,7 +571,7 @@ namespace Coti.Client
     /// <summary>
     /// Destroys the camera and releases its target. Called when the feature is switched off, and
     /// from Plugin.OnDestroy. Also clears <see cref="_broken"/>, so toggling the config off and
-    /// on is a genuine retry.
+    /// on retries from scratch.
     /// </summary>
     internal static void Teardown()
     {

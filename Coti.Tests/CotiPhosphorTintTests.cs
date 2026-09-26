@@ -3,8 +3,7 @@ using Xunit;
 
 public class CotiPhosphorTintTests
 {
-    // Borkel 3.0's RealisticNvgSettings defaults - the colour COTI must now be reading, and the
-    // one it was NOT reading when the report came in.
+    // Borkel 3.0's RealisticNvgSettings defaults, the colour COTI reads from the tube.
     private const float BorkelRed = 0.62f;
     private const float BorkelGreen = 0.92f;
     private const float BorkelBlue = 0.98f;
@@ -12,8 +11,8 @@ public class CotiPhosphorTintTests
     [Fact]
     public void ADimTubeAndABrightOneOfTheSameHueGiveTheSameTint()
     {
-        // The whole reason brightness is divided out: an already-dim phosphor must not also make
-        // the heat dimmer, because the overlay's intensity setting owns that.
+        // Brightness is divided out so a dim phosphor does not also dim the heat; the overlay's
+        // intensity setting owns that.
         CotiPhosphorTint.TryHue(0.31f, 0.46f, 0.49f, out var dimR, out var dimG, out var dimB);
         CotiPhosphorTint.TryHue(BorkelRed, BorkelGreen, BorkelBlue, out var r, out var g, out var b);
 
@@ -35,8 +34,8 @@ public class CotiPhosphorTintTests
     [Fact]
     public void AnUnsetColourIsRejectedRatherThanSubstituted()
     {
-        // What NightVision.Color can now hold with Borkel 3.0 installed: nothing writes it, so
-        // black is a real possibility and must leave the shader's warm-white defaults in place.
+        // With Borkel 3.0 installed nothing writes NightVision.Color, so it can be black, which
+        // leaves the shader's warm-white defaults in place.
         Assert.False(CotiPhosphorTint.TryHue(0f, 0f, 0f, out _, out _, out _));
     }
 
@@ -94,7 +93,7 @@ public class CotiPhosphorTintTests
 
 public class CotiPhosphorFadeTests
 {
-    // The configured sum measured in raid on a PVS-31A class tube.
+    // The configured sum of a PVS-31A class tube.
     private const float Configured = 1.596f;
 
     [Fact]
@@ -106,15 +105,15 @@ public class CotiPhosphorFadeTests
     [Fact]
     public void TheNegativeSwingOfTheFlashIsClampedToZero()
     {
-        // The real reason the clamp exists: EFT drives CurrentColor as 1 - 2 * value, so it swings
-        // negative through the flash. -1.628 against 1.596 is a measured frame, not a made-up one.
+        // EFT drives CurrentColor as 1 - 2 * value, so it swings negative through the flash, as in
+        // this -1.628 against 1.596 frame.
         Assert.Equal(0f, CotiPhosphorTint.Fade(-1.628f, Configured), 5);
     }
 
     [Fact]
     public void MidFlashIsProportional()
     {
-        // Another measured frame: current 0.720 of a configured 1.596.
+        // Current 0.720 of a configured 1.596.
         Assert.Equal(0.451f, CotiPhosphorTint.Fade(0.720f, Configured), 3);
     }
 
@@ -127,8 +126,8 @@ public class CotiPhosphorFadeTests
     [Fact]
     public void AnUnsetConfiguredColourLeavesTheOverlayVisible()
     {
-        // Dividing by it would hide the overlay for the rest of the raid, which is strictly worse
-        // than ignoring a fade nobody can see anyway.
+        // Dividing by it would hide the overlay for the rest of the raid; with no configured
+        // colour there is no visible fade to follow.
         Assert.Equal(1f, CotiPhosphorTint.Fade(0f, 0f), 5);
     }
 }

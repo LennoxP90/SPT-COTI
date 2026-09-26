@@ -16,7 +16,7 @@ namespace Coti.Shared
     public const int ScaleDecimals = 4;
 
     /// <summary>
-    /// Returns a NEW block. Never rounds in place: the caller may be holding the live table's own
+    /// Returns a new block rather than rounding in place: the caller may be holding the live table's own
     /// mount, and a publish must not quietly rewrite what the client is currently mounting from.
     /// </summary>
     public static CotiMountBlock Round( CotiMountBlock mount )

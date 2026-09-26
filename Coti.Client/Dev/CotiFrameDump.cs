@@ -8,7 +8,7 @@ namespace Coti.Client.Dev
   /// <summary>
   /// Writes a render texture to a PNG and reports per-channel statistics.
   ///
-  /// The channel MEANS are the point, not the picture: under a grayscale palette a real thermal
+  /// The channel means matter more than the picture: under a grayscale palette a real thermal
   /// render has neutral means and a lit one is colour-cast. Shared by both cameras so their output
   /// is comparable line for line.
   /// </summary>

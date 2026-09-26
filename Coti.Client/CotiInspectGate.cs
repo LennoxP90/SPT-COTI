@@ -3,11 +3,8 @@ using System.Collections.Generic;
 namespace Coti.Client
 {
   /// <summary>
-  /// The inspect button's whole decision, as three states rather than a bool. A bool can only
-  /// ever express two of them, and the button's real behaviour has three: no button on a
-  /// non-host, a disabled button on a host with an empty mod_coti slot, and an enabled button
-  /// once the slot is filled. The original two-valued ShouldBeInteractable modelled only the last
-  /// two, which is exactly why a non-host got a permanently-disabled button instead of none.
+  /// The inspect button's whole decision, as three states: no button on a non-host, a disabled
+  /// button on a host with an empty mod_coti slot, and an enabled button once the slot is filled.
   /// </summary>
   public enum CotiInspectGate
   {
@@ -22,9 +19,8 @@ namespace Coti.Client
   }
 
   /// <summary>
-  /// A slot reduced to an id and whether it is filled - nothing else. This is what lets
-  /// HasFilledSlot below be pure and over primitives even though the real caller only ever has
-  /// EFT.InventoryLogic.Slot objects to offer it.
+  /// A slot reduced to an id and whether it is filled, so HasFilledSlot below can be pure even
+  /// though the real caller holds EFT.InventoryLogic.Slot objects.
   /// </summary>
   public readonly struct CotiSlotSnapshot
   {
@@ -39,10 +35,9 @@ namespace Coti.Client
   }
 
   /// <summary>
-  /// Pure and over primitives on purpose, same reasoning as CotiActivation.ShouldBeActive: the
-  /// panel that actually calls this cannot be tested at all, so the decision itself has to live
-  /// somewhere a test can reach. Source-linked into Coti.Tests the same way CotiMaskResolver.cs
-  /// and CotiActivation.cs already are.
+  /// Pure and over primitives, like CotiActivation.ShouldBeActive: the panel that calls this
+  /// cannot be tested, so the decision lives where a test can reach it. Source-linked into
+  /// Coti.Tests like CotiMaskResolver.cs and CotiActivation.cs.
   /// </summary>
   public static class CotiInspectGateResolver
   {

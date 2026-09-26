@@ -10,8 +10,8 @@ namespace Coti.Client
   /// Draws the pose editor. Arithmetic lives in CotiPoseTuner and CotiDpad; this only draws.
   ///
   /// OnGUI runs several times a frame and allocates on every call, so Draw does nothing at all
-  /// unless the panel is open. Its buttons are inert in a raid because the cursor is locked -
-  /// deliberate, since the readout is still worth having with the goggles worn.
+  /// unless the panel is open. Its buttons are inert in a raid because the cursor is locked; the
+  /// readout is still useful there.
   /// </summary>
   public static class CotiTunerPanel
   {
@@ -28,7 +28,7 @@ namespace Coti.Client
     private const float MinHeight = MinPreviewSide + ChromeHeight;
     private const float GripSize = 16f;
 
-    // The preview is SQUARE and sized from the window rather than fixed, so the render fills
+    // The preview is square and sized from the window rather than fixed, so the render fills
     // whatever room the window is given. The render target is square too (see CotiTunerPreview),
     // so nothing is stretched.
     private const float MinPreviewSide = 180f;
@@ -53,10 +53,8 @@ namespace Coti.Client
     public static Rect WindowRect => _rect;
     private static Vector2 _scroll;
 
-    // Same shape as _resizing: set true on a MouseDown that started inside the viewport rect,
-    // cleared on MouseUp, and only MouseDrag events while true move the camera - so a drag that
-    // carries the mouse outside the (small) viewport rect mid-motion still keeps orbiting rather
-    // than dropping the input the instant the cursor crosses the edge.
+    // Same shape as _resizing: set on a MouseDown inside the viewport rect and cleared on MouseUp,
+    // so a drag that leaves the viewport mid-motion keeps orbiting.
     private static bool _orbiting;
 
     public static void Install( ConfigFile file )
@@ -69,13 +67,10 @@ namespace Coti.Client
           "Pose editor window position. Set by dragging the window; not meant to be hand-edited." );
       _windowWidth = file.Bind( section, "Width", 460f,
           "Pose editor window size. Set by dragging the resize grip; not meant to be hand-edited." );
-      // Clamped against the current minimum: a config file written before it was raised carries a
-      // smaller value.
       _windowHeight = file.Bind( section, "Height", MinHeight,
           "Pose editor window size. Set by dragging the resize grip; not meant to be hand-edited." );
 
-      // Clamped against the current minimum rather than trusted outright - a config file written
-      // before MinWidth was raised could still carry a narrower value.
+      // Clamped against the current minimums, since an existing config file can carry smaller values.
       _rect = new Rect(
           _windowX.Value, _windowY.Value,
           Mathf.Max( MinWidth, _windowWidth.Value ), Mathf.Max( MinHeight, _windowHeight.Value ) );
@@ -92,14 +87,11 @@ namespace Coti.Client
     private static void DrawWindow( int id )
     {
       // Read once per Draw rather than once per row: each read walks the device table and
-      // allocates a fresh CotiDeviceFile/CotiMountBlock (Bake), and this method runs several
-      // times a frame (Layout, Repaint, and once per input event) - seven rows worth of
-      // allocation collapses to one Saved and one Current.
+      // allocates (Bake), and this method runs several times a frame.
       var saved = CotiPoseTuner.Saved;
       var current = CotiPoseTuner.Current;
 
-      // Before anything is laid out: the skin's own window background is effectively transparent,
-      // so without this the inventory reads straight through the panel body.
+      // Drawn before layout: the skin's window background is effectively transparent.
       CotiGuiFill.Window( _rect.width, _rect.height, "COTI Pose" );
 
       DrawHeader( saved );
@@ -117,8 +109,7 @@ namespace Coti.Client
 
       GUILayout.Space( 8f );
 
-      // Right: every control, scrolled. This is what lets the window be shorter than the sum of
-      // its rows instead of taller than the screen it sits over.
+      // Right: every control, scrolled, so the window can be shorter than the sum of its rows.
       GUILayout.BeginVertical();
       _scroll = GUILayout.BeginScrollView( _scroll );
 
@@ -182,7 +173,6 @@ namespace Coti.Client
       if( texture != null )
       {
         // The render target is opaque and white-backed even though the camera clears to dark grey.
-        // Cosmetic, and a pale backdrop shows a dark COTI against a tan goggle better than grey did.
         GUI.DrawTexture( viewportRect, texture, ScaleMode.StretchToFill );
       }
       else
@@ -234,8 +224,8 @@ namespace Coti.Client
 
     /// <summary>
     /// The anchor bone choice: the current (pending) value with cycle buttons over every transform
-    /// name ReportHostBones found, plus the CurveRotator's own suggestion when this host has one -
-    /// offered, not forced, so a human still clicks "Use" rather than it being applied on its own.
+    /// name ReportHostBones found, plus the CurveRotator's suggestion when this host has one. The
+    /// suggestion applies only when "Use" is clicked.
     /// </summary>
     private static void DrawAnchorRow()
     {
@@ -274,12 +264,12 @@ namespace Coti.Client
     /// <summary>
     /// Snap and animate as separate rows: snap shows whether the anchor is on the moving part at
     /// all, animate catches a pose that is fine at both extremes but sweeps through the host.
-    /// Disabled with a reason when the host has no CurveRotator - that message is itself the answer
-    /// to whether the device needs a special anchor.
+    /// Disabled with a reason when the host has no CurveRotator, in which case the device needs no
+    /// special anchor.
     /// </summary>
     private static void DrawFlipTestRow()
     {
-      GUILayout.Label( "Flip test - the check that proves the anchor moves with the goggle:" );
+      GUILayout.Label( "Flip test - checks the anchor moves with the goggle:" );
 
       var reason = CotiPoseTuner.FlipUnavailableReason;
       var enabled = reason == null;
@@ -289,8 +279,7 @@ namespace Coti.Client
       GUILayout.Label( "Snap", GUILayout.Width( 60f ) );
       GUI.enabled = wasEnabled && enabled;
 
-      // Flip UP is the stowed position, so deployed: false. See FlipSnap's own note - passing
-      // "up = true" straight through reversed both buttons in game.
+      // Flip up is the stowed position, so deployed: false. See FlipSnap.
       if( GUILayout.Button( "Flip up" ) )
         CotiPoseTuner.FlipSnap( deployed: false );
       if( GUILayout.Button( "Flip down" ) )
@@ -317,13 +306,11 @@ namespace Coti.Client
 
     /// <summary>
     /// Position and rotation pads side by side, then scale, then one compact readout for all seven
-    /// values. Replaces seven full-width live/saved/delta rows: every number is still here, but
-    /// they no longer set the window's width or eat its height.
+    /// values.
     /// </summary>
     private static void DrawPads( bool fine, CotiDeviceFile saved, CotiDeviceFile current )
     {
-      // Measured, not chosen: a hardcoded 42 clipped "Pitch+" to "itch+", and any fixed number is
-      // one font or one label away from doing it again.
+      // Measured from the labels, so a font or label change cannot clip them.
       var posCell = CotiDpad.CellWidth( "X-", "X+", "Y+", "Y-", "Z-", "Z+" );
       var rotCell = CotiDpad.CellWidth( "Pitch+", "Pitch-", "Yaw-", "Yaw+", "Roll-", "Roll+" );
 
@@ -379,9 +366,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// All seven values in three lines. Each shows live, and its delta only when there is one - a
-    /// permanent "delta 0.0" column was most of what made the old rows as wide as they were.
-    /// Yellow still marks a value that differs from what the server holds.
+    /// All seven values in three lines. Each shows its live value, and its delta only when there is
+    /// one. Yellow marks a value that differs from what the server holds.
     /// </summary>
     private static void DrawReadout( CotiDeviceFile saved, CotiDeviceFile current )
     {
@@ -491,10 +477,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Written on mouse-up rather than every frame - BepInEx's ConfigFile saves to disk on every
-    /// value set, and a drag or resize fires many frames in a row. One write when the mouse comes
-    /// up (after a drag, a resize, or just a button click) is enough to survive a relaunch without
-    /// turning every drag into a stream of disk writes.
+    /// Written on mouse-up rather than every frame, because BepInEx's ConfigFile saves to disk on
+    /// every value set.
     /// </summary>
     private static void PersistRectOnRelease()
     {

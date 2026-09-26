@@ -61,8 +61,8 @@ namespace Coti.Client
     /// <summary>
     /// Renders a second thermal pass matched to a magnified optic, so heat lines up with the scope.
     ///
-    /// Off by default as a position, not caution: the COTI is an offset sensor, so a 1x thermal is
-    /// what it would really produce. Costs a second scene render while aiming.
+    /// Off by default because the COTI is an offset sensor, so a 1x thermal is what it would really
+    /// produce. Costs a second scene render while aiming.
     /// </summary>
     [JsonProperty( "magnifyWithOptic" )]
     public bool MagnifyWithOptic { get; set; }
@@ -72,7 +72,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Thermal image tuning shared by every host - see <see cref="CotiImageConfig"/>. Global rather
-    /// than per-host because the values it carries were byte-identical across every device.
+    /// than per-host because the values are the same for every device.
     /// </summary>
     [JsonProperty( "image" )]
     public CotiImageConfig Image { get; set; } = new CotiImageConfig();
@@ -145,7 +145,7 @@ namespace Coti.Client
     public float MaskCenterY { get; set; }
 
     /// <summary>
-    /// Radius as a fraction of screen HEIGHT, which is what keeps the circle round on any aspect ratio.
+    /// Radius as a fraction of screen height, which keeps the circle round on any aspect ratio.
     /// </summary>
     [JsonProperty( "maskRadius" )]
     public float MaskRadius { get; set; }
@@ -164,7 +164,7 @@ namespace Coti.Client
     public string MountAnchorBone { get; set; }
 
     /// <summary>
-    /// Offset from the anchor in METRES - x right, y up, z forward. Positions the model's origin.
+    /// Offset from the anchor in metres - x right, y up, z forward. Positions the model's origin.
     /// </summary>
     [JsonProperty( "mountPositionX" )]
     public float MountPositionX { get; set; }
@@ -177,7 +177,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Roll about the clamp ring's own axis, in degrees - the device rotating around the tube it
-    /// grips. Applied pre-multiplied in the host's frame, NOT as a fourth Euler term: the mount
+    /// grips. Applied pre-multiplied in the host's frame rather than as a fourth Euler term: the mount
     /// rotation is already a fixed-order triple and folding a roll into it would not roll about
     /// the bore.
     /// </summary>

@@ -21,8 +21,8 @@ namespace Coti.Client
   internal static class CotiTunerPreview
   {
     // Fixed size, stretched to fit whatever rect the panel draws it into, so a window drag cannot
-    // churn a render target. Square, because the viewport is square and a 1.5:1 texture stretched
-    // into it distorted the model - an aspect of 1 also keeps FramingDistance exact.
+    // churn a render target. Square, because the viewport is square and a non-square texture would
+    // distort the model; an aspect of 1 also keeps FramingDistance exact.
     private const int TextureWidth = 512;
     private const int TextureHeight = 512;
 
@@ -162,8 +162,8 @@ namespace Coti.Client
     // ---- Camera and render target lifecycle ------------------------------------------------------
 
     /// <summary>
-    /// What the camera and its target actually hold at render time. Exists because the viewport
-    /// draws white where this code sets dark grey, and two plausible explanations were both wrong.
+    /// Logs what the camera and its target hold at render time, to diagnose the viewport drawing
+    /// white where this code sets dark grey.
     /// </summary>
     private static void LogRenderStateOnce()
     {
@@ -202,7 +202,7 @@ namespace Coti.Client
       // Without a light the geometry renders as a flat black silhouette, which cannot show the COTI
       // against the host - the only thing this viewport is for.
       //
-      // It is culled to the camera's layers, and those layers hold the GAME'S inspect model, so it
+      // It is culled to the camera's layers, and those layers hold the game's inspect model, so it
       // can brighten EFT's own inspect view. Hence the config toggle.
       var lightGo = new GameObject( "CotiTunerPreviewLight" );
       lightGo.transform.SetParent( _go.transform, worldPositionStays: false );
@@ -221,8 +221,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Allocated once at a fixed size and reused for as long as the panel stays open - see the
-    /// class comment for why the size never tracks the panel's own, resizable rect.
+    /// Allocated once at a fixed size and reused for as long as the panel stays open - see
+    /// TextureWidth for why the size never tracks the panel's resizable rect.
     /// </summary>
     private static void EnsureRenderTexture()
     {
@@ -262,9 +262,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Whether a throttled retry of the mask is due - provisional, under the attempt cap, and the
-    /// retry interval has elapsed. Called every Tick, but cheap: three field reads and a time
-    /// comparison, none of it a scene walk, so checking it every frame costs nothing even though
-    /// acting on it (ResolveAndApplyMask) is rare and bounded.
+    /// retry interval has elapsed. Cheap enough to call every Tick: no scene walk.
     /// </summary>
     private static bool ShouldRetryMask()
     {
@@ -274,10 +272,9 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Resolves the mask, applies it to the cached field, and logs the result - called once from
-    /// OnHostChanged and again on each throttled retry <see cref="ShouldRetryMask"/> allows, never
-    /// per frame otherwise. GetComponentsInChildren allocates, which is exactly why this is bounded
-    /// to a host change plus a small, throttled number of retries rather than a per-frame poll.
+    /// Resolves the mask, caches it and logs the result. Called from OnHostChanged and on each
+    /// retry <see cref="ShouldRetryMask"/> allows, never per frame, because GetComponentsInChildren
+    /// allocates.
     /// </summary>
     private static void ResolveAndApplyMask( Transform root )
     {
@@ -315,9 +312,9 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// The union of every Renderer's layer under the item view root. Correct by construction: the
-    /// COTI's layer is included because its renderer is walked, not because of any assumption about
-    /// when a layer push happens relative to parenting.
+    /// The union of every Renderer's layer under the item view root. The COTI's layer is included
+    /// because its renderer is walked, so the result does not depend on when a layer push happens
+    /// relative to parenting.
     /// </summary>
     private static CullingMaskResolution ResolveCullingMask( Transform root )
     {
@@ -334,10 +331,9 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Whether the COTI's own item view has actually been parented under the mount bone yet -
-    /// see ResolveCullingMask's own comment for why this, and not a layer-count heuristic, is the
-    /// exact provisional test. CotiIds.ModSlotName is the same bone name CotiMountBonePatch creates
-    /// and CotiAttachPatch parents the COTI's item view under.
+    /// Whether the COTI's own item view has been parented under the mount bone yet, which is the
+    /// exact provisional test. CotiIds.ModSlotName is the bone CotiMountBonePatch creates and
+    /// CotiAttachPatch parents the COTI's item view under.
     /// </summary>
     private static bool CotiRenderersExist( Transform root )
     {
@@ -345,7 +341,7 @@ namespace Coti.Client
       return bone != null && bone.GetComponentInChildren<Renderer>( true ) != null;
     }
 
-    // Release, not COTI_DEV: a black viewport is the expected failure and this names the layers.
+    // Logged in release builds: a black viewport is the expected failure and this names the layers.
     private static void LogCullingMask( string hostId, int mask, bool provisional, int attempt )
     {
       var suffix = provisional
@@ -359,8 +355,7 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Internal, not private: CotiDevTools.ReportCullingMasks (COTI_DEV only) calls this rather
-    /// than keeping its own near-identical copy - see LogCullingMask's own comment.
+    /// Internal so CotiDevTools.ReportCullingMasks (COTI_DEV only) can share it.
     /// </summary>
     internal static string DescribeCullingMask( int mask )
     {
@@ -405,8 +400,7 @@ namespace Coti.Client
         _light.enabled = Plugin.Config?.TunerPreviewLight ?? true;
       }
 
-      // Re-asserted per frame in case something external resets it; the white background is not
-      // explained by anything in this file.
+      // Re-asserted per frame in case something external resets it.
       _cam.clearFlags = CameraClearFlags.SolidColor;
       _cam.backgroundColor = new Color( 0.07f, 0.07f, 0.08f, 1f );
 

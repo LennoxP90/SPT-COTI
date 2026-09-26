@@ -3,7 +3,7 @@ using EFT.InventoryLogic;
 namespace Coti.Client
 {
   /// <summary>
-  /// Whether the EQUIPPED night vision device is carrying a COTI, held across frames and refreshed
+  /// Whether the equipped night vision device is carrying a COTI, held across frames and refreshed
   /// by <see cref="Patches.CotiInventoryChangePatch"/>.
   ///
   /// Scoped to the per-frame path rather than folded into CotiSlotProbe: the pose editor probes

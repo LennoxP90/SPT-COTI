@@ -4,7 +4,7 @@ using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
 #if SPT41
-using SPTarkov.Server.Core.Models.Spt.Tables; // TradersTable - no alias needed, it IS a Dictionary<MongoId, Trader>
+using SPTarkov.Server.Core.Models.Spt.Tables; // TradersTable is a Dictionary<MongoId, Trader>, so no alias is needed
 #endif
 
 namespace Coti.Server;

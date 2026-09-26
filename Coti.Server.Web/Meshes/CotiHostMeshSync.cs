@@ -159,7 +159,7 @@ public sealed class CotiHostMeshSync(
         return FromManifest(prefab) ?? FromModFolders(prefab);
     }
 
-    /// <summary>SPT's own registry, which names the owning mod outright. Populated well before us.</summary>
+    /// <summary>SPT's own registry, which names the owning mod outright. Populated before this runs.</summary>
     private string? FromManifest(string prefab)
     {
         var info = bundleLoader.GetBundle(prefab);

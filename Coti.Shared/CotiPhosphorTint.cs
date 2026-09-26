@@ -12,15 +12,15 @@ namespace Coti.Shared
     public const float MinimumBrightness = 0.01f;
 
     /// <summary>
-    /// How far the hot end is pulled toward white. It is BRIGHTNESS that reads as heat, so a green
-    /// blob on a green image would not register as one.
+    /// How far the hot end is pulled toward white. Brightness is what reads as heat; a green blob
+    /// on a green image would not register as one.
     /// </summary>
     public const float HotWhiteMix = 0.7f;
 
     /// <summary>
     /// The phosphor's hue with brightness divided out, so a dim tube does not also dim the heat.
-    /// False when it is too dark to carry a hue - leave the shader's defaults alone, do not
-    /// substitute.
+    /// False when it is too dark to carry a hue, in which case the shader's defaults are left
+    /// alone.
     /// </summary>
     public static bool TryHue(
         float red, float green, float blue,
@@ -51,8 +51,8 @@ namespace Coti.Shared
     /// <summary>
     /// How far through its flash the tube is: current channel sum over settled channel sum.
     ///
-    /// The clamp is load-bearing. EFT drives CurrentColor as 1 - 2 * value with value running past
-    /// 0.5, so it swings NEGATIVE mid-flash - measured at -1.628 against a settled 1.596.
+    /// The clamp is required: EFT drives CurrentColor as 1 - 2 * value with value running past
+    /// 0.5, so the channel sum goes negative mid-flash.
     /// </summary>
     public static float Fade( float currentSum, float configuredSum )
     {

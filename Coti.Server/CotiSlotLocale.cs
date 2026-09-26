@@ -7,9 +7,9 @@ namespace Coti.Server;
 
 /// <summary>
 /// Names the slot, so an empty one reads "ECOTI" rather than "MOD_COTI". EFT labels a slot with
-/// Name.Localized().ToUpper(), which falls back to the raw key - and our slot is invented, so it had
-/// no entry. Registered for every installed language, since the fallback would show through on any
-/// locale we skipped.
+/// Name.Localized().ToUpper(), which falls back to the raw key, and this slot is custom so it has no
+/// entry of its own. Registered for every installed language, since the fallback would show through
+/// on any locale left out.
 /// </summary>
 [Injectable( TypePriority = CotiLoadOrder.PostLoad + 30 )]
 public class CotiSlotLocale : IOnLoad

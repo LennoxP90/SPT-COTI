@@ -6,12 +6,10 @@ namespace Coti.Server.Web;
 /// <summary>
 /// Cache key for the viewer's scripts and stylesheet.
 ///
-/// Not the mod version, which only moves at release: an edit to cotiViewer.js between releases
-/// was invisible to a browser that had already loaded the page, which went on running the old
-/// module against a new server with nothing to say so.
-///
-/// Stamping the files means the key moves when they do, including a file copied onto a live
-/// server.
+/// Derived from the files rather than the mod version, which only changes at release, so a
+/// browser that already loaded the page picks up an edited script instead of running the old
+/// module against a new server. The key changes whenever the files do, including a file copied
+/// onto a live server.
 /// </summary>
 internal static class CotiAssetStamp
 {
@@ -24,7 +22,7 @@ internal static class CotiAssetStamp
     ];
 
     /// <summary>
-    /// Read per page load, not cached: an asset copied onto a running server takes effect
+    /// Read per page load rather than cached, so an asset copied onto a running server takes effect
     /// without a restart.
     /// </summary>
     public static string Current

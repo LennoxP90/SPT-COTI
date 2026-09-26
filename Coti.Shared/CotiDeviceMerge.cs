@@ -7,8 +7,7 @@ namespace Coti.Shared
   {
     /// <summary>
     /// Path this was read from. Always set by the caller that scanned the directory, and used in
-    /// every warning message - non-nullable because a file with no path is not a case that
-    /// exists, unlike a device with no Requires or a host with no Prefab.
+    /// every warning message.
     /// </summary>
     public string Path { get; set; } = string.Empty;
     public CotiDeviceFile? Device { get; set; }
@@ -23,9 +22,9 @@ namespace Coti.Shared
     public List<string> Warnings { get; } = new List<string>();
 
     /// <summary>
-    /// The normal case, worth recording but not worth alarming anyone about - same split
-    /// CotiResolveResult already draws. A device whose optional host mod is simply not installed
-    /// belongs here: it happens on every healthy install, and a warning would make one look broken.
+    /// Expected outcomes worth recording but not warning about, the same split CotiResolveResult
+    /// draws. A device whose optional host mod is not installed belongs here: it happens on every
+    /// healthy install, and a warning would make one look broken.
     /// </summary>
     public List<string> Notes { get; } = new List<string>();
   }
@@ -34,7 +33,7 @@ namespace Coti.Shared
   /// Folds parsed device files into one table. Pure, so the precedence rules are testable -
   /// the server half only does IO and calls this.
   ///
-  /// Ordering is by PATH, not by enumeration order: two filesystems that list a directory
+  /// Ordering is by path, not by enumeration order: two filesystems that list a directory
   /// differently must produce the same table, or a duplicate resolves one way on one machine
   /// and the other way on the next.
   /// </summary>
@@ -42,8 +41,8 @@ namespace Coti.Shared
   {
     /// <param name="loadedModGuids">
     /// Loaded mod guids, or null to skip the check. A device whose <c>requires</c> is unmet is
-    /// dropped HERE, before any host is claimed - gating after the merge let it win a host and then
-    /// be discarded, leaving the host covered by nothing.
+    /// dropped here, before any host is claimed, so it cannot win a host and then be discarded,
+    /// leaving the host covered by nothing.
     /// </param>
     public static CotiMergeResult Merge( IEnumerable<CotiParsedFile> files,
         IEnumerable<string>? loadedModGuids = null )
@@ -56,8 +55,8 @@ namespace Coti.Shared
           ? null
           : new HashSet<string>( loadedModGuids, System.StringComparer.OrdinalIgnoreCase );
 
-      // Tuned first, then path. Auto-discovery writes stubs beside addon files, so path alone let an
-      // untuned stub keep a host an addon should have taken over.
+      // Tuned first, then path. Auto-discovery writes stubs beside addon files, so path alone would
+      // let an untuned stub keep a host an addon should take over.
       var ordered = files
           .OrderByDescending( f => f.Device != null && f.Device.Tuned )
           .ThenBy( f => f.Path, System.StringComparer.OrdinalIgnoreCase );
@@ -102,9 +101,9 @@ namespace Coti.Shared
         }
 
         // Empty counts as missing. A device with no host entries can never mount anything, so it
-        // is worth naming rather than accepting silently and having it vanish at resolve time -
-        // and it is what a published "hosts": null or "hosts": [null] now arrives as, since
-        // CotiDeviceDto.ToShared substitutes rather than throwing on the ungated publish route.
+        // is named here rather than vanishing at resolve time. A published "hosts": null or
+        // "hosts": [null] arrives this way, since CotiDeviceDto.ToShared substitutes rather than
+        // throwing on the ungated publish route.
         if( d.Hosts == null || d.Hosts.Count == 0 || d.Mount == null )
         {
           result.Warnings.Add(
@@ -140,8 +139,7 @@ namespace Coti.Shared
         if( clashingId != null )
         {
           // An untuned stub losing to a tuned device is the expected outcome of installing an
-          // addon over an auto-discovered guess, not something to alarm anyone about - but it is
-          // worth saying, because the stub file is now dead weight the player can delete.
+          // addon over an auto-discovered guess, so it is a note: the stub file can be deleted.
           if( !d.Tuned )
           {
             result.Notes.Add(

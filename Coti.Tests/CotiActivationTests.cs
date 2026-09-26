@@ -1,9 +1,8 @@
 using Coti.Client;
 using Xunit;
 
-// ShouldBeActive decides whether the overlay renders at all. A wrong answer here is
-// invisible at build time and shows up as "the mod does nothing" in a raid, so every
-// input combination is pinned rather than sampled.
+// ShouldBeActive decides whether the overlay renders at all, and a wrong answer is invisible at
+// build time, so every input combination is pinned.
 public class CotiActivationTests
 {
     [Theory]

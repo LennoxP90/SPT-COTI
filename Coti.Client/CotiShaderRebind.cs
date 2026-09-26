@@ -56,13 +56,13 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Every loaded shader of that name, minus ours, leaves the game's. Not Shader.Find, which
-    /// returns whichever registered first and is as likely to hand back the copy being replaced.
-    /// Not cached on failure - the game's may not be loaded yet.
+    /// Every loaded shader of that name, minus ours, leaves the game's. Shader.Find is not used
+    /// because it returns whichever registered first, which may be the copy being replaced. Not
+    /// cached on failure, since the game's may not be loaded yet.
     ///
-    /// This only holds while <paramref name="ours"/> really is the bundle's copy, which is why
-    /// callers must pass the DEVICE and never a whole item view. Sweeping a view reaches the host's
-    /// renderers, and being handed the game's shader as "ours" caches the broken copy as the fix.
+    /// This only holds while <paramref name="ours"/> is the bundle's copy, so callers pass the
+    /// device and never a whole item view. Sweeping a view reaches the host's renderers, and being
+    /// handed the game's shader as "ours" would cache the wrong copy.
     /// </summary>
     private static Shader GameShader( Shader ours )
     {

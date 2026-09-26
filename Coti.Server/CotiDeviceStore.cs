@@ -55,11 +55,10 @@ public sealed class CotiDeviceSnapshot
   public int DeclaredHostCount { get; }
 
   /// <summary>
-  /// DeclaredHostCount minus ByHostId.Count - the declared host entries that did NOT resolve
-  /// into an installed item, for whatever reason (not installed, a prefab match that came back
-  /// ambiguous, or an id another device had already claimed). This is what the pre-2.0.0 "N not
-  /// installed" summary line always counted; ByHostId itself can no longer answer it, because
-  /// CotiHostResolver only ever writes an entry into ByHostId for a host that DID resolve.
+  /// DeclaredHostCount minus ByHostId.Count - the declared host entries that did not resolve
+  /// into an installed item, for whatever reason (not installed, an ambiguous prefab match, or an
+  /// id another device had already claimed). ByHostId cannot answer this itself, because
+  /// CotiHostResolver only writes entries for hosts that resolved.
   /// </summary>
   public int UnresolvedHostCount { get; }
 }
@@ -88,9 +87,8 @@ public class CotiDeviceStore : IOnLoad
   private CotiDeviceSnapshot snapshot = CotiDeviceSnapshot.Empty;
 
   /// <summary>
-  /// Everything the last Reload() resolved, as ONE reference. Take it into a local and read that
-  /// - never call this twice in a calculation that has to agree with itself, or the two reads can
-  /// straddle a concurrent publish's Reload and put you back where the four separate fields were.
+  /// Everything the last Reload() resolved, as one reference. Take it into a local and read that;
+  /// two reads in one calculation can straddle a concurrent publish's Reload and disagree.
   /// Volatile on both sides so a reader on a weakly-ordered CPU cannot observe the reference
   /// before the object it points at is fully written.
   /// </summary>
@@ -125,7 +123,7 @@ public class CotiDeviceStore : IOnLoad
 #endif
 
   // Explicit assembly: GetJsonDataFromModFile-style helpers resolve it via GetCallingAssembly,
-  // which the JIT can change under you. CotiServerConfig.cs already does this deliberately.
+  // which JIT inlining can change. CotiServerConfig.cs does the same.
   private static string ResolveFolderPath( ModHelper modHelper )
   {
     var modFolder = modHelper.GetAbsolutePathToModFolder( typeof( CotiDeviceStore ).Assembly );
@@ -140,14 +138,14 @@ public class CotiDeviceStore : IOnLoad
 #endif
 
   /// <summary>
-  /// Re-reads the folder, merges and resolves. Safe to call again later - a TryWrite calls this
-  /// itself, and nothing stops a future "reload from disk" button doing the same.
+  /// Re-reads the folder, merges and resolves. Safe to call repeatedly; TryWrite calls it after
+  /// each write.
   /// </summary>
   public void Reload()
   {
     var parsedFiles = ReadParsedFiles();
 
-    // Built before the merge, not after, because the merge needs it: a device whose requires is
+    // Built before the merge because the merge needs it: a device whose requires is
     // unmet must be dropped before it claims a host, or the stub that could cover that host is
     // warned off as a duplicate of a file that then gets dropped anyway. See Merge's own note.
     var items = new CotiTemplateItemView( templateTable );
@@ -159,12 +157,11 @@ public class CotiDeviceStore : IOnLoad
     foreach( var warning in merged.Warnings )
       logger.Warning( $"[COTI] {warning}" );
 
-    // Info, not Debug, unlike the resolve notes below. A merge note means a device declared a
-    // "requires" guid the server has not loaded, and there are only two ways that happens: the
-    // host mod genuinely is not installed, which is fine, or the guid is wrong, which is the most
-    // likely mistake an addon author can make and one the log is the only channel for. One line
-    // per device file is cheap enough to always show; the resolve notes stay at Debug because an
-    // absent host id is per-ITEM and can run to dozens on a healthy install.
+    // Info rather than Debug. A merge note means a device declared a "requires" guid the server
+    // has not loaded: either the host mod is not installed, which is fine, or the guid is wrong,
+    // a common addon-author mistake that only the log reports. It is one line per device file.
+    // The resolve notes stay at Debug because an absent host id is per item and can run to dozens
+    // on a healthy install.
     foreach( var note in merged.Notes )
       logger.Info( $"[COTI] {note}" );
 
@@ -179,16 +176,15 @@ public class CotiDeviceStore : IOnLoad
     foreach( var note in resolved.Notes )
       logger.Debug( $"[COTI] {note}" );
 
-    // Counted here, not in CotiHostResolver, because it needs the same "did this device's
-    // Requires gate pass" test Resolve already applies - a device gated out by a missing mod
-    // never had any of its hosts eligible to resolve, so it must not inflate either number.
+    // Applies the same Requires gate Resolve does: a device gated out by a missing mod never had
+    // any hosts eligible to resolve, so it must not inflate either number.
     var declaredHostCount = merged.Devices
         .Where( d => string.IsNullOrWhiteSpace( d.Requires )
             || loadedGuids.Contains( d.Requires, StringComparer.OrdinalIgnoreCase ) )
         .Sum( d => d.Hosts?.Count( h => h?.Id != null ) ?? 0 );
 
-    // One assignment, after everything is built: see CotiDeviceSnapshot on why the four fields
-    // this replaced could not be published separately.
+    // One assignment, after everything is built, so readers never see a partial reload. See
+    // CotiDeviceSnapshot.
     Volatile.Write( ref snapshot, new CotiDeviceSnapshot(
         resolved.ByHostId, resolved.Devices, resolved.ResolvedDevices,
         declaredHostCount, declaredHostCount - resolved.ByHostId.Count ) );
@@ -200,9 +196,8 @@ public class CotiDeviceStore : IOnLoad
 
   /// <summary>
   /// Writes to a temp file then moves it over the target, and copies any existing file to
-  /// "&lt;device&gt;.json.bak" first. Write-then-move rather than write-in-place: a half-written
-  /// device file parses to garbage and skips itself on the next load, which is a confusing way
-  /// to lose a tuned pose.
+  /// "&lt;device&gt;.json.bak" first. A half-written device file fails to parse and is skipped on
+  /// the next load, losing the tuned pose, so the write never happens in place.
   /// </summary>
   public bool TryWrite( CotiDeviceFile device, out string error )
   {
@@ -224,9 +219,8 @@ public class CotiDeviceStore : IOnLoad
     {
       Directory.CreateDirectory( FolderPath );
 
-      // Existing location first, folder root only for a device that has never been written. See
-      // FindExistingPath: writing everything to the root duplicated any device that lives in an
-      // addon subfolder.
+      // Existing location first, folder root only for a device that has never been written, so a
+      // device in an addon subfolder is not duplicated at the root.
       var targetPath = FindExistingPath( device.Device )
           ?? Path.Combine( FolderPath, $"{device.Device}.json" );
       var backupPath = targetPath + ".bak";
@@ -279,8 +273,7 @@ public class CotiDeviceStore : IOnLoad
 
   /// <summary>
   /// Whether a file sits under a folder named "_..." or ".", which by convention means not live.
-  /// Needed once the read became recursive: publish leaves a .bak beside each file, and anyone
-  /// reorganising devices parks the old ones in a folder rather than deleting them.
+  /// The read is recursive, so this keeps parked or reorganised device files out of the load.
   /// </summary>
   private bool IsInWorkingFolder( string path )
   {
@@ -304,8 +297,8 @@ public class CotiDeviceStore : IOnLoad
   }
 
   /// <summary>
-  /// Where a device's file already is, or null. Writing every publish to the folder root gave a
-  /// device in a subfolder a second file at the top level, both claiming the same host.
+  /// Where a device's file already is, or null. A publish rewrites that file in place so a device
+  /// in a subfolder does not gain a second file at the top level claiming the same host.
   /// </summary>
   private string? FindExistingPath( string device )
   {
@@ -341,12 +334,10 @@ public class CotiDeviceStore : IOnLoad
         return parsed;
       }
 
-      // Nullable annotations are compile-time only, so System.Text.Json happily assigns null
-      // over the "= new()" initialiser for an explicit "hosts": null / "mask": null /
-      // "mount": null. ToShared() substitutes a default rather than throwing, so the file
-      // would load looking valid. Diagnose here instead, where the file path is known and the
-      // offending member can be named - a hand-authored file gets a message telling its
-      // author what to fix, rather than silently becoming an empty device.
+      // Nullable annotations are compile-time only, so System.Text.Json assigns null over the
+      // "= new()" initialiser for an explicit "hosts": null / "mask": null / "mount": null.
+      // ToShared() would substitute a default and the file would load looking valid, so the
+      // offending member is reported here, where the file path is known.
       if( dto.Hosts == null )
       {
         parsed.ParseError = "\"hosts\" is null";

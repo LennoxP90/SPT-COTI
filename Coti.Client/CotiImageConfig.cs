@@ -3,10 +3,8 @@ using Newtonsoft.Json;
 namespace Coti.Client
 {
   /// <summary>
-  /// The thermal image tuning shared by every night vision host. These were byte-identical across
-  /// all six devices in coti-defaults.json - they were never per-device data, they were global
-  /// settings stored six times - so they now live in one place and are bound as F12 globals rather
-  /// than duplicated per host.
+  /// The thermal image tuning shared by every night vision host. The values are the same for every
+  /// device, so they live in one place and are bound as F12 globals rather than per host.
   /// </summary>
   public class CotiImageConfig
   {
@@ -41,8 +39,8 @@ namespace Coti.Client
     public float UnsharpBias { get; set; } = 2.0f;
 
     /// <summary>
-    /// Ramp palette mapping heat to colour - Fusion, Rainbow, WhiteHot, BlackHot. A string, not the
-    /// game enum, because the shared half must not reference a game assembly. Empty leaves the player's
+    /// Ramp palette mapping heat to colour - Fusion, Rainbow, WhiteHot, BlackHot. A string rather than
+    /// the game enum because the shared half must not reference a game assembly. Empty leaves the player's
     /// current palette alone.
     /// </summary>
     [JsonProperty( "palette" )]
@@ -54,7 +52,6 @@ namespace Coti.Client
     [JsonProperty( "rampShift" )]
     public float RampShift { get; set; }
 
-    // 0.16 is the value every shipped host ran with.
     [JsonProperty( "heatThreshold" )]
     public float HeatThreshold { get; set; } = 0.16f;
 

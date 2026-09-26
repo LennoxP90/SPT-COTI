@@ -12,8 +12,7 @@ namespace Coti.Client
   public static class CotiDeviceLookup
   {
     /// <summary>
-    /// The device declaring <paramref name="hostId"/>, or null. Tolerates nulls throughout the
-    /// list because it reads a table that arrived over the wire.
+    /// The device declaring <paramref name="hostId"/>, or null.
     /// </summary>
     public static CotiDeviceFile? ByHostId( IEnumerable<CotiDeviceFile?>? devices, string? hostId )
     {

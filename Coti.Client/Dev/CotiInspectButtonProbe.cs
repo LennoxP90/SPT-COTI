@@ -8,17 +8,13 @@ using System.Reflection;
 namespace Coti.Client.Dev
 {
   /// <summary>
-  /// A trimmed, in-process echo of scripts/EftResolveProbe, scoped to the accessors
-  /// CotiInspectButton depends on. EftResolveProbe.exe already proved every one of these resolves
-  /// on both installs (including the obfuscated 4.0 names, method_1/method_5/item_0), but that
-  /// proof lived only in a one-off console run against a chosen install root - nothing about it
-  /// was reusable from inside the repo. This runs the same resolvers for free inside any COTI_DEV
-  /// build, against whatever Coti.Client.dll and game assemblies BepInEx already loaded, so the
-  /// next person to touch EftCompat's inspect-window section does not have to rebuild a separate
-  /// tool to ask the same question again after a game update.
+  /// An in-process version of scripts/EftResolveProbe, scoped to the accessors CotiInspectButton
+  /// depends on (including the obfuscated 4.0 names, method_1/method_5/item_0). It runs the same
+  /// resolvers inside any COTI_DEV build against the assemblies BepInEx loaded, to check
+  /// EftCompat's inspect-window section after a game update.
   ///
-  /// Reporting only - resolve the accessors, log what each bound to, done. Entry point is
-  /// [Conditional] on COTI_DEV, same as CotiDevTools, so Release drops the call entirely.
+  /// Reporting only: it resolves the accessors and logs what each bound to. The entry point is
+  /// [Conditional] on COTI_DEV, like CotiDevTools, so Release drops the call entirely.
   /// </summary>
   public static class CotiInspectButtonProbe
   {
@@ -50,8 +46,8 @@ namespace Coti.Client.Dev
     }
 
     /// <summary>
-    /// One resolver failing must not hide the rest - the whole point of running this is to see
-    /// every accessor's answer in one pass, including which ones broke.
+    /// One resolver failing must not hide the rest, so every accessor's result is reported in one
+    /// pass.
     /// </summary>
     private static void Report( string label, Func<string> resolve )
     {

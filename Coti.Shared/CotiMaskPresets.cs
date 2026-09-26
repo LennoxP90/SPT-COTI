@@ -3,16 +3,16 @@ using System;
 namespace Coti.Shared
 {
   /// <summary>
-  /// The measured masks, one per tube count. These are not invented numbers: every tuned device
-  /// in the shipped set lands on one of the three, and the devices that share one agree to four
-  /// decimals - six dual tubes on 0.5361/0.274, both quad tubes on 0.525/0.285.
+  /// The measured masks, one per tube count. Every tuned device in the shipped set lands on one of
+  /// the three, and the devices that share one agree to four decimals: the dual tubes on
+  /// 0.5361/0.274, the quad tubes on 0.525/0.285.
   ///
-  /// Quad is not the dual mask: further left and about four percent wider. A quad device seeded
-  /// from a dual donor is off by that much, which reads as subtly wrong.
+  /// The quad mask sits further left and is about four percent wider than the dual one, so a quad
+  /// device seeded from a dual donor looks subtly wrong.
   ///
   /// EFT's own family (OldMonocular, Anvis, Binocular) does not decide this: it tags the Aishi
-  /// PVS-31A, a dual tube, into the same family as the GPNVGs. See <see cref="CotiMaskFamilies"/>,
-  /// which seeds from the family and is why that device arrived with a quad mask.
+  /// PVS-31A, a dual tube, into the same family as the GPNVGs. <see cref="CotiMaskFamilies"/>
+  /// seeds from the family, so it gives that device a quad mask.
   /// </summary>
   public static class CotiMaskPresets
   {
@@ -34,8 +34,8 @@ namespace Coti.Shared
         new CotiMaskBlock { CenterX = 0.525f, CenterY = 0.5f, Radius = 0.285f, Feather = 0.01f };
 
     /// <summary>
-    /// The one line under the picker. Names a vanilla goggle per layout on purpose: most devices
-    /// on a given mask are modded, and an example the reader has not installed cannot be looked at.
+    /// The one line under the picker. Names a vanilla goggle per layout, since most devices on a
+    /// given mask are modded and the reader may not have them installed.
     /// </summary>
     public const string Guidance =
         "Match the tube count on the model: single like the PVS-14, dual like the N-15, "
@@ -80,10 +80,10 @@ namespace Coti.Shared
     /// <summary>
     /// Loose to two thousandths. The stored values are hand-measured, so the same position tuned
     /// twice lands a thousandth apart: PVS-14 at 0.5/0.273 and the PNV-10T biocular at
-    /// 0.5011/0.274 are one preset, and a tighter bound called the second one Custom.
+    /// 0.5011/0.274 are one preset.
     ///
-    /// There is room. The nearest two presets that really differ, dual and quad, are eleven
-    /// thousandths apart on both centre and radius.
+    /// The nearest two distinct presets, dual and quad, are eleven thousandths apart on both
+    /// centre and radius, so the tolerance cannot merge them.
     /// </summary>
     private static bool Matches( CotiMaskBlock a, CotiMaskBlock b )
     {

@@ -6,7 +6,7 @@ public class CotiImageConfigTests
     [Fact]
     public void DefaultsMatchTheValuesTheSixHostsAllShared()
     {
-        // The values every shipped host ran with, pinned so a default cannot drift.
+        // Pinned so a default cannot drift.
         var c = new CotiImageConfig();
 
         Assert.Equal(0.25f, c.MinimumTemperatureValue);
@@ -24,9 +24,4 @@ public class CotiImageConfigTests
         Assert.False(c.IsMotionBlurred);
         Assert.Equal("", c.Palette);
     }
-
-    // CompositeMode, OverlayContrast and OverlayExposure were all removed rather than migrated:
-    // none of the three was ever branched on anywhere in the codebase (no shader property, no
-    // ThermalVision field write) - each was a value that only ever changed a number in a log
-    // line. See task-6-report.md.
 }

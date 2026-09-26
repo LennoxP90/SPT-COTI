@@ -5,7 +5,7 @@ using SPTarkov.DI.Annotations;
 namespace Coti.Server;
 
 /// <summary>
-/// config/config.json. Singleton, not the default Transient, or every consumer re-reads the file.
+/// config/config.json. Singleton rather than the default Transient, so consumers share one read.
 /// An unreadable file falls back to the defaults below rather than taking the mod down with it.
 /// </summary>
 [Injectable( InjectionType.Singleton )]
@@ -31,8 +31,8 @@ public class CotiServerConfig
 
     try
     {
-      // Explicit assembly: GetJsonDataFromModFile resolves it via GetCallingAssembly, which the JIT
-      // can change under you.
+      // Explicit assembly: GetJsonDataFromModFile resolves it via GetCallingAssembly, which JIT
+      // inlining can change.
       FilePath = Path.Combine(
           modHelper.GetAbsolutePathToModFolder( typeof( CotiServerConfig ).Assembly ), "config", "config.json" );
     }
@@ -56,8 +56,7 @@ public class CotiServerConfig
 
     try
     {
-      // ModHelper, not System.Text.Json directly: JsonUtil skips comments, which a config.json
-      // may carry.
+      // Read through ModHelper because JsonUtil skips comments, which a config.json may carry.
       var file = modHelper.GetJsonDataFromFile<CotiConfigFile>(
           Path.GetDirectoryName( FilePath )!, Path.GetFileName( FilePath ) );
 
@@ -188,8 +187,8 @@ public class CotiHostEditorSettings
 {
   /// <summary>
   /// When true (the default), CotiHostDiscovery stubs a Tuned:false device for every night
-  /// vision host the item table declares that no device file already covers. False restores the
-  /// pre-2.0.0 behaviour of supporting exactly the shipped set.
+  /// vision host the item table declares that no device file already covers. False supports exactly
+  /// the shipped set.
   /// </summary>
   [JsonPropertyName( "autoDiscover" )]
   public bool AutoDiscover { get; set; } = true;

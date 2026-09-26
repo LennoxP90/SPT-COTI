@@ -7,9 +7,9 @@ using SPTarkov.Server.Web;
 namespace Coti.Server;
 
 // 4.0 requires deriving an abstract record; 4.1 requires implementing an interface. The two types
-// do not coexist in either version, so this cannot be unified - see the backport design doc.
-// Version and SptVersion genuinely differ per SPT generation and stay split below; everything
-// else is identity that must not drift between the two branches, so it is hoisted here once.
+// do not coexist in either version, so this cannot be unified. Version and SptVersion differ per
+// SPT generation and stay split below; everything else is identity that must not drift between
+// the two branches, so it is hoisted here once.
 internal static class ModMetadataFields
 {
   public const string ModGuid = "com.lennoxp90.coti.server";

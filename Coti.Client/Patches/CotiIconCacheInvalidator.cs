@@ -8,20 +8,18 @@ using SPT.Reflection.Patching;
 namespace Coti.Client.Patches
 {
   /// <summary>
-  /// Forces a one-time re-render of any item icon whose contents include a COTI, because the cached
-  /// image predates the device being renderable and nothing else will ever invalidate it.
+  /// Forces a one-time re-render of any item icon whose contents include a COTI.
   ///
-  /// GetItemIcon answers from the on-disk cache and never renders. Those icons were written when
-  /// mod_coti had no bone and the device could not attach - and the hash already included the COTI,
-  /// so the stale picture is filed under exactly the hash the correct one would use. It is
-  /// self-perpetuating, and nothing else will ever invalidate it.
+  /// GetItemIcon answers from the on-disk cache and never renders. An icon cached without the
+  /// device drawn on it is filed under the same hash the correct one would use, since the hash
+  /// already includes the COTI, so nothing else ever invalidates it.
   ///
   /// Dropping the hash from the file index sends GetItemIcon down its render path instead. The fresh
   /// icon is written back with saveToFile, so this costs one re-render per affected item per
   /// session and nothing thereafter.
   ///
-  /// Deliberately NOT ItemIconCache.ClearIconCache(): that deletes all icons and makes the game
-  /// re-render every item the player owns, to fix the handful that are wrong.
+  /// ItemIconCache.ClearIconCache() is avoided because it deletes every icon and makes the game
+  /// re-render every item the player owns.
   /// </summary>
   public class CotiIconCacheInvalidator : ModulePatch
   {
@@ -58,7 +56,7 @@ namespace Coti.Client.Patches
       {
         Plugin.Log.LogInfo(
             $"[COTI] Invalidated stale icon for {item.TemplateId} (hash {hash}, " +
-            $"file={hadFile} memory={hadMemory}) - it predates the device being renderable" );
+            $"file={hadFile} memory={hadMemory}) - it was cached without the device drawn on it" );
       }
     }
 

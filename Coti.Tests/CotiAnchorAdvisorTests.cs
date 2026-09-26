@@ -21,8 +21,8 @@ public class CotiAnchorAdvisorTests
     [Fact]
     public void RotatorOnTheRootSuggestsTheRootAsEmptyString()
     {
-        // Empty string is the existing MountAnchorBone convention for "host root" - this is the
-        // third, easy-to-miss state: NOT "no suggestion" (null) and not a bone name.
+        // Empty string is the MountAnchorBone convention for "host root", a third state distinct
+        // from "no suggestion" (null) and from a bone name.
         var suggestion = CotiAnchorAdvisor.SuggestAnchorBone(true, true, "nvg_pvs_14(Clone)");
         Assert.Equal(string.Empty, suggestion);
     }
@@ -71,11 +71,10 @@ public class CotiAnchorAdvisorTests
     [Fact]
     public void ASuggestionDeeperThanTheDepthLimitedScanIsStillAddedAsACandidate()
     {
-        // This is the exact mismatch a review caught: ResolveSuggestedBone's
-        // GetComponentInChildren search has no depth limit, but CollectNameList caps the cycle
-        // candidates at three levels. A rotator transform past that cap must still be reachable
-        // by cycling, not only by "Use" - otherwise the suggestion and the cycle list disagree
-        // about what is selectable.
+        // ResolveSuggestedBone's GetComponentInChildren search has no depth limit, but
+        // CollectNameList caps the cycle candidates at three levels. A rotator transform past
+        // that cap must still be reachable by cycling, not only by "Use", so the suggestion and
+        // the cycle list agree about what is selectable.
         var candidates = new List<string> { "", "mod_nvg", "mod_mount" };
         var result = CotiAnchorAdvisor.EnsureSuggestedIsCandidate(candidates, "axis_deep");
 
@@ -95,9 +94,9 @@ public class CotiAnchorAdvisorTests
     public void ASuggestionMatchingByCaseAloneIsNotDuplicated()
     {
         // Must agree with CycleAnchorBone's own OrdinalIgnoreCase lookup and with
-        // EftCompat.FindTransformRecursive's ignoreCase match at mount time - a case-sensitive
-        // check here would let a suggestion differing only by case slip in as a spurious extra
-        // entry for a bone that is, at mount time, the very same one already listed.
+        // EftCompat.FindTransformRecursive's ignoreCase match at mount time. A case-sensitive
+        // check here would add a spurious entry for a bone that, at mount time, is the one
+        // already listed.
         var candidates = new List<string> { "", "Axis" };
         var result = CotiAnchorAdvisor.EnsureSuggestedIsCandidate(candidates, "axis");
 

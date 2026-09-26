@@ -11,12 +11,11 @@ namespace Coti.Client.Patches
   /// <summary>
   /// Creates the mod_coti attachment point on host NVGs.
   ///
-  /// EFT attaches a mod by finding a TRANSFORM whose name matches the slot id. Host meshes are baked
-  /// with mod_nvg/mod_scope/mod_mount and nothing else, so an invented slot matches no bone - and a
-  /// failed lookup skips AddBone, after which the mod's prefab is never created at all. The model
-  /// loads perfectly and has nowhere to go.
+  /// EFT attaches a mod by finding a transform whose name matches the slot id. Host meshes are baked
+  /// with mod_nvg/mod_scope/mod_mount only, so a new slot matches no bone, and a failed lookup skips
+  /// AddBone so the mod's prefab is never created.
   ///
-  /// EFT does not care where the bone came from, only that it exists and is named correctly.
+  /// EFT only requires that the bone exists and is named correctly.
   /// </summary>
   public class CotiMountBonePatch : ModulePatch
   {
@@ -53,11 +52,10 @@ namespace Coti.Client.Patches
       var templateId = EftCompat.ContainerTemplateId( containerCollection );
       var host = GetNvgHostConfig( templateId );
 
-      // An existing bone is REUSED AND REPOSITIONED rather than skipped. Host GameObjects come
-      // from an object pool, so a bone created earlier outlives the item view it was made for -
-      // and if the pose were only applied at creation, a config change would appear to do
-      // nothing until the pool happened to hand out a fresh instance. Re-applying every time
-      // makes mount tuning a config edit rather than a client relaunch.
+      // An existing bone is reused and repositioned rather than skipped. Host GameObjects come
+      // from an object pool, so a bone outlives the item view it was made for, and a pose applied
+      // only at creation would ignore config changes until the pool handed out a fresh instance.
+      // Re-applying every time makes mount tuning a config edit rather than a client relaunch.
       var existing = EftCompat.FindTransformRecursive( root, CotiModSlotName, ignoreCase: true );
 
       CotiPoseTuner.ReportHostBones( templateId, root );
@@ -116,10 +114,9 @@ namespace Coti.Client.Patches
     }
 
     /// <summary>
-    /// The configured bone if it exists, otherwise the host's root. Falling back rather than
-    /// giving up matters: a typo or a bone name that differs between hosts would otherwise take
-    /// the device back to invisible, and a COTI in the wrong place is a far better failure than
-    /// no COTI at all - it is visible, so it can be diagnosed.
+    /// The configured bone if it exists, otherwise the host's root. A typo or a bone name that
+    /// differs between hosts then leaves the COTI visible in the wrong place, which can be
+    /// diagnosed, rather than invisible.
     /// </summary>
     internal static Transform ResolveAnchor( Transform root, CotiNvgHostConfig host )
     {

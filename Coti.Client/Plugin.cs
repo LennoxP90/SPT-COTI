@@ -41,11 +41,10 @@ namespace Coti.Client
       Config = _settings.Current;
       CotiPowerToggle.Bind( _settings.PowerToggle );
 
-      // Seeded with the same table CotiF12Config just read, then handed off to fetch the
-      // server's copy - both are only ever applied from Update, never here: Awake runs before
-      // the game's own singletons (ItemFactory, the backend session) are guaranteed to exist,
-      // and Update is what the HideManagerGameObject finding already proved DOES run reliably
-      // on this plugin. See CotiHostTableClient's own comments for the fetch and apply details.
+      // Seeded with the same table CotiF12Config just read, then the server's copy is fetched.
+      // Both are applied from Update only: Awake runs before the game's singletons (ItemFactory,
+      // the backend session) are guaranteed to exist, and Update runs reliably on this plugin.
+      // See CotiHostTableClient for the fetch and apply details.
       CotiHostTableClient.Pending = new CotiPendingTable( hostFallback, fromServer: false );
       CotiHostTableClient.BeginFetch();
 
@@ -61,25 +60,24 @@ namespace Coti.Client
       TryEnable( nameof( CotiInventoryChangePatch ), () => new CotiInventoryChangePatch() );
       TryEnable( nameof( GoggleToggleSuppressPatch ), () => new GoggleToggleSuppressPatch() );
 
-      // Must be enabled unconditionally, not gated on being in a raid: the device has to appear
-      // in the inventory and on the character preview in the menu, which is where AttachMods
-      // runs most.
+      // Enabled unconditionally rather than only in raid: the device has to appear in the
+      // inventory and on the character preview in the menu, which is where AttachMods runs most.
       TryEnable( nameof( CotiMountBonePatch ), () => new CotiMountBonePatch() );
       TryEnable( nameof( CotiAttachPatch ), () => new CotiAttachPatch() );
       TryEnable( nameof( CotiWorldViewPatch ), () => new CotiWorldViewPatch() );
       TryEnable( nameof( CotiWorldViewPatch.OnAttachMods ), () => new CotiWorldViewPatch.OnAttachMods() );
 
-      // A real fix, not a diagnostic, so it runs regardless of verboseLogging: EFT's on-disk
-      // icon cache holds pictures taken before the device could attach, filed under a hash that
-      // already accounts for it, so nothing else will ever invalidate them.
+      // Runs regardless of verboseLogging: EFT's on-disk icon cache can hold pictures taken before
+      // the device could attach, filed under a hash that already accounts for it, so nothing else
+      // invalidates them.
       TryEnable( nameof( CotiIconCacheInvalidator ), () => new CotiIconCacheInvalidator() );
 
       // Before any inventory UI opens: ModSlotView caches a null against the key the first
       // time it looks and does not retry.
       TryEnable( nameof( CotiSlotIcon ), CotiSlotIcon.Install );
 
-      // The pose editor's only entry point - see CotiInspectButton's own class comment for the
-      // redraw lifecycle this has to cooperate with.
+      // The pose editor's only entry point. See CotiInspectButton for the redraw lifecycle it
+      // cooperates with.
       TryEnable( nameof( CotiInspectButton ), CotiInspectButton.Install );
 
       // Subscribes to CotiInspectButton.OpenRequested. The panel itself only draws once IsOpen,
@@ -89,8 +87,8 @@ namespace Coti.Client
       TryEnable( nameof( CotiTunerPanel ), () => CotiTunerPanel.Install( ( (BaseUnityPlugin)this ).Config ) );
       TryEnable( nameof( CotiMaskPanel ), () => CotiMaskPanel.Install( ( (BaseUnityPlugin)this ).Config ) );
 
-      // [Conditional(COTI_DEV)] - compiled out of Release. Re-verifies the accessors above
-      // resolve against whatever assemblies this build actually loaded.
+      // [Conditional(COTI_DEV)], compiled out of Release. Verifies the accessors above resolve
+      // against the assemblies this build loaded.
       CotiInspectButtonProbe.Run();
 
       Log.LogInfo( "[COTI] Initialised" );
@@ -104,7 +102,7 @@ namespace Coti.Client
       }
       catch( Exception ex )
       {
-        // One patch failing must not abort Awake and silently disable everything after it.
+        // One patch failing must not abort Awake and disable everything after it.
         Log.LogError( $"[COTI] patch {name} failed to enable: {ex}" );
       }
     }
@@ -117,7 +115,7 @@ namespace Coti.Client
       }
       catch( Exception ex )
       {
-        // Same rationale as the ModulePatch overload above: a failure here must not cascade.
+        // As in the ModulePatch overload above, a failure here must not cascade.
         Log.LogError( $"[COTI] {name} failed to enable: {ex}" );
       }
     }
@@ -129,8 +127,8 @@ namespace Coti.Client
       CotiOpticOverlayCompositor.Teardown();
       CotiTunerPreview.Teardown();
 
-      // Unconditional Detach, NOT Sync(): the config still reports the mode as enabled here, so
-      // Sync would re-attach the buffer we are tearing down.
+      // Unconditional Detach rather than Sync(): the config still reports the mode as enabled
+      // here, so Sync would re-attach the buffer being torn down.
       CotiOverlayCompositor.Detach();
 
       MaskGenerator.Release();
@@ -142,27 +140,26 @@ namespace Coti.Client
       if( IsHeadless )
         return;
 
-      // Own try/catch, deliberately separate from the raid-state block below: a failure applying
-      // the host table must not suppress thermal-camera updates for the rest of the session (or
-      // vice versa), and each gets its own once-only log rather than sharing _loggedUpdateError.
+      // Separate from the raid-state block below: a failure applying the host table must not
+      // suppress thermal-camera updates for the rest of the session (or vice versa), and each
+      // gets its own once-only log.
       ApplyPendingHostTable();
 
-      // Ahead of the try/catch below on purpose: this is what restores game UI input, so it
-      // must not be skippable by an exception raised somewhere else in the frame.
+      // Ahead of the try/catch below: this restores game UI input, so an exception elsewhere in
+      // the frame must not skip it.
       CotiUiBlocker.Tick();
 
       try
       {
-        // First, deliberately: everything below is raid-oriented and can throw in the menu, which is
-        // where the mount is tuned. CotiDevTools.Tick is compiled out of Release, call included;
-        // CotiPoseTuner.Tick is the promoted keyboard shortcut and always runs.
+        // First: everything below is raid-oriented and can throw in the menu, which is where the
+        // mount is tuned. CotiDevTools.Tick is compiled out of Release, call included;
+        // CotiPoseTuner.Tick handles the keyboard shortcut and always runs.
         CotiDevTools.Tick();
         CotiPoseTuner.Tick();
         CotiMaskPanel.Tick();
 
-        // The pose editor's preview camera. Own try/catch coverage same as everything else in
-        // this block - it already no-ops the instant CotiPoseTuner.IsOpen is false, so this is not
-        // a per-frame cost for a player who never opens the panel.
+        // The pose editor's preview camera. It no-ops while CotiPoseTuner.IsOpen is false, so it
+        // costs nothing for a player who never opens the panel.
         CotiTunerPreview.Tick();
 
         // Before state resolution: the toggle feeds into activation.
@@ -174,7 +171,7 @@ namespace Coti.Client
         // CotiState.Active and CotiState.Host to decide whether and how to render.
         CotiThermalCamera.Tick();
 
-        // After the 1x camera, not before: the magnified path reads the same CotiState and the same
+        // After the 1x camera: the magnified path reads the same CotiState and the same
         // thermal-camera config, and the 1x overlay's lens exclusion reads what this one published,
         // so a frame where the two disagree would show heat in the lens from one and a hole from the
         // other.
@@ -200,19 +197,19 @@ namespace Coti.Client
 
     private void UpdateCotiState()
     {
-      // Read the equipped item straight off the player's own vision observer rather than any
-      // inventory search. When a real thermal item (T-7) is worn instead of night vision,
-      // NightVisionObserver's Component is null - there is no NightVisionComponent on a
-      // thermal-only device - so hostItem, hostTemplateId and cotiAttached all resolve to
-      // "nothing equipped" below and CotiState.Active can never become true. This patch set
-      // cannot touch ThermalVision while a real thermal item is equipped.
+      // Read the equipped item off the player's own vision observer rather than an inventory
+      // search. When a real thermal item (T-7) is worn instead of night vision,
+      // NightVisionObserver's Component is null, since a thermal-only device has no
+      // NightVisionComponent, so everything below resolves to "nothing equipped" and
+      // CotiState.Active stays false. ThermalVision is never touched while a real thermal item is
+      // equipped.
       var nvgComponent = CotiNvgHost.Component;
       var hostItem = nvgComponent?.Item;
       var hostTemplateId = hostItem?.StringTemplateId;
-      // NightVision.On - the camera effect - and NOT Togglable.On, which is the ITEM's switch and
-      // flips the moment the key is pressed, about 700 ms before the goggles finish flipping down
-      // and the tube lights. InProcessSwitching is that animation and is no use here either: it
-      // spans both sides of the moment the tube lights.
+      // NightVision.On is the camera effect. Togglable.On is the item's switch and flips when the
+      // key is pressed, about 700 ms before the goggles finish flipping down and the tube lights.
+      // InProcessSwitching spans both sides of the moment the tube lights, so it cannot be used
+      // either.
       var tube = CotiOverlayCompositor.Tube;
       var hostNvgOn = tube != null
           ? tube.On
@@ -221,12 +218,9 @@ namespace Coti.Client
 
       CotiState.Update( hostTemplateId, cotiAttached, hostNvgOn );
 
-      // Nothing further. The second-camera path owns thermal rendering completely, and the
-      // single most important rule of that design is that nothing may switch ThermalVision on
-      // for Camera.main - doing so raises the global _ThermalVisionOn across the player's whole
-      // render span, which is what made the first implementation thermalise the entire screen,
-      // viewmodel included. The code that drove the main camera lived here behind a check that
-      // could never be false, along with the release path for a flag it could never set.
+      // Nothing further. The second-camera path owns thermal rendering, and nothing may switch
+      // ThermalVision on for Camera.main: that raises the global _ThermalVisionOn across the
+      // player's whole render span and thermalises the entire screen, viewmodel included.
     }
 
     /// <summary>
@@ -255,10 +249,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// The pose editor's panel. Kept in its own MonoBehaviour callback rather than folded into
-    /// Update: IMGUI only draws from OnGUI, which Unity calls several times a frame regardless of
-    /// how often Update runs. CotiTunerPanel.Draw itself does nothing at all unless the panel is
-    /// open, so this is not a per-frame cost for players who never touch the feature.
+    /// The pose editor's panel. IMGUI only draws from OnGUI, which Unity calls several times a
+    /// frame independently of Update. CotiTunerPanel.Draw does nothing unless the panel is open.
     /// </summary>
     private void OnGUI()
     {

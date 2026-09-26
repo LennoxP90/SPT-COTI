@@ -16,10 +16,8 @@ namespace Coti.Server;
 /// Wraps CotiDeviceDto for the request pipeline. CotiDeviceDto itself must stay free of every
 /// SPTarkov reference because Coti.Tests source-links it with no SPT assembly present.
 ///
-/// IRequestData is required on BOTH versions. It was gated to 4.1 on the reasoning that
-/// 4.0's RouteAction only constrains TRequest to "class" - but that is the compile-time
-/// constraint; the dispatcher casts to IRequestData at runtime either way, so 4.0 compiled,
-/// loaded, and threw on the first publish.
+/// IRequestData is required on both versions. 4.0's RouteAction only constrains TRequest to
+/// "class" at compile time, but the dispatcher casts to IRequestData at runtime.
 /// </summary>
 public sealed class CotiPublishRequestDto : CotiDeviceDto, IRequestData
 {
@@ -29,8 +27,7 @@ public sealed class CotiPublishRequestDto : CotiDeviceDto, IRequestData
 /// GET /coti/hosts returns the resolved table; POST /coti/hosts/publish validates one device,
 /// writes it, fits any host it declares, and reloads.
 ///
-/// Publishing is deliberately ungated: this is a single-player server, and the alternative is a
-/// permission model nobody would configure. The publisher is logged instead.
+/// Publishing is ungated because this is a single-player server; the publisher is logged instead.
 /// </summary>
 #if SPT40
 [Injectable]
@@ -69,16 +66,12 @@ public class CotiDeviceRoutes( JsonUtil jsonUtil, HttpResponseUtil httpResponseU
   {
     var table = new CotiHostTableDto();
 
-    // ResolvedDevices, not Devices: the wire has to carry the id the server actually FITTED, not
-    // the one the file declares. They differ on any host a prefab fallback recovered, and handing
-    // the client the stale id is worse than not supporting the host at all - it keys the mask and
-    // mount config and the inspect-button gate on an id CotiState will never see, so the player
-    // gets a slot, a COTI at the host's origin at scale 1, no thermal image and no Pose button.
-    // Publish then writes that stale id straight back, so it never self-corrects either.
+    // ResolvedDevices carries the id the server fitted, which differs from the declared id on any
+    // host a prefab fallback recovered. The client keys the mask, mount and inspect-button gate on
+    // this id, and Publish writes it back, so it has to match what CotiState sees.
     //
-    // deviceStore.Current is read exactly once, as a single reference, and the snapshot behind it
-    // is immutable - so this foreach walks one complete, self-consistent resolve pass even if a
-    // concurrent publish reloads mid-iteration.
+    // deviceStore.Current is read once and the snapshot behind it is immutable, so this walks one
+    // consistent resolve pass even if a concurrent publish reloads mid-iteration.
     foreach( var device in deviceStore.Current.ResolvedDevices )
       table.Devices.Add( CotiDeviceDto.FromShared( device ) );
 
@@ -105,10 +98,8 @@ public class CotiDeviceRoutes( JsonUtil jsonUtil, HttpResponseUtil httpResponseU
       logger.Debug( "[COTI] Publish request carried no session id (no PHPSESSID cookie) - " +
           "nickname cannot be resolved" );
 
-      // A sentinel, not sessionID.ToString(): MongoId.Empty().ToString() is the EMPTY STRING, so
-      // an anonymous publish logged as nothing at all. Attribution is one of only two mitigations
-      // for a write we deliberately left ungated, and a blank name defeats it just as completely
-      // as the throw this branch was added to prevent.
+      // A sentinel rather than sessionID.ToString(), which is an empty string for an empty
+      // MongoId and would leave the publish unattributed.
       return NoSessionNickname;
     }
 

@@ -14,7 +14,7 @@ namespace Coti.Client
   /// and field of view; <see cref="CotiOpticOverlayCompositor"/> puts the result into the optic's
   /// own target, so the scope's position, size and angle stay the game's problem.
   ///
-  /// Opt in - the COTI is an offset sensor, so a 1x thermal is the honest default. Build details
+  /// Opt in - the COTI is an offset sensor, so a 1x thermal is the default. Build details
   /// come from <see cref="CotiThermalRig"/> so a fix cannot land in one camera and miss the other.
   /// </summary>
   internal static class CotiOpticThermalCamera
@@ -57,7 +57,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Latches on failure so the camera stays down and logs once, rather than throwing every frame.
-    /// Cleared by Teardown, which makes switching the setting off and on a genuine retry.
+    /// Cleared by Teardown, so switching the setting off and on retries.
     /// </summary>
     private static bool _broken;
 
@@ -78,7 +78,7 @@ namespace Coti.Client
     internal static CotiOpticView Optic { get; private set; }
 
     /// <summary>
-    /// Whether a magnified image is genuinely on the optic's target this frame. A false positive
+    /// Whether a magnified image is on the optic's target this frame. A false positive
     /// costs the player a hole in the 1x overlay with nothing behind it.
     ///
     /// CotiState.Active is re-tested rather than trusted from <see cref="Optic"/>, because
@@ -108,8 +108,8 @@ namespace Coti.Client
         return;
       }
 
-      // Idle FIRST: MarkBroken is reachable after the object is already active, and a bare return
-      // would leave it drawing a scene pass HasOutput then refuses to let anyone read.
+      // Idle before returning: MarkBroken is reachable after the object is already active, and a
+      // bare return would leave it drawing a scene pass that HasOutput refuses to let anyone read.
       if( _broken )
       {
         Idle();
@@ -132,8 +132,8 @@ namespace Coti.Client
 
         var optic = CotiOpticCamera.Read();
 
-        // A ratio, never a question about what kind of sight this is - red dots and irons already
-        // line up, because the main camera's own field of view narrows on aiming.
+        // Decided by field-of-view ratio rather than sight type: red dots and irons already line
+        // up, because the main camera's own field of view narrows on aiming.
         if( !CotiOpticFusion.ShouldMagnify(
                 configEnabled: true, cotiActive: true, main.fieldOfView, optic.FieldOfView ) )
         {
@@ -176,7 +176,7 @@ namespace Coti.Client
         return false;
       }
 
-      // Comes back INACTIVE and stripped. Everything below configures a dead object; it is only
+      // Comes back inactive and stripped. Everything below configures a dead object; it is only
       // activated once a render target is proven bound. See ActivateIfReady.
       _go = CotiThermalRig.Clone( prefab, "CotiOpticThermalCamera" );
 
@@ -185,7 +185,7 @@ namespace Coti.Client
 
       if( _cam == null || _tv == null )
       {
-        // Teardown BEFORE MarkBroken: Teardown clears the latch, so marking first leaves it false
+        // Teardown before MarkBroken: Teardown clears the latch, so marking first leaves it false
         // and retries this whole load-strip-destroy cycle every frame.
         Teardown();
         MarkBroken(
@@ -218,15 +218,15 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Matches the optic camera, read fresh each frame. NOT parented to it: that object is
+    /// Matches the optic camera, read fresh each frame. Not parented to it: that object is
     /// destroyed between raids and would take its children with it.
     /// </summary>
     private static void Configure( Camera main, CotiOpticView optic, CotiCameraConfig cfg )
     {
       var source = optic.Camera;
 
-      // An INITIAL placement only, so the prewarm render has somewhere sane to stand. The pose that
-      // matters is copied again in SyncToOptic, from Camera.onPreCull - see MatchOpticBeforeCulling.
+      // Initial placement only, so the prewarm render has somewhere sane to stand. The pose that
+      // matters is copied again from Camera.onPreCull - see MatchOpticBeforeCulling.
       var sourceTransform = source.transform;
       _go.transform.SetPositionAndRotation( sourceTransform.position, sourceTransform.rotation );
       _go.transform.localScale = Vector3.one;
@@ -256,15 +256,14 @@ namespace Coti.Client
 
     /// <summary>
     /// Copies the settings this camera takes from the eye and from the optic, writing only what
-    /// changed - same reasoning as the 1x camera, where these were fifteen native writes a frame
-    /// for values that move about once a raid.
+    /// changed. Each is a native write, and the values rarely move.
     /// </summary>
     private static void MirrorSettings( Camera main, Camera source )
     {
       var first = !_mirrored;
       _mirrored = true;
 
-      // From MAIN, not the optic. Forward breaks the thermal image outright: ThermalVision reads
+      // Taken from the main camera, not the optic. Forward breaks the thermal image outright: ThermalVision reads
       // G-buffer data that only exists in deferred, so a warm object renders cold.
       if( first || _mirroredPath != main.renderingPath )
       {
@@ -305,7 +304,7 @@ namespace Coti.Client
         _mirroredOcclusion = main.useOcclusionCulling;
       }
 
-      // Clip planes from the OPTIC: a near plane taken from the eye would clip the barrel out of a
+      // Clip planes come from the optic: a near plane taken from the eye would clip the barrel out of a
       // frame the scope renders.
       if( first || _mirroredNearClip != source.nearClipPlane )
       {
@@ -320,7 +319,7 @@ namespace Coti.Client
       }
 
       // Before the optic camera, whose AfterEverything composites this - otherwise the composite
-      // takes the PREVIOUS frame's heat, which reads as lag the moment the player turns.
+      // takes the previous frame's heat, which reads as lag when the player turns.
       if( first || _mirroredDepth != source.depth )
       {
         _cam.depth = source.depth - 1f;
@@ -578,12 +577,10 @@ namespace Coti.Client
     /// <summary>
     /// Copies the optic's pose immediately before this camera culls.
     ///
-    /// Doing it in Update was a frame late: the weapon animates after Update and the optic camera is
-    /// posed from the weapon, so both cameras rendered from poses one frame apart. Invisible
-    /// standing still, a large fraction of a 4.4 degree view while turning.
-    ///
-    /// onPreCull rather than LateUpdate, which would race BSG's own updater - the order of two
-    /// LateUpdates is undefined without an explicit script execution order.
+    /// The weapon animates after Update and the optic camera is posed from the weapon, so a copy
+    /// taken in Update is one frame behind, which shows while turning. LateUpdate would race BSG's
+    /// own updater, since the order of two LateUpdates is undefined without an explicit script
+    /// execution order.
     /// </summary>
     private static void MatchOpticBeforeCulling( Camera rendering )
     {
@@ -604,8 +601,8 @@ namespace Coti.Client
       }
       catch( Exception ex )
       {
-        // Latched: this runs once per camera per frame, and an unguarded throw at that rate is how
-        // a previous defect leaked 72 GB.
+        // Latched: this runs once per camera per frame, and an unguarded throw at that rate floods
+        // the log.
         MarkBroken( "matching the optic transform before culling", ex );
       }
     }

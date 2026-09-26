@@ -6,8 +6,8 @@ namespace Coti.Client
   /// What every thermal camera this mod builds has in common: which prefab to clone, what must come
   /// off it, and the one component it must never be missing.
   ///
-  /// Shared rather than copied because a fix landing in one camera and not the other is the failure
-  /// this codebase is least able to detect - both would still render. Stateless: each camera owns
+  /// Shared rather than copied because a fix landing in one camera and not the other is hard to
+  /// detect, since both would still render. Stateless: each camera owns
   /// its own clone, target and failure latch.
   /// </summary>
   internal static class CotiThermalRig
@@ -19,10 +19,10 @@ namespace Coti.Client
     internal const string PrefabName = "BaseOpticCamera";
 
     /// <summary>
-    /// Components stripped off the clone. Matched by NAME, so an upstream rename degrades to "not
+    /// Components stripped off the clone. Matched by name, so an upstream rename degrades to "not
     /// stripped" rather than "does not compile".
     ///
-    /// NOT stripped: ChromaticAberration and VolumetricLightRenderer, which ThermalVision.Awake
+    /// Kept: ChromaticAberration and VolumetricLightRenderer, which ThermalVision.Awake
     /// dereferences without a null check.
     /// </summary>
     private static readonly string[] StripComponentNames =
@@ -64,7 +64,7 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Clones the prefab into an INACTIVE, stripped, untagged object. Activation is the caller's
+    /// Clones the prefab into an inactive, stripped, untagged object. Activation is the caller's
     /// job and must wait until a render target is proven bound.
     ///
     /// Deactivated first, before anything else, as BSG does in OpticCameraManager.Init: a live
@@ -162,7 +162,7 @@ namespace Coti.Client
     /// The sensor's refresh, via ThermalVision's own frame hold - it captures at this rate and
     /// re-blits the held copy in between.
     ///
-    /// NOT a render cap: skipping renders means disabling the camera, and ThermalVision gates its
+    /// Not a render cap: skipping renders means disabling the camera, and ThermalVision gates its
     /// Update on camera.enabled, so a disabled camera driven by hand produces an ordinary lit image.
     /// </summary>
     internal static void SetRefreshRate( ThermalVision thermal, int hz )

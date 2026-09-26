@@ -1,13 +1,11 @@
 // The 4.0 and 4.1 servers expose the same types from different namespaces, and renamed the two
 // load-order constants this mod uses. Aliasing them here keeps every other file free of #if.
-// The table types are a fourth case: 4.1 injects them directly, 4.0 has no such types at all
-// (everything hangs off DatabaseServer.GetTables()) - so only the field TYPE is aliased here;
-// the constructors that populate it still differ per version at the call site.
+// The table types: 4.1 injects them directly, while 4.0 reaches them through
+// DatabaseServer.GetTables(), so only the field type is aliased here and the constructors that
+// populate it still differ per version at the call site.
 //
-// ProfileHelper is a fifth case, added for CotiDeviceRoutes: same class name, same members
-// (GetPmcProfile(MongoId) returning PmcData?), but 4.0 declares it directly under
-// SPTarkov.Server.Core.Helpers (already aliased above for ModHelper, so 4.0 needs nothing extra)
-// while 4.1 moved it one level deeper, to SPTarkov.Server.Core.Helpers.Profile.
+// ProfileHelper has the same name and members on both, but lives in SPTarkov.Server.Core.Helpers
+// on 4.0 and SPTarkov.Server.Core.Helpers.Profile on 4.1.
 #if SPT40
 global using SPTarkov.Server.Core.Models.Utils;           // ISptLogger
 global using SPTarkov.Server.Core.Helpers;                // ModHelper, ProfileHelper
@@ -35,15 +33,10 @@ namespace Coti.Server;
 public static class CotiLoadOrder
 {
 #if SPT40
-    // 4.0 has no Preload. It is NOT PreSptModLoader, despite both sitting at the numeric
-    // value 100000 - in 4.0 DatabaseImporter runs INSIDE the OnLoad pipeline at
-    // OnLoadOrder.Database (200000), so anything at 100000 runs before the database is
-    // imported. 4.1's Preload has no such import step ahead of it; the database is already
-    // loaded there. The role match is PostDBModLoader - after the database, same as 4.1's
-    // Preload. Each version's own TestMod confirms this: 4.0 registers at
-    // PostDBModLoader + 1, 4.1 at Preload + 1. CotiItemFactory clones a donor template out
-    // of the database, so getting this wrong compiles clean, loads without error, and
-    // silently never registers the item.
+    // 4.0 has no Preload. PreSptModLoader shares its value (100000) but runs before 4.0's
+    // DatabaseImporter (OnLoadOrder.Database, 200000). PostDBModLoader is the equivalent stage:
+    // after the database is loaded, as 4.1's Preload is. CotiItemFactory clones a donor template
+    // out of the database, so an earlier stage would silently never register the item.
     public const int Preload = SPTarkov.Server.Core.DI.OnLoadOrder.PostDBModLoader;
     // 4.0 has no PostLoad; PostSptModLoader is the last stage (1100000), same role as 4.1's
     // PostLoad.

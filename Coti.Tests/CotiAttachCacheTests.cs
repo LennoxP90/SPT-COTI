@@ -14,8 +14,8 @@ public class CotiAttachCacheTests
             Attached = attached;
         }
 
-        // Deliberately equal to every other Host: the cache must key on reference identity, and an
-        // Equals-based cache would pass every other test in this file while being wrong.
+        // Equal to every other Host: the cache keys on reference identity, and this makes an
+        // Equals-based cache fail the tests below.
         public override bool Equals( object obj ) => obj is Host;
 
         public override int GetHashCode() => 1;

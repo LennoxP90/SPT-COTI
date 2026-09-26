@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Coti.Client
 {
   /// <summary>
-  /// Generates the mask at the current screen resolution, with the circle defined in PIXEL space,
-  /// which is what makes it a true circle on any aspect ratio.
+  /// Generates the mask at the compositing camera's resolution, with the circle defined in pixel
+  /// space so it is a true circle on any aspect ratio.
   /// </summary>
   public static class MaskGenerator
   {
@@ -21,20 +21,16 @@ namespace Coti.Client
     private static bool _loggedDegenerateRadius;
 
     /// <summary>
-    /// Returns the mask for this host, regenerating only when the resolution or host changes -
-    /// building a multi-megapixel texture every frame would be catastrophic.
+    /// Returns the mask for this host, regenerating only when the resolution, host or mask
+    /// geometry changes, since building a multi-megapixel texture is expensive.
     ///
-    /// Returns null - logging once - when the host's maskRadius is zero or negative: that is a
-    /// misconfiguration, not something to render a degenerate texture for. The caller
-    /// (CotiState.Update) treats a null return as "COTI inactive this frame", exactly like the
-    /// old "mask file not loaded" path did.
+    /// Returns null, logging once, when the host's maskRadius is zero or negative: that is a
+    /// misconfiguration. The caller (CotiState.Update) treats null as "COTI inactive this frame".
     /// </summary>
     /// <param name="width">
-    /// Target width in pixels, which MUST be the compositing camera's pixelWidth and NOT
-    /// Screen.width. Those differ: EFT renders at a scaled resolution, measured in raid as
-    /// 2024x847 against a 3440x1440 screen - a factor of exactly 1.700. Generating the mask at
-    /// screen size while compositing onto the camera's smaller target put a second, 1.700x-scaled
-    /// copy of the circle on screen, reproducible across three mask positions.
+    /// Target width in pixels. This must be the compositing camera's pixelWidth, not Screen.width:
+    /// EFT renders at a scaled resolution, and a mask generated at screen size and composited onto
+    /// the camera's smaller target draws a second, scaled copy of the circle.
     /// </param>
     /// <param name="height">Target height in pixels; the camera's pixelHeight, same reasoning.</param>
     public static Texture2D GetOrCreate(
@@ -110,8 +106,7 @@ namespace Coti.Client
           var coverage = MaskGeometry.ComputeCoverage( distance, radius, feather );
 
           // Identical value in every channel: whichever channel Custom/MaskShader's
-          // _OverlayTex sampling reads (.r, .a, or luminance) reads the same mask - the
-          // same deliberate fix the old PNG generator made, preserved here.
+          // _OverlayTex sampling reads (.r, .a, or luminance) sees the same mask.
           var value = (byte)Mathf.Clamp( Mathf.RoundToInt( coverage * 255f ), 0, 255 );
           pixels[rowOffset + x] = new Color32( value, value, value, value );
         }

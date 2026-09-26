@@ -61,7 +61,7 @@
     </MudPaper>
 
     <MudPaper Class="pa-6" Elevation="2">
-      @Header("Host editor", "Saved to disk, but NOT applied to the running server. This one needs a server restart.")
+      @Header("Host editor", "Saved to disk. Takes effect after a server restart.")
       <MudSwitch T="bool" Color="Color.Warning" Label="Auto-discover night vision hosts"
                  Value="@file.HostEditor.AutoDiscover" ValueChanged="@(v => Set(() => file.HostEditor.AutoDiscover = v))" />
     </MudPaper>

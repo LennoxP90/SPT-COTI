@@ -25,8 +25,8 @@ namespace Coti.Shared
     public CotiDeviceFile Device { get; }
 
     /// <summary>
-    /// The <c>hosts</c> entry as authored. Its own Id is the STALE one when a prefab fallback
-    /// recovered this host, so never key anything on it - it is here for Prefab and Label.
+    /// The <c>hosts</c> entry as authored. Its own Id is the stale one when a prefab fallback
+    /// recovered this host, so nothing is keyed on it; it is kept for Prefab and Label.
     /// </summary>
     public CotiHostRef Declared { get; }
   }
@@ -37,9 +37,8 @@ namespace Coti.Shared
         new Dictionary<string, CotiResolvedHost>();
 
     /// <summary>
-    /// Every device that resolved at least one host, with its hosts EXACTLY as authored. This is
-    /// the shape the file has, and nothing may rewrite it: a recovered id is never written back
-    /// to an addon author's file behind their back.
+    /// Every device that resolved at least one host, with its hosts exactly as authored. A recovered
+    /// id is never written back to an addon author's file.
     /// </summary>
     public List<CotiDeviceFile> Devices { get; } = new List<CotiDeviceFile>();
 
@@ -65,12 +64,10 @@ namespace Coti.Shared
       var result = new CotiResolveResult();
       Dictionary<string, List<string>>? prefabIndex = null;
 
-      // Every id already placed on the wire, across ALL devices. The client keys one dictionary on
-      // these, so the same id must never be emitted twice: whichever device came last would own
-      // the pose and mask on the client while the server had fitted the slot for the other one -
-      // the very confusion the occupancy guard below exists to prevent, leaking through the wire
-      // instead of the table. It can only arise from a refused host, since CotiDeviceMerge already
-      // rejects a declared id another file owns and ByHostId cannot hold one twice.
+      // Every id already placed on the wire, across all devices. The client keys one dictionary on
+      // these, so an id emitted twice would give the client the last device's pose and mask while
+      // the server fitted the slot for the other. Only a refused host can cause this, since
+      // CotiDeviceMerge rejects a declared id another file owns and ByHostId cannot hold one twice.
       var wireIds = new HashSet<string>();
 
       foreach( var device in merged.Devices )
@@ -97,8 +94,8 @@ namespace Coti.Shared
         foreach( var host in device.Hosts )
         {
           // A hand-authored "hosts": [null] deserialises to a list containing a null entry, and
-          // a host with no id at all carries nothing to resolve by. Skip it rather than let the
-          // next line NRE and take the whole Resolve call down over one malformed entry.
+          // a host with no id carries nothing to resolve by. Skipping it keeps one malformed entry
+          // from failing the whole Resolve call.
           if( host?.Id is null )
             continue;
 
@@ -140,7 +137,7 @@ namespace Coti.Shared
         return null;
       }
 
-      // Built on FIRST miss only, so a healthy install never pays for it.
+      // Built on the first miss only, so a healthy install never pays for it.
       prefabIndex ??= BuildPrefabIndex( items );
 
       if( !prefabIndex.TryGetValue( host.Prefab, out var matches ) )
@@ -224,7 +221,7 @@ namespace Coti.Shared
     }
 
     /// <summary>
-    /// Null and empty prefab paths are EXCLUDED. Upstream annotates the field as possibly an
+    /// Null and empty prefab paths are excluded. Upstream annotates the field as possibly an
     /// object, an empty string or a string, and every prefab-less item in the database would
     /// otherwise collide into one bucket.
     /// </summary>

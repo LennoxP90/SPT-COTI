@@ -10,9 +10,9 @@ namespace Coti.Client
   /// while uGUI's EventSystem raycasts the same click independently. There is no IMGUI switch for
   /// this, so the EventSystem is suspended while the cursor is inside a COTI window.
   ///
-  /// Leaving it suspended kills the mouse for the whole interface. The decision is recomputed
-  /// every frame, input is asserted ON unconditionally whenever no panel is open, and this runs
-  /// from Update so an exception elsewhere cannot skip it.
+  /// Leaving it suspended kills the mouse for the whole interface, so the decision is recomputed
+  /// every frame, input is restored unconditionally whenever no panel is open, and this runs from
+  /// Update so an exception elsewhere cannot skip it.
   ///
   /// Never re-enable an EventSystem this class did not disable. The game disables its own
   /// during loading transitions, and switching that back on breaks them.
@@ -24,9 +24,8 @@ namespace Coti.Client
     /// <summary>
     /// The EventSystem this class disabled.
     ///
-    /// EventSystem.current returns only ENABLED systems, so disabling it made current null and
-    /// a restore path that looked the target up through current could never find it. Restore
-    /// through this reference, never through current.
+    /// EventSystem.current returns only enabled systems, so it is null once this one is disabled.
+    /// Restore through this reference, never through current.
     /// </summary>
     private static EventSystem _suspended;
 
@@ -39,8 +38,7 @@ namespace Coti.Client
 
       if( !anyOpen )
       {
-        // Unconditional, not "if we think we disabled it". This is the line that guarantees the
-        // interface comes back no matter what happened in between.
+        // Unconditional, so the interface always comes back whatever happened in between.
         Release();
         return;
       }

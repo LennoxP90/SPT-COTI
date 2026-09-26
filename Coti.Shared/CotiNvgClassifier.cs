@@ -14,8 +14,7 @@ namespace Coti.Shared
     /// Walks the parent chain rather than comparing one level, so a mod that interposes its own
     /// node under NightVision is still classified.
     ///
-    /// The visited set is not defensive padding: circular parent data hangs the load, and a
-    /// hung load is indistinguishable from a crashed server.
+    /// The visited set stops circular parent data from hanging the server load.
     /// </summary>
     public static bool IsNightVision( ICotiItemView items, string id )
     {

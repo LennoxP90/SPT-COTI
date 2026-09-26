@@ -10,13 +10,12 @@ namespace Coti.Client.Patches
   /// Suppresses the game's own goggle toggle while the COTI's modifier is held, so a modifier+key
   /// binding can exist at all.
   ///
-  /// EFT does NOT require an exact modifier match on its keybinds: holding Ctrl or Alt and pressing
-  /// N still fires ToggleGoggles. The player tried both and got night vision each time. Since input
-  /// reaches the game before any plugin can consume it, the only way to keep a modifier+N binding
-  /// for the COTI is to make the game's handler stand down for that one keypress.
+  /// EFT does not require an exact modifier match on its keybinds: holding Ctrl or Alt and pressing
+  /// N still fires ToggleGoggles. Input reaches the game before any plugin can consume it, so the
+  /// game's handler has to stand down for that one keypress.
   ///
-  /// Deliberately narrow. It patches EFT.Player.ToggleGoggles and it only declines the call
-  /// while the configured modifier is physically down, so an ordinary N is completely unaffected.
+  /// It patches EFT.Player.ToggleGoggles and only declines the call while the configured modifier
+  /// is physically down, so an ordinary N is unaffected.
   /// </summary>
   public class GoggleToggleSuppressPatch : ModulePatch
   {
@@ -28,15 +27,14 @@ namespace Coti.Client.Patches
     [PatchPrefix]
     private static bool Prefix( Player __instance )
     {
-      // Fails OPEN: if this throws, the goggles toggle as they normally would. The alternative is
-      // a player whose night vision has silently stopped responding to its own keybind.
+      // Fails open: if this throws, the goggles toggle as they normally would rather than night
+      // vision silently ignoring its own keybind.
       return CotiPatchGuard.Run( "GoggleToggleSuppressPatch", () => ShouldRunOriginal( __instance ), onFailure: true );
     }
 
     private static bool ShouldRunOriginal( Player __instance )
     {
-      // Only ever suppress for the local player. A remote or AI player's goggles have nothing to
-      // do with what is held down on this keyboard.
+      // Only the local player's goggles are affected by what is held down on this keyboard.
       if( __instance == null || !__instance.IsYourPlayer )
         return true;
 

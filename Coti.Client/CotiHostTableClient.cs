@@ -64,9 +64,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Parses every embedded hosts/*.json file into the shared device shape. Never throws: a
-    /// single malformed embedded file is logged and skipped, the same way a malformed file on
-    /// disk is skipped by CotiDeviceMerge server-side, rather than taking the whole fallback down
-    /// over one bad entry.
+    /// malformed embedded file is logged and skipped, as CotiDeviceMerge does server-side.
     /// </summary>
     public static List<CotiDeviceFile> LoadEmbeddedFallback()
     {
@@ -100,9 +98,8 @@ namespace Coti.Client
     /// <summary>
     /// Fire-and-forget from Awake. RequestHandler.SessionId is parsed from the command line in its
     /// own static constructor, so this needs no wait for a session and no #if - both SPT lines
-    /// carry a byte-identical RequestHandler. A failed fetch leaves Pending exactly as Awake left
-    /// it (the embedded fallback, applied or about to be) and logs once rather than on every
-    /// attempt - there is no retry loop to spam.
+    /// carry a byte-identical RequestHandler. A failed fetch leaves Pending as Awake left it (the
+    /// embedded fallback) and logs once.
     /// </summary>
     public static void BeginFetch()
     {

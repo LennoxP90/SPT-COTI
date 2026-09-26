@@ -29,13 +29,11 @@ public class CotiPublishResultDto
   public CotiDeviceDto? Device { get; set; }
 
   /// <summary>
-  /// One "&lt;hostId&gt;: &lt;outcome&gt;" entry per host InjectInto could not fit - only
+  /// One "&lt;hostId&gt;: &lt;outcome&gt;" entry per host InjectInto could not fit. Only
   /// InvalidId (a malformed id in the payload) and NoSlotsCollection (a target item with a broken
-  /// Slots collection) ever land here; NotInstalled is the normal case for a host the publishing
-  /// player does not own, and AlreadyPresent is a silent no-op, so neither is a failure worth
-  /// reporting. Populated even when Ok is true: the device file was written successfully - that is
-  /// what Ok means - but the pose editor still needs to know a host it declared did not end up
-  /// fitted, rather than being told the publish fully succeeded when only the write half did.
+  /// Slots collection) land here; NotInstalled is normal for a host the publishing player does not
+  /// own, and AlreadyPresent is a no-op. Populated even when Ok is true: Ok means the device file
+  /// was written, and the pose editor still needs to know a declared host was not fitted.
   /// </summary>
   [JsonPropertyName( "unfitHosts" )]
   public List<string> UnfitHosts { get; set; } = new();

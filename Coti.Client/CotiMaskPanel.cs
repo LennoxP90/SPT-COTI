@@ -22,9 +22,8 @@ namespace Coti.Client
     private const int WindowId = 0x434f5450;
 
     // Sized to hold everything: the pad's three rows, the size and edge pairs, four value rows,
-    // the key legend and the button row. At 300x340 the legend AND both buttons fell off the
-    // bottom, which made Publish unreachable by mouse and hid the only place the keys are written
-    // down. IMGUI clips silently, so nothing said so.
+    // the key legend and the button row. IMGUI clips silently, so anything smaller loses the
+    // legend and the buttons without warning.
     private const float MinWidth = 360f;
     private const float MinHeight = 470f;
 
@@ -95,21 +94,18 @@ namespace Coti.Client
       _keyShrink = Key( file, keys, "Radius Shrink", KeyCode.KeypadMinus, "Makes the circle smaller." );
       _keySofter = Key( file, keys, "Edge Softer", KeyCode.Keypad7, "Widens the fade at the circle's rim." );
       _keyHarder = Key( file, keys, "Edge Harder", KeyCode.Keypad9,
-          "Narrows the fade. At zero the rim is a hard cut, which is a legitimate look rather than a fault." );
+          "Narrows the fade. At zero the rim is a hard edge." );
       _keyReset = Key( file, keys, "Reset", KeyCode.Keypad5,
           "Discards this session's changes and returns to the values the server holds." );
       _keyPublish = Key( file, keys, "Publish", KeyCode.KeypadEnter,
           "Writes the current circle to the device's file on the server." );
       _keyClose = Key( file, keys, "Close", KeyCode.Keypad0, "Closes this window." );
 
-      // NOT Shift, and that is a Windows behaviour rather than a preference. With NumLock on,
-      // holding Shift temporarily inverts the keypad, so Shift+Numpad8 reports as UpArrow and
-      // Keypad8 never fires at all - a Shift-based modifier simply cannot work for these
-      // bindings. Control does not do that to the keypad.
+      // Not Shift: with NumLock on, Windows inverts the keypad while Shift is held, so
+      // Shift+Numpad8 reports as UpArrow and Keypad8 never fires. Control leaves the keypad alone.
       _keyFine = Key( file, keys, "Fine Modifier", KeyCode.LeftControl,
-          "Hold for a smaller step. Deliberately not Shift: with NumLock on, Windows makes "
-          + "Shift+keypad report as the arrow keys instead, so a Shift-based modifier never fires "
-          + "for these bindings." );
+          "Hold for a smaller step. Shift cannot be used: with NumLock on, Windows turns "
+          + "Shift+keypad into the arrow keys." );
 
       _rect = new Rect( _windowX.Value, _windowY.Value, MinWidth, MinHeight );
     }
@@ -133,19 +129,16 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Key handling, called from Update and NOT from OnGUI. Unity calls OnGUI several times a
-    /// frame, so Input.GetKeyDown read from there fires more than once per press - the same shape
-    /// of defect that made the pose editor's hold-to-repeat buttons step once per rendered frame
-    /// with no initial delay.
+    /// Key handling, called from Update rather than OnGUI. Unity calls OnGUI several times a
+    /// frame, so Input.GetKeyDown read from there fires more than once per press.
     /// </summary>
     public static void Tick()
     {
       if( !IsOpen || _keyClose == null )
         return;
 
-      // Before the binding guard, deliberately. In a raid the buttons are unclickable, so if
-      // Close sat behind "something is bound" a window that never bound could not be dismissed
-      // at all without reopening F12.
+      // Before the binding guard: in a raid the buttons are unclickable, so a window that never
+      // bound must still close from its key.
       if( Input.GetKeyDown( _keyClose.Value ) )
       {
         Close();
@@ -159,10 +152,8 @@ namespace Coti.Client
 
       var fine = Input.GetKey( _keyFine.Value );
 
-      // UP IS AN INCREASE. The obvious reasoning - "centerY is measured down the screen, so a
-      // visual up must be a decrease" - was wrong, and moved the circle the wrong way for both
-      // the keys and the pad. Whatever the mask generator and the compositor do between them,
-      // the sign that matters is the one observed on screen.
+      // Up is an increase in CenterY. After the mask generator and the compositor, a larger
+      // CenterY moves the circle up the screen.
       if( Input.GetKeyDown( _keyUp.Value ) ) Nudge( CotiMaskAxis.CenterY, 1, fine );
       if( Input.GetKeyDown( _keyDown.Value ) ) Nudge( CotiMaskAxis.CenterY, -1, fine );
       if( Input.GetKeyDown( _keyLeft.Value ) ) Nudge( CotiMaskAxis.CenterX, -1, fine );
@@ -215,16 +206,15 @@ namespace Coti.Client
     /// </summary>
     private static void Rebind()
     {
-      // The EQUIPPED host, not the actively-rendering one: this window has to be usable in
-      // the stash, where the goggles are never on.
+      // The equipped host rather than the rendering one: this window has to be usable in the
+      // stash, where the goggles are never on.
       var live = CotiState.EquippedHostTemplateId;
       if( live == null )
         return;
 
-      // The binding is only settled once a device was actually FOUND. A host can go live before
-      // the /coti/hosts fetch lands - the fetch is fire-and-forget from Awake - and caching that
-      // failure would leave the window saying "no host resolved" for the rest of the session
-      // with no way to recover short of a relaunch. Retrying costs one short list walk per frame.
+      // The binding is only settled once a device is found. A host can go live before the
+      // fire-and-forget /coti/hosts fetch from Awake lands, and caching that miss would leave the
+      // window unbound for the session. Retrying costs one short list walk per frame.
       if( live == _boundHostId && _working != null )
         return;
 
@@ -235,7 +225,7 @@ namespace Coti.Client
 
       if( device?.Mask == null )
       {
-        // Only on a genuine change of host, so a host that stays unresolvable does not wipe the
+        // Only on a change of host, so a host that stays unresolvable does not wipe the
         // note line every frame.
         if( live != _boundHostId )
         {
@@ -322,7 +312,7 @@ namespace Coti.Client
     public static void Draw()
     {
       // _windowX null means Install never ran - TryEnable swallows a failure, and without this
-      // both Tick and Draw would throw every frame rather than the feature simply being absent.
+      // both Tick and Draw would throw every frame rather than the feature being absent.
       if( !IsOpen || _windowX == null )
         return;
 
@@ -372,9 +362,7 @@ namespace Coti.Client
             + $"{Short( _keyShrink.Value )}/{Short( _keyGrow.Value )} size, "
             + $"{Short( _keyHarder.Value )}/{Short( _keySofter.Value )} edge, "
             + $"{Short( _keyReset.Value )} reset." );
-        // Read from the binding, never written as a literal. This line said "Hold Shift" for a
-        // build after the modifier became Left Control, so the window was instructing the player
-        // to press a key that does nothing - the same defect as the Num labels, in a sentence.
+        // Read from the binding rather than written as a literal, so the text follows a rebind.
         GUILayout.Label( $"Hold {Short( _keyFine.Value )} for a finer step. The keys are the only "
             + "way in a raid, where the cursor is locked." );
       }
@@ -403,20 +391,18 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// The same pad the pose editor uses. Real buttons, not the key legend this once was - the keys
-    /// still matter because they are the only way in a raid, so they are listed below rather than
-    /// crammed into the cells.
+    /// The same pad the pose editor uses. The keys are listed below it rather than in the cells,
+    /// since they are the only way to adjust in a raid.
     /// </summary>
     private static void DrawPad()
     {
       var cell = CotiDpad.CellWidth( "Y+", "Y-", "X-", "X+", "size-", "size+", "edge-", "edge+" );
-      // The same modifier as the keys, not CotiDpad.FineHeld's Shift: one control must not have
-      // two different fine steps depending on whether it was clicked or pressed.
+      // The same modifier as the keys rather than CotiDpad.FineHeld's Shift, so clicking and
+      // pressing share one fine step.
       var fine = Input.GetKey( _keyFine.Value );
 
-      // Step 1, so the pad returns TICKS rather than an amount: CotiMaskNudge owns the per-axis
-      // step sizes, and it applies one step per call. Anything else would give the buttons and the
-      // keys different step sizes for the same control.
+      // Step 1, so the pad returns ticks rather than an amount: CotiMaskNudge owns the per-axis
+      // step sizes and applies one step per call, which keeps buttons and keys in step.
       var centre = CotiDpad.Pad( "mask", "mask", "Y+", "Y-", "X-", "X+", 1f, cell );
       var radius = CotiDpad.Pair( "maskr", "size", "size-", "size+", 1f, cell );
       var feather = CotiDpad.Pair( "maskf", "edge", "edge-", "edge+", 1f, cell );
@@ -446,10 +432,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Shortens a key name to fit a label WITHOUT renaming the key. Dropping the "Keypad" prefix
-    /// outright was wrong and player-visible: KeypadEnter became "Enter" and Keypad0 became "0",
-    /// both of which name a different physical key, so the window told you to press something that
-    /// does nothing. "Num" keeps it short and keeps it true.
+    /// Shortens a key name to fit a label without renaming the key. "Keypad" becomes "Num" rather
+    /// than being dropped, because "Enter" or "0" would name a different physical key.
     /// </summary>
     private static string Short( KeyCode key )
     {

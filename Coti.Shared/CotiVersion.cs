@@ -19,8 +19,8 @@ namespace Coti.Shared
 
     /// <summary>
     /// Whichever line this build belongs to. A const, so it is usable in the BepInPlugin attribute.
-    /// Consumers should use this rather than picking a line by hand - the branch that compiles has
-    /// already made that choice, and choosing again is a chance to choose wrong.
+    /// Consumers use this rather than picking a line by hand, since the compiled branch already
+    /// made that choice.
     /// </summary>
 #if SPT40
     public const string Current = Spt40;

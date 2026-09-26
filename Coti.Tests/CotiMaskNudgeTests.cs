@@ -25,8 +25,8 @@ public class CotiMaskNudgeTests
     [Fact]
     public void AFineNudgeMovesLessFarThanACoarseOne()
     {
-        // A property, not the step arithmetic: whatever the divisor is, holding the fine
-        // modifier must travel a shorter distance in the same direction.
+        // Whatever the divisor is, holding the fine modifier must travel a shorter distance in
+        // the same direction.
         var coarse = CotiMaskNudge.Nudge(Gpnvg(), CotiMaskAxis.CenterX, 1, fine: false);
         var fine = CotiMaskNudge.Nudge(Gpnvg(), CotiMaskAxis.CenterX, 1, fine: true);
 
@@ -37,9 +37,8 @@ public class CotiMaskNudgeTests
     [Fact]
     public void RadiusCanNeverBeNudgedToZeroOrBelow()
     {
-        // The requirement, not the clamp expression: CotiDeviceMerge rejects radius <= 0, so a
-        // published file with one would make the device vanish on the server's next load. No
-        // amount of holding the key down may reach it.
+        // CotiDeviceMerge rejects radius <= 0, so a published file with one would make the device
+        // vanish on the server's next load. Repeated nudges must never reach it.
         var mask = Gpnvg();
         for (var i = 0; i < 500; i++)
             mask = CotiMaskNudge.Nudge(mask, CotiMaskAxis.Radius, -1, fine: false);
@@ -50,8 +49,8 @@ public class CotiMaskNudgeTests
     [Fact]
     public void FeatherCanReachExactlyZeroBecauseAHardEdgeIsLegitimate()
     {
-        // MaskGeometry.ComputeCoverage treats feather <= 0 as a hard cut, which is a real
-        // choice a device may want - so unlike radius, zero is a valid destination.
+        // MaskGeometry.ComputeCoverage treats feather <= 0 as a hard cut, so unlike radius, zero
+        // is a valid value.
         var mask = Gpnvg();
         for (var i = 0; i < 500; i++)
             mask = CotiMaskNudge.Nudge(mask, CotiMaskAxis.Feather, -1, fine: false);

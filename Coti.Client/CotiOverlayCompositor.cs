@@ -72,9 +72,9 @@ namespace Coti.Client
 
         var camera = Camera.main;
 
-        // While the magnified composite is drawing, the 1x overlay stands down entirely rather
-        // than cutting a hole for the lens. The hole was an ESTIMATE - an axis-aligned box around
-        // a tilted disc - so wherever it missed, its rim read as a second circle inside the scope.
+        // While the magnified composite is drawing, the 1x overlay stands down entirely. Cutting a
+        // hole for the lens can only approximate the tilted disc, and its rim reads as a second
+        // circle inside the scope.
         //
         // Both conditions, because they fail independently: standing down for a composite that is
         // not running would leave no thermal at all.
@@ -84,7 +84,7 @@ namespace Coti.Client
           return;
         }
 
-        // Attached only while there is genuinely something to draw.
+        // Attached only while there is something to draw.
         var wanted = CotiThermalCamera.ModeEnabled
                      && CotiState.Active
                      && CotiState.Host != null
@@ -127,17 +127,16 @@ namespace Coti.Client
 
       Detach();
 
-      // The material FROM THE BUNDLE, not one constructed from the shader. Constructing one
-      // from a shader whose compiled programs were stripped at build time yields a material that
-      // renders nothing while reporting isSupported=true - measured as overlay mean=0 max=0
-      // against a threshold its input provably cleared.
+      // The material from the bundle, not one constructed from the shader. A material built from
+      // a shader whose compiled programs were stripped at build time renders nothing while
+      // reporting isSupported=true.
       _material = CotiShaderBundle.OverlayMaterial;
       ForgetMaterialValues();
 
       _commandBuffer = new CommandBuffer { name = "COTI overlay" };
 
-      // The entire composite. No temporary targets, no frame copy, no ping-pong: the shader's
-      // additive blend means the destination is only ever written to.
+      // The entire composite. The shader blends additively, so the destination is only written
+      // to and needs no temporary target or frame copy.
       _commandBuffer.Blit( thermal, BuiltinRenderTextureType.CameraTarget, _material );
 
       camera.AddCommandBuffer( InjectionPoint, _commandBuffer );
@@ -229,7 +228,7 @@ namespace Coti.Client
     /// image would not.
     ///
     /// The phosphor comes from whichever mod owns the tube - see CotiTubeBridge. NightVision.Color
-    /// is the FALLBACK, not the source: Borkel 3.0 stopped writing it.
+    /// is only the fallback, since Borkel 3.0 does not write it.
     /// </summary>
     private static void ApplyPhosphorTint()
     {
@@ -247,8 +246,8 @@ namespace Coti.Client
       if( !fromBridge )
         phosphor = nightVision.Color;
 
-      // Leave the shader's own defaults in place rather than tint the heat to nothing. Not
-      // theoretical: an unwritten NightVision.Color is a real state since Borkel 3.0.
+      // Leave the shader's own defaults in place rather than tint the heat to nothing, which an
+      // unwritten NightVision.Color would do under Borkel 3.0.
       float hueR, hueG, hueB;
       if( !CotiPhosphorTint.TryHue( phosphor.r, phosphor.g, phosphor.b, out hueR, out hueG, out hueB ) )
         return;
@@ -278,7 +277,7 @@ namespace Coti.Client
 
     /// <summary>
     /// The main camera's NightVision, for the timing trace. Exposed rather than resolved a second
-    /// time so the trace reports the SAME component the tint and fade were computed from.
+    /// time so the trace reports the same component the tint and fade were computed from.
     /// </summary>
     internal static BSG.CameraEffects.NightVision Tube
     {
@@ -324,7 +323,7 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// What this material is ACTUALLY set to. Worth reading rather than assuming: while a magnified
+    /// What this material is actually set to. While a magnified
     /// optic is up this compositor is detached, so ApplyMaterialValues does not run and these hold
     /// whatever was last set before the scope came up.
     /// </summary>

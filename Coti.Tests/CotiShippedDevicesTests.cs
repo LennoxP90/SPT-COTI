@@ -5,13 +5,11 @@ using System.Text.Json;
 using Xunit;
 
 /// <summary>
-/// Properties that must hold for every device COTI ships, independent of the migration from
-/// coti-defaults.json. This test outlives CotiDeviceMigrationTests: it reads only the hosts/
-/// files themselves, so it keeps covering the shipped set after the old defaults file, and the
-/// migration test that pins against it, are deleted.
+/// Properties that must hold for every device COTI ships. Reads only the shipped device files
+/// themselves.
 ///
-/// Discovers the files under the embedded Hosts/ path rather than hardcoding the five names, so
-/// a sixth device added later is covered automatically instead of silently escaping the checks.
+/// Discovers the files under the embedded Hosts/ path rather than hardcoding names, so a newly
+/// added device is covered automatically.
 /// </summary>
 public class CotiShippedDevicesTests
 {
@@ -115,9 +113,9 @@ public class CotiShippedDevicesTests
     }
 
     /// <summary>
-    /// Every mask and mount value of every device, pinned. These are measured poses confirmed in
-    /// game, and a moved pose is invisible until someone looks at that device in a raid - so this is
-    /// what stands between an accidental edit and a device that mounts wrong for everyone.
+    /// Every mask and mount value of every device, pinned. These are measured poses, and a moved
+    /// pose is invisible until someone looks at that device in a raid, so this catches an
+    /// accidental edit.
     /// </summary>
     [Theory]
     [InlineData("com.c11.truenorth4_anpvs5a.json",
@@ -162,8 +160,7 @@ public class CotiShippedDevicesTests
         0.0305f, -0.0205f, 0.034f,
         -90f, 0f, 0f,
         -42f, 0f, 0f, 1.2f)]
-    // Retuned in the mount editor to the single tube preset, which the biocular now matches.
-    // The 0.5011/0.274 it carried before was a separate hand-tuning of the same position.
+    // Uses the single tube preset's mask, which the biocular matches.
     [InlineData("vanilla_pnv10t.json",
         0.5f, 0.5f, 0.273f, 0.01f,
         "",
@@ -213,7 +210,7 @@ public class CotiShippedDevicesTests
     [Fact]
     public void DtnvsCarriesBothPhosphorHostsWithTheSharedPrefab()
     {
-        // Looked up by file name across everything embedded, not by shipped-set membership.
+        // Looked up by file name across everything embedded.
         var dtnvs = ShippedDevices().Single(kv => kv.Key.EndsWith(".com.wtt.cag_dtnvs.json")).Value;
         var hosts = dtnvs.GetProperty("hosts").EnumerateArray().ToArray();
 
@@ -223,10 +220,9 @@ public class CotiShippedDevicesTests
         Assert.Contains("6974ce066e50d4be623b8d9b", ids);
         Assert.Contains("6974cf52ee1fb8a0683b8d9d", ids);
 
-        // Deliberately ambiguous: both ids resolve to the same prefab because they share one
-        // mesh and one pose. Resolution only falls back to prefab when an id is missing, and an
-        // ambiguous fallback is skipped with a warning rather than guessed - do not "fix" this by
-        // inventing two distinct prefab paths.
+        // Both ids resolve to the same prefab because they share one mesh and one pose.
+        // Resolution only falls back to prefab when an id is missing, and an ambiguous fallback
+        // is skipped with a warning rather than guessed, so the two hosts keep one prefab path.
         var prefabs = hosts.Select(h => h.GetProperty("prefab").GetString()).Distinct().ToArray();
         Assert.Single(prefabs);
     }
@@ -234,10 +230,9 @@ public class CotiShippedDevicesTests
     [Fact]
     public void OnlyDevicesThatNeedAnotherModDeclareRequires()
     {
-        // The invariant that a wrong guid already violated once. A vanilla device must not gate
-        // itself behind a mod, and a device built on another mod's items must gate itself - without
-        // it, a player lacking the host mod gets a prefab-ambiguity warning instead of one clear
-        // line naming what is missing.
+        // A vanilla device must not gate itself behind a mod, and a device built on another mod's
+        // items must gate itself. Without the gate, a player lacking the host mod gets a
+        // prefab-ambiguity warning instead of one line naming what is missing.
         var vanilla = new[] { "vanilla_gpnvg.json", "vanilla_n15.json", "vanilla_pvs14.json", "vanilla_pnv57e.json", "vanilla_pnv10t.json" };
 
         foreach (var (name, device) in ShippedDevices())
@@ -261,9 +256,8 @@ public class CotiShippedDevicesTests
     [InlineData("com.wtt.contentbackport_pvs31a.json", "com.wtt.contentbackport")]
     public void EachAddonDeclaresTheGuidItsHostModActuallyRegisters(string deviceFile, string guid)
     {
-        // Pinned per device because these are copied by hand and cannot be derived from anything.
-        // com.bobinstien.c11truenorth was shipped in a device file and in ADDONS.md's example, was
-        // never registered by any mod, and silently disabled the whole device.
+        // Pinned per device because these are copied by hand and cannot be derived. A guid no mod
+        // registers disables the whole device.
         var device = ShippedDevices().Single(kv => kv.Key.EndsWith("." + deviceFile)).Value;
 
         Assert.Equal(guid, device.GetProperty("requires").GetString());
@@ -292,7 +286,7 @@ public class CotiShippedDevicesTests
     public void EveryFileIsNamedAfterItsDevice()
     {
         // Publish writes <device>.json, so a file whose name disagrees with its device gets a
-        // SECOND file on the first republish - two files, one host, and a duplicate warning.
+        // second file on the first republish - two files, one host, and a duplicate warning.
         foreach (var (name, device) in ShippedDevices())
         {
             var deviceName = device.GetProperty("device").GetString()!;

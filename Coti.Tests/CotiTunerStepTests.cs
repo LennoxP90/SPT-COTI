@@ -49,18 +49,10 @@ public class CotiTunerStepTests
     [Fact]
     public void TotalDistanceOverAHoldDoesNotDependOnHowOftenStepIsSampled()
     {
-        // The old shape sampled a modulus of the total held time on every call, which is
-        // frame-rate dependent: sampled often enough (a high frame rate), many consecutive calls
-        // land inside the "on" half of the same repeat interval and EACH ONE returns a full step,
-        // so the total distance moved balloons with the sample rate instead of tracking wall-clock
-        // time. Sampled coarsely (a low frame rate), a single call can land entirely inside the
-        // "off" half and the repeat misses its window instead of catching up.
-        //
-        // This asserts the property that actually matters in raid: holding a button for a fixed
-        // duration moves the same total distance whether the frame rate sampling it was high or
-        // low. Simulated at two very different sample rates over the identical hold duration, the
-        // old per-instant modulus would produce wildly different totals here; the accumulator
-        // design produces the same one.
+        // Holding a button for a fixed duration moves the same total distance whatever the frame
+        // rate. A step derived from a modulus of the total held time would be frame-rate
+        // dependent: many samples inside one repeat interval would each return a full step, and a
+        // coarse sample could miss an interval entirely. The accumulator makes both rates agree.
         const float step = 2f;
         const float totalHeld = CotiTunerStep.InitialDelaySeconds + 10f * CotiTunerStep.RepeatIntervalSeconds;
         const float expected = step * 11f; // one tap, then ten repeat intervals
@@ -68,9 +60,8 @@ public class CotiTunerStepTests
         var fine = Simulate(totalHeld, 850, step);
         var coarse = Simulate(totalHeld, 85, step);
 
-        // Tolerance covers a single interval's worth of floating-point boundary rounding at the
-        // very end of the simulated hold - it stays far tighter than what the old per-instant
-        // modulus would have produced here, which was a whole extra order of magnitude out.
+        // Tolerance covers one interval's worth of floating-point boundary rounding at the end of
+        // the simulated hold.
         var tolerance = step * 1.5f;
 
         Assert.True(System.Math.Abs(fine - expected) < tolerance, $"fine sampling moved {fine}, expected close to {expected}");

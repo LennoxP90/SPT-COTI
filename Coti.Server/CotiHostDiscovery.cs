@@ -5,8 +5,8 @@ using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 // SPTarkov.Server.Core.Models.Eft.Common.Tables also declares a type named "Path" (a lockpicking
-// path record), which collides with System.IO.Path once both usings are in scope - the same trap
-// CotiDeviceStore.cs documents at its own top.
+// path record), which collides with System.IO.Path once both usings are in scope. See
+// CotiDeviceStore.cs.
 using Path = System.IO.Path;
 
 namespace Coti.Server;
@@ -74,9 +74,8 @@ public class CotiHostDiscovery : IOnLoad
 
     foreach( var id in items.AllIds().ToList() )
     {
-      // Re-read per candidate, not hoisted out of the loop: TryWrite below reloads the store, so
-      // each iteration has to see the stub the previous one just wrote. One read gives one
-      // complete snapshot, which is all this needs.
+      // Re-read per candidate: TryWrite below reloads the store, so each iteration has to see the
+      // stub the previous one wrote.
       var snapshot = deviceStore.Current;
 
       if( snapshot.ByHostId.ContainsKey( id ) )
@@ -104,11 +103,9 @@ public class CotiHostDiscovery : IOnLoad
           new CotiHostRef { Id = id, Prefab = hostItem.Properties?.Prefab?.Path },
         },
         Mask = seed.Mask,
-        // Empty deliberately, not an oversight: CurveRotator lives on the instantiated prefab,
-        // which the server never loads and never sees, so the anchor bone cannot be seeded here.
-        // The client discovers the real anchor the first time it mounts on this host and offers
-        // it as a suggestion in the pose editor; Publish is what commits it. Do not try to
-        // "finish" this by guessing a bone name.
+        // Empty: CurveRotator lives on the instantiated prefab, which the server never loads, so
+        // the anchor bone cannot be seeded here. The client discovers it when it first mounts on
+        // this host and offers it in the pose editor; Publish commits it.
         Mount = new CotiMountBlock { AnchorBone = string.Empty },
       };
 
@@ -140,8 +137,8 @@ public class CotiHostDiscovery : IOnLoad
   }
 
   /// <summary>
-  /// SeedFor's family resolution: a device's family is not carried on CotiDeviceFile itself - EFT
-  /// declares it per ITEM, not per device - so this looks up the device's first host id in the
+  /// SeedFor's family resolution. EFT declares the family per item, so it is not on
+  /// CotiDeviceFile; this looks up the device's first host id in the
   /// live item table and reads that item's Mask property. Null when the host is not installed,
   /// so SeedFor falls back rather than throwing.
   /// </summary>
@@ -159,8 +156,8 @@ public class CotiHostDiscovery : IOnLoad
 
   /// <summary>
   /// The item's own _name is already a filesystem-safe slug for every real NVG in the database
-  /// (nvg_alfa_pnv-10t, nvg_57em, nvg_l3_gpnvg-18_anvis, ...) - this only guards the case a
-  /// modded item's name is not, so a discovery never fails TryWrite's own filename check.
+  /// (nvg_alfa_pnv-10t, nvg_57em, nvg_l3_gpnvg-18_anvis, ...). This guards against a modded
+  /// item's name that is not, so a discovery never fails TryWrite's filename check.
   /// </summary>
   private static string SlugFromName( string? name, string fallbackId )
   {
@@ -176,11 +173,9 @@ public class CotiHostDiscovery : IOnLoad
   }
 
   /// <summary>
-  /// Checked against both the resolved store and the raw folder, not just deviceStore.Devices -
-  /// a device file whose hosts all failed to resolve (an uninstalled mod's host, say) never makes
-  /// it into Devices, but its file is still sitting in FolderPath under that name, and writing
-  /// over it would silently destroy someone else's device file rather than merely being rejected
-  /// by CotiDeviceMerge's own "already defined" check.
+  /// Checked against both the resolved store and the raw folder. A device file whose hosts all
+  /// failed to resolve (an uninstalled mod's host, say) is not in Devices but its file is still in
+  /// FolderPath, and writing over it would destroy that device file.
   /// </summary>
   private bool DeviceNameInUse( string name )
   {

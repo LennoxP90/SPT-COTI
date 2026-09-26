@@ -7,12 +7,12 @@ namespace Coti.Client
 {
   /// <summary>
   /// Reads the tube's phosphor from whatever is actually drawing it. Borkel's Realistic NVGs 3.0
-  /// renders from a component of its own and writes NightVision.Color no more, so that field is
+  /// renders from a component of its own and does not write NightVision.Color, so that field is
   /// the fallback rather than the source.
   ///
-  /// Bound by SHAPE, never by version, which is why there is no BepInDependency: Borkel 2.x and
-  /// vanilla have no such component and do still use NightVision.Color, so an absent renderer is
-  /// the signal to fall back rather than an error. A version pin would refuse to load for them.
+  /// Bound by shape rather than version, so there is no BepInDependency: Borkel 2.x and vanilla
+  /// have no such component and use NightVision.Color, so an absent renderer is the signal to fall
+  /// back rather than an error.
   /// </summary>
   internal static class CotiTubeBridge
   {

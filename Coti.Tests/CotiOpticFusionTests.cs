@@ -3,8 +3,8 @@ using Xunit;
 
 public class CotiOpticFusionTests
 {
-    // Every field of view below was measured in a 4.1 raid with the COTI_DEV camera probe on
-    // 2026-08-17, not invented. Re-measure with that probe rather than adjusting a value here.
+    // Every field of view below is a real in-game value read with the COTI_DEV camera probe.
+    // Re-measure with that probe rather than adjusting a value here.
     private const float MainHipfire = 75.00f;
     private const float MainAiming = 35.00f;
     private const float MainEotech1x = 60.00f;
@@ -43,7 +43,7 @@ public class CotiOpticFusionTests
 
     [Theory]
     [InlineData(MainAiming, NoOpticCamera)]      // iron sights
-    [InlineData(MainEotech1x, NoOpticCamera)]    // measured: a 1x EOTech creates no optic camera
+    [InlineData(MainEotech1x, NoOpticCamera)]    // a 1x EOTech creates no optic camera
     [InlineData(MainHipfire, NoOpticCamera)]
     [InlineData(MainAiming, MainAiming)]         // a 1x optic, were one to exist
     public void DoesNotMagnifyWithoutMagnification(float main, float optic)
@@ -72,7 +72,7 @@ public class CotiOpticFusionTests
     [Fact]
     public void TheReferenceResolutionChangesNothing()
     {
-        // The whole point: anyone who never touches the resolution must see no difference at all.
+        // Anyone who never changes the resolution sees no difference.
         Assert.Equal(1.5f, CotiOverlayScale.OutlineWidth(1.5f, CotiOverlayScale.ReferenceRows));
     }
 
@@ -93,7 +93,7 @@ public class CotiOpticFusionTests
     public void DiagnosticBandsAreNeverScaled(float band)
     {
         // These are not widths. Scaling one lands on a different band, or on none, and the
-        // diagnostic then quietly answers a question nobody asked.
+        // diagnostic then shows the wrong thing.
         Assert.Equal(band, CotiOverlayScale.OutlineWidth(band, 1536));
     }
 
@@ -102,8 +102,7 @@ public class CotiOpticFusionTests
     [InlineData(-1)]
     public void AnImpossibleRowCountLeavesTheWidthAlone(int rows)
     {
-        // A camera mid-teardown can report anything. Refusing to scale is always safer than
-        // scaling by a number that came out of one.
+        // A camera mid-teardown can report anything, so an impossible row count does not scale.
         Assert.Equal(1.5f, CotiOverlayScale.OutlineWidth(1.5f, rows));
     }
 
@@ -114,14 +113,14 @@ public class CotiOpticFusionTests
     {
         // Below a texel the erosion taps land back inside the pixel they came from, inner converges
         // on solid, and contour mode renders nothing. The low resolutions stand in for distance, so
-        // they must not also switch the contours off and wreck the comparison they exist for.
+        // they must not also switch the contours off.
         Assert.Equal(CotiOverlayScale.MinimumTexels, CotiOverlayScale.OutlineWidth(1.5f, rows));
     }
 
     [Fact]
     public void ScalingDownStillAppliesWhereThereIsRoom()
     {
-        // The clamp is a floor, not a replacement for the scaling.
+        // The clamp is a floor; scaling still applies above it.
         Assert.Equal(2.0f, CotiOverlayScale.OutlineWidth(4.0f, 288), precision: 4);
     }
 
@@ -143,8 +142,8 @@ public class CotiOpticFusionTests
     [InlineData(99999, 288)]  // above it
     public void AnOffListResolutionSnapsBackOntoTheList(int current, int expected)
     {
-        // Config can hold anything. A dev key that does nothing because the current value is
-        // unexpected is worse than one that gets you back onto the list.
+        // Config can hold anything, so an off-list value steps back onto the list rather than
+        // leaving the dev key inert.
         Assert.Equal(expected, CotiSensorResolutions.Next(current));
     }
 
@@ -159,7 +158,7 @@ public class CotiOpticFusionTests
     public void TheSubTexelFloorAppliesAtTheReferenceResolutionToo()
     {
         // The floor applies at the default 576 rows too, not only when scaling. Below half a texel,
-        // contour mode renders nothing - which is what MinimumTexels exists to prevent.
+        // contour mode renders nothing, which MinimumTexels prevents.
         Assert.Equal(CotiOverlayScale.MinimumTexels,
             CotiOverlayScale.OutlineWidth(0.5f, CotiOverlayScale.ReferenceRows));
     }

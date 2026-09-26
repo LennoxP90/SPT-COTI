@@ -13,7 +13,7 @@ namespace Coti.Shared
     public const float RepeatIntervalSeconds = 0.06f;
     public const float FineDivisor = 4f;
 
-    /// <param name="heldSeconds">Time held BEFORE this frame; 0 on the frame of the press.</param>
+    /// <param name="heldSeconds">Time held before this frame; 0 on the frame of the press.</param>
     /// <param name="accumulator">Caller-owned, one per control, reset when the hold ends.</param>
     public static float Step( float heldSeconds, float deltaSeconds, ref float accumulator, float step, bool fine )
     {

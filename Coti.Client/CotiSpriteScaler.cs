@@ -31,7 +31,7 @@ namespace Coti.Client
 
     private static Texture2D Resample( Texture2D master, int width, int height )
     {
-      // sRGB: these are colour images, not data. Getting this wrong washes the icon out.
+      // sRGB: these are colour images, and a linear texture would wash the icon out.
       var temporary = RenderTexture.GetTemporary(
           width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB );
 
@@ -57,8 +57,7 @@ namespace Coti.Client
       }
       finally
       {
-        // Restore rather than null: something else may have had a target bound, and leaving
-        // RenderTexture.active changed is the kind of thing that breaks an unrelated system.
+        // Restore rather than null: something else may have had a target bound.
         RenderTexture.active = previousActive;
         RenderTexture.ReleaseTemporary( temporary );
         master.filterMode = previousFilter;

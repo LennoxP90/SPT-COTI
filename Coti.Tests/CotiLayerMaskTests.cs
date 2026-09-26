@@ -37,8 +37,8 @@ public class CotiLayerMaskTests
     [Fact]
     public void TheFallbackLayerIsIgnoredWhenTheSetIsNotEmpty()
     {
-        // The fallback only matters for the empty-set case - a non-empty set must never be
-        // silently unioned with a layer nothing actually reported.
+        // The fallback only applies to an empty set; a non-empty set is never unioned with a
+        // layer nothing reported.
         var mask = CotiLayerMask.FoldLayerMask(new List<int> { 3 }, 9);
         Assert.Equal(1 << 3, mask);
     }

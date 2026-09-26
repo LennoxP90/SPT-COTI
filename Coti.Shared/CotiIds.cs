@@ -8,7 +8,7 @@ namespace Coti.Shared
   {
     /// <summary>
     /// Changing this orphans every instance in every profile, and a missing template fails 4.1's
-    /// profile validation and refuses the login - so a change here means migrating profiles too.
+    /// profile validation and refuses the login, so a change here requires migrating profiles.
     /// </summary>
     public const string TplId = "6a7f15387b68c336e18e8977";
 

@@ -19,10 +19,10 @@ namespace Coti.Client
   ///
   /// Most types keep their real names on both, but Player.ToggleGoggles becomes method_15 and
   /// NightVision.CurrentColor becomes Color_0, so both are matched by shape - a local-variable type
-  /// for the method, a return type for the property. ToggleGoggles is still PUBLIC on 4.0 despite
+  /// for the method, a return type for the property. ToggleGoggles is still public on 4.0 despite
   /// the rename, so do not filter on visibility.
   ///
-  /// Shape-based binding fails QUIETLY: it returns a plausible member, the patch applies, and
+  /// Shape-based binding fails quietly: it returns a plausible member, the patch applies, and
   /// nothing works. Verify a new lookup against the real assembly rather than the compiler's error
   /// list, which stops naming types once an earlier name in the same statement has failed.
   /// </summary>
@@ -32,11 +32,9 @@ namespace Coti.Client
     private static readonly Assembly Game = typeof( EFT.InventoryLogic.Item ).Assembly;
 
     /// <summary>
-    /// Assembly-CSharp declares types that outright fail to load - confirmed by metadata
-    /// dump, some of its own delegate types are missing the sealed flag a delegate must
-    /// have, which the type loader rejects. GetTypes() throws for the WHOLE assembly the
-    /// moment any one member fails, so every lookup here needs the types that did load,
-    /// not a bare GetTypes() call.
+    /// Assembly-CSharp declares types that fail to load: some of its delegate types lack the
+    /// sealed flag a delegate must have, which the type loader rejects. GetTypes() throws for the
+    /// whole assembly when any one type fails, so lookups use the types that did load.
     /// </summary>
     private static Type[] _gameTypes;
 
@@ -87,8 +85,8 @@ namespace Coti.Client
         }
         catch( AmbiguousMatchException )
         {
-          // Two overloads declared on this type. Still this type, and the caller picks the
-          // overload - but uncaught it would take the whole patch down.
+          // Two overloads declared on this type. It is still the declaring type and the caller
+          // picks the overload; uncaught, this would take the whole patch down.
           hits.Add( t );
         }
         catch( TypeLoadException )
@@ -147,8 +145,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// The nested SlotView class that declares InsertItem is itself PUA-named on 4.0 - confirmed
-    /// by reflection probe, same as the other PUA types. InsertItem itself keeps its own name.
+    /// The nested SlotView class that declares InsertItem is PUA-named on 4.0. InsertItem itself
+    /// keeps its name.
     /// </summary>
     internal static MethodBase InsertItemMethod()
     {
@@ -156,10 +154,9 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// _fileCacheIndex and _memoryCacheIndex are PRIVATE fields on the obfuscated
-    /// icon-creator base type on 4.0 (public on 4.1), so unlike every other member this
-    /// class resolves, their names are wiped along with the type names - verified directly
-    /// against Assembly-CSharp.dll, where both fields report an empty Name. They are found
+    /// _fileCacheIndex and _memoryCacheIndex are private fields on the obfuscated
+    /// icon-creator base type on 4.0 (public on 4.1), so their names are wiped along with the
+    /// type names and both report an empty Name. They are found
     /// by shape instead: exactly two Dictionary&lt;int, X&gt; fields exist on that base
     /// type, and X is either int (file cache: hash -> file id) or the icon type itself
     /// (memory cache: hash -> icon). Private inherited fields are invisible through the
@@ -172,12 +169,11 @@ namespace Coti.Client
     /// <summary>
     /// Keyed on the concrete type, and demands exactly one field of each shape.
     ///
-    /// The cache has to be per-type: a FieldInfo resolved from one icon creator is meaningless
-    /// against an instance of another, and GetValue would either throw or read the wrong object.
-    /// The old "already resolved, return" check ignored which type produced them.
+    /// The cache is per-type: a FieldInfo resolved from one icon creator is meaningless against an
+    /// instance of another, and GetValue would either throw or read the wrong object.
     ///
-    /// Uniqueness matters for the same reason it does on the resources cache: the fields are
-    /// identified by SHAPE, and last-wins on a shape match is a coin toss dressed up as a lookup.
+    /// The fields are identified by shape, so a second match of either shape is an error rather
+    /// than an arbitrary pick.
     /// </summary>
     private static void ResolveIconCacheFields( Type concrete )
     {
@@ -270,11 +266,10 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// TemplateId is inherited from the (unobfuscated) Item base class, so it resolves by
-    /// name - but it is declared as MongoID, not string, and a reflected MongoID boxes as
-    /// itself rather than as the string 'as' expects to see. ToString() is exactly what
-    /// MongoID's own implicit-to-string operator calls, so this matches the 4.1 branch's
-    /// value, which gets that conversion for free at compile time.
+    /// TemplateId is inherited from the unobfuscated Item base class, so it resolves by name.
+    /// It is declared as MongoID, which boxes as itself rather than as a string. ToString() is
+    /// what MongoID's implicit-to-string operator calls, so this matches the 4.1 branch's value,
+    /// which gets that conversion at compile time.
     /// </summary>
     internal static string ContainerTemplateId( object containerCollection )
     {
@@ -283,15 +278,14 @@ namespace Coti.Client
         throw new InvalidOperationException(
             $"[COTI] {containerCollection.GetType().FullName} has no TemplateId property" );
 
-      // A null VALUE is data and stays null; only a missing MEMBER is a defect. This accessor is on
+      // A null value is data and stays null; only a missing member is a defect. This accessor is on
       // the mount path, where a silent null makes the host lookup miss and the device mount at the
       // host's origin with no diagnostic.
       return prop.GetValue( containerCollection )?.ToString();
     }
 
     /// <summary>
-    /// GameObject is a FIELD on ContainerCollectionView, not a property, on both versions -
-    /// verified directly against Assembly-CSharp.dll.
+    /// GameObject is a field on ContainerCollectionView, not a property, on both versions.
     /// </summary>
     internal static GameObject ViewGameObject( object collectionView )
     {
@@ -318,10 +312,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// IconsHash is a static utility class on the game side (used by CotiIconCacheInvalidator's
-    /// own hash lookups), and its declaring type is PUA-named on 4.0 same as the other four -
-    /// confirmed against Assembly-CSharp.dll via a throwaway reflection probe, the same way
-    /// ObjectsFactory was confirmed absent by name. GetItemHash keeps its own name.
+    /// IconsHash is a static game utility class (used by CotiIconCacheInvalidator's hash lookups)
+    /// whose declaring type is PUA-named on 4.0. GetItemHash keeps its name.
     /// </summary>
     private static MethodBase _getItemHashMethod;
 
@@ -341,9 +333,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// TransformTools is the same situation as IconsHash - a static game utility whose declaring
-    /// type is PUA-named on 4.0, found and confirmed the same way. FindTransformRecursive keeps
-    /// its own name.
+    /// TransformTools, like IconsHash, is a static game utility whose declaring type is PUA-named
+    /// on 4.0. FindTransformRecursive keeps its name.
     /// </summary>
     private static MethodBase _findTransformRecursiveMethod;
 
@@ -360,12 +351,10 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// ResourcesCache is PUA-obfuscated on 4.0 like the other five types, found the same way -
-    /// by the type declaring its one distinctively-named public method, RemoveFromCache. Unlike
-    /// every other member this class resolves by name, _storage is PRIVATE on 4.0 (it is public
-    /// on 4.1) - confirmed directly against Assembly-CSharp.dll, where the field reports an empty
-    /// Name. It is the type's only static Dictionary&lt;string, object&gt; field, so it is found
-    /// by that shape instead, the same technique ResolveIconCacheFields uses.
+    /// ResourcesCache is PUA-obfuscated on 4.0 and found by the type declaring its one
+    /// distinctively-named public method, RemoveFromCache. _storage is private on 4.0 (public on
+    /// 4.1) and its name is wiped. It is the type's only static Dictionary&lt;string, object&gt;
+    /// field, so it is found by that shape, as in ResolveIconCacheFields.
     /// </summary>
     private static Type ResourcesCacheType => TypeDeclaring( "RemoveFromCache" );
 
@@ -397,11 +386,9 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// NightVision itself is not renamed on 4.0, but CurrentColor is - EftResolveProbe reports it
-    /// as Color_0. It is the type's only property of type Color, so it
-    /// is found by that shape - there is nothing else on NightVision this could be confused with,
-    /// since the public Color member is a field, not a property (see ApplyPhosphorTint's own use
-    /// of that field for the base tint).
+    /// NightVision keeps its name on 4.0, but CurrentColor becomes Color_0. It is the type's only
+    /// property of type Color, so it is found by that shape. The public Color member is a field,
+    /// so it cannot be confused with it (ApplyPhosphorTint reads that field for the base tint).
     /// </summary>
     private static PropertyInfo _nightVisionCurrentColorProperty;
 
@@ -429,14 +416,6 @@ namespace Coti.Client
       return (Color)NightVisionCurrentColorProperty().GetValue( nightVision );
     }
 
-    /// <summary>
-    /// Player is not renamed either, but ToggleGoggles is - to method_15. It stays PUBLIC; only the
-    /// name goes. It is matched by shape instead: the only parameterless,
-    /// void, instance method declared directly on Player whose body declares a local of type
-    /// TogglableComponent - the "find the headwear's togglable component and flip it" local that
-    /// the 4.1 source shows under ToggleGoggles's real name. Confirmed unique against a dump of
-    /// all 79 candidates sharing that signature; exactly one has such a local.
-    /// </summary>
     /// <summary>
     /// ThermalVision's VolumetricLightRenderer field, which OnPreCull dereferences without a null
     /// check. Named _volumetricLightRenderer on 4.1 and volumetricLightRenderer_0 on 4.0, so it is
@@ -470,8 +449,9 @@ namespace Coti.Client
       if( _toggleGogglesMethod != null )
         return _toggleGogglesMethod;
 
-      // Renamed to method_15 on 4.0 but still public, so do NOT filter on visibility.
-      // TogglableComponent appears exactly once in Player, which is what makes this unambiguous.
+      // Renamed to method_15 on 4.0 but still public, so do not filter on visibility. Matched as the
+      // only parameterless, void, instance method declared on Player whose body has a
+      // TogglableComponent local - the headwear component the toggle flips.
       var hits = typeof( EFT.Player )
                  .GetMethods( AccessTools.all | BindingFlags.DeclaredOnly )
                  .Where( m => !m.IsStatic
@@ -481,10 +461,8 @@ namespace Coti.Client
                      .Any( v => v.LocalType == typeof( EFT.InventoryLogic.TogglableComponent ) ) == true )
                  .ToList();
 
-      // Uniqueness is asserted, not assumed. The comment above already claims exactly one match;
-      // FirstOrDefault would have taken a second one silently, and this patch SUPPRESSES the
-      // original method - binding the wrong one leaves a player whose goggles stop responding to
-      // their own keybind, with nothing logged. Every sibling resolver here demands one hit.
+      // Exactly one match is required. This patch suppresses the original method, so binding the
+      // wrong one leaves goggles that ignore their keybind, with nothing logged.
       if( hits.Count == 1 )
         return _toggleGogglesMethod = hits[0];
 
@@ -500,24 +478,22 @@ namespace Coti.Client
     }
     /// <summary>
     /// The camera manager, which owns the optic camera manager. Renamed to CameraClass on 4.0, so it
-    /// is found by the one type declaring the OpticCameraManager property - measured unique against
-    /// 4.0's 15137 loadable types. On 4.1 three types carry a member of that name, which is why the
-    /// 4.1 branch below names the type rather than searching for it.
+    /// is found by the one type declaring the OpticCameraManager property, which is unique on 4.0.
+    /// On 4.1 three types carry a member of that name, so the 4.1 branch names the type directly.
     ///
-    /// TypeDeclaring searches METHODS, hence the getter rather than the property: a property emits
-    /// get_OpticCameraManager on its own declaring type, and that name is unique on 4.0 too.
+    /// TypeDeclaring searches methods, hence the getter: a property emits get_OpticCameraManager on
+    /// its own declaring type.
     /// </summary>
     internal static Type CameraManagerType => TypeDeclaring( "get_OpticCameraManager" );
 
     /// <summary>
-    /// The optic camera manager itself - GClass3687 on 4.0, a NUMBERED name and so exactly the kind
-    /// this class never writes in source. Found by CurrentOpticSight's getter, unique on 4.0.
+    /// The optic camera manager itself. It has a numbered GClass name on 4.0, which this class never
+    /// writes in source, so it is found by CurrentOpticSight's getter, unique on 4.0.
     ///
     /// Its members keep their source names on both builds: Camera, CurrentOpticSight, OnOpticEnabled,
-    /// OnOpticDisabled. The one exception is IsAnyOpticCameraRendering, renamed to Boolean_0 - and it
-    /// is not needed, because the game defines it as CurrentOpticSight != null and that member
-    /// survives. EFT.CameraControl.OpticSight keeps its own name and its whole field layout on both
-    /// builds, so it is named directly below.
+    /// OnOpticDisabled. IsAnyOpticCameraRendering becomes Boolean_0, but it is not needed: the game
+    /// defines it as CurrentOpticSight != null. EFT.CameraControl.OpticSight keeps its name and field
+    /// layout on both builds, so it is named directly below.
     /// </summary>
     internal static Type OpticCameraManagerType => TypeDeclaring( "get_CurrentOpticSight" );
 
@@ -690,8 +666,8 @@ namespace Coti.Client
       camera = null;
       sight = null;
 
-      // Exist FIRST. Instance is `instance ?? (instance = new CameraManager())` on BOTH builds, so
-      // reading it outside a raid CONSTRUCTS a manager rather than reporting that there is none.
+      // Check Exist first. Instance is `instance ?? (instance = new CameraManager())` on both builds,
+      // so reading it outside a raid constructs a manager rather than reporting that there is none.
       if( !CameraManager.Exist )
         return false;
 
@@ -707,11 +683,9 @@ namespace Coti.Client
 
     // ---- Inspect window (ItemSpecificationPanel) --------------------------------------------
     //
-    // Unlike ContainerCollectionView/IconsHash/ResourcesCache above, every TYPE and FIELD this
-    // section touches keeps its source name on 4.0 - only two METHOD names are wiped
-    // (CreateContextButton and BindButton, both on InteractionButtonsContainer). Confirmed by
-    // decompiling both installs directly rather than inferred from the 4.1 names, so a plain
-    // typeof and AccessTools.Field are enough here and only those two methods need a lookup.
+    // Every type and field this section touches keeps its source name on 4.0. Only two method
+    // names are wiped (CreateContextButton and BindButton, both on InteractionButtonsContainer),
+    // so plain typeof and AccessTools.Field are enough and only those two methods need a lookup.
 
     internal static Type ItemSpecificationPanelType => typeof( EFT.UI.ItemSpecificationPanel );
 
@@ -777,17 +751,15 @@ namespace Coti.Client
 
 #if SPT40
     /// <summary>
-    /// InteractionButtonsContainer's own button-clone method is unnamed on 4.0 - it decompiles as
-    /// method_1 - but its parameter names survive intact, same situation as AttachModsMethod
-    /// above.
+    /// InteractionButtonsContainer's button-clone method is renamed to method_1 on 4.0, but its
+    /// parameter names survive, as with AttachModsMethod above.
     /// </summary>
     private static readonly string[] CreateContextButtonParams =
         { "key", "caption", "template", "container", "sprite", "onButtonClicked", "onMouseHover", "subMenu", "autoClose" };
 
     /// <summary>
-    /// Memoised, same rationale as _toggleGogglesMethod above: AddButton calls this every time
-    /// the inspect window opens or redraws, not once at patch-registration time, so the scan
-    /// this does over every InteractionButtonsContainer method is worth caching.
+    /// Memoised: AddButton calls this every time the inspect window opens or redraws, and the
+    /// lookup scans every InteractionButtonsContainer method.
     /// </summary>
     private static MethodBase _createContextButtonMethod;
 
@@ -816,11 +788,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// BindButton's own name is wiped on 4.0 too - method_5 - but it keeps its single
-    /// parameter's name, "button", of type SimpleContextMenuButton. Two other textual matches for
-    /// that parameter shape exist in the 4.0 dump (a field inside a nested compiler-generated
-    /// closure class, and a local variable) but GetMethods can only ever return methods, so
-    /// neither is a candidate here. Memoised for the same reason as CreateContextButtonMethod.
+    /// BindButton is renamed to method_5 on 4.0, but keeps its single parameter's name, "button",
+    /// of type SimpleContextMenuButton. Memoised for the same reason as CreateContextButtonMethod.
     /// </summary>
     private static MethodBase _bindButtonMethod;
 
@@ -851,9 +820,8 @@ namespace Coti.Client
 #else
     internal static MethodBase CreateContextButtonMethod()
     {
-      // A string literal, not nameof: CreateContextButton is overloaded (a generic <T> form
-      // also exists), and AccessTools.Method needs the explicit parameter list below to pick
-      // the non-generic one regardless.
+      // CreateContextButton is overloaded (a generic <T> form also exists), so the explicit
+      // parameter list picks the non-generic one.
       return AccessTools.Method( typeof( EFT.UI.InteractionButtonsContainer ), "CreateContextButton",
           new[]
           {

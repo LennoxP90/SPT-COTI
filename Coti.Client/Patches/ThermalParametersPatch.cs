@@ -36,14 +36,14 @@ namespace Coti.Client.Patches
     [PatchPostfix]
     private static void Postfix( ThermalVision __instance )
     {
-      // Runs for every ThermalVision in the game. Unfiltered, a thermal weapon optic takes the
-      // clip-on's tuning and keeps it - _wasActive is one flag, so only one instance ever restores.
+      // Runs for every ThermalVision in the game. Unfiltered, a thermal weapon optic would take the
+      // clip-on's tuning and keep it, since _wasActive is one flag and only one instance restores.
       //
-      // BOTH of this mod's cameras qualify, so the magnified image cannot be tuned differently from
-      // the 1x one it sits inside. The single _wasActive latch survives that: both write identical
+      // Both of this mod's cameras qualify, so the magnified image cannot be tuned differently from
+      // the 1x one it sits inside. The single _wasActive latch still works: both write identical
       // values from Plugin.Config.Image, and the pristine snapshot is the shared prefab's own
       // defaults, so whichever instance restores first restores the right numbers. The magnified
-      // camera is also destroyed when the feature goes off rather than left holding COTI values.
+      // camera is also destroyed when the feature goes off.
       if( !CotiThermalCamera.Owns( __instance ) && !CotiOpticThermalCamera.Owns( __instance ) )
         return;
 
@@ -83,10 +83,9 @@ namespace Coti.Client.Patches
 
       var image = Plugin.Config.Image;
 
-      // Captured at most once for the whole session, guarded by _snapshotTaken - the
-      // snapshot is the game's own pristine defaults, which do not change between raids, so
-      // there is nothing to gain from re-capturing on a later COTI activation, and
-      // re-capturing while already active would just save our own values over themselves.
+      // Captured at most once per session. The snapshot is the game's pristine defaults, which
+      // do not change between raids, and re-capturing while active would save COTI's own values
+      // as the defaults.
       if( !_snapshotTaken )
       {
         try
@@ -112,8 +111,8 @@ namespace Coti.Client.Patches
             _loggedSnapshotError = true;
           }
 
-          // Nothing to restore later, so do not write COTI values this call either - that
-          // would strand a later T-7 on COTI's settings for the rest of the session.
+          // Nothing to restore later, so COTI values are not written either; otherwise a later
+          // T-7 would keep COTI's settings for the rest of the session.
           return;
         }
       }
@@ -127,35 +126,31 @@ namespace Coti.Client.Patches
       instance.IsMotionBlurred = image.IsMotionBlurred;
 
       // BSG's own unsharp-mask fields: original + (original - blurred) * bias, inside its
-      // thermal shader. This is the mechanism that makes the composite's masked overlay
-      // (see ThermalVisionOnPreCullPatch) read as edge-dominated contours rather than a
-      // filled thermal image - there is no separate edge-detect shader in this project.
+      // thermal shader. This makes the masked overlay read as edge-dominated contours rather
+      // than a filled thermal image; there is no separate edge-detect shader.
       instance.UnsharpRadiusBlur = image.UnsharpRadiusBlur;
       instance.UnsharpBias = image.UnsharpBias;
 
       ApplyPalette( utils, image );
 
-      // RampShift just shifts where the ramp above is sampled - unlike the palette itself,
-      // there is no failure mode where a given float value produces a null texture, so this
-      // is applied unconditionally (0 is the vanilla no-op default).
+      // RampShift shifts where the ramp is sampled. Unlike the palette, no value produces a null
+      // texture, so it is applied unconditionally (0 is the vanilla default).
       utils.ValuesCoefs.RampShift = image.RampShift;
     }
 
     /// <summary>
     /// Applies <see cref="CotiImageConfig.Palette"/> to
-    /// <c>ThermalVisionUtilities.CurrentRampPalette</c> - the ramp is what maps heat to colour,
-    /// so this is the actual control over whether the image reads as a uniformly bright disc or
-    /// dark-with-hot-highlights (see CotiImageConfig.Palette for the full rationale).
+    /// <c>ThermalVisionUtilities.CurrentRampPalette</c>. The ramp maps heat to colour, so it
+    /// decides whether the image reads as a uniformly bright disc or dark with hot highlights
+    /// (see CotiImageConfig.Palette).
     ///
     /// <see cref="ThermalVision.GetRampTexture"/> walks
-    /// <c>ThermalVisionUtilities.RampTexPalletteConnectors</c> and returns null if none of them
-    /// match <c>CurrentRampPalette</c> - a null ramp texture handed to the material could break
-    /// the thermal image entirely. So a connector for the requested palette must be confirmed to
-    /// exist BEFORE writing CurrentRampPalette, never after. "" / null means "leave the game's
-    /// current palette untouched" and is not an error - that is the correct behaviour for a
-    /// setting that has not opted into a specific palette. An unrecognised string and a
-    /// recognised-but-connector-less palette both get the same treatment: log once (naming the
-    /// requested value and the ones actually available) and leave the palette unchanged.
+    /// <c>ThermalVisionUtilities.RampTexPalletteConnectors</c> and returns null if none match
+    /// <c>CurrentRampPalette</c>, and a null ramp texture can break the thermal image. So a
+    /// connector for the requested palette is confirmed to exist before CurrentRampPalette is
+    /// written. "" or null leaves the game's current palette untouched. An unrecognised string
+    /// and a palette with no connector are both logged once (naming the requested value and the
+    /// available ones) and leave the palette unchanged.
     /// </summary>
     private static void ApplyPalette( ThermalVisionUtilities utils, CotiImageConfig image )
     {

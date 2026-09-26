@@ -23,14 +23,14 @@ public class CotiMaskPresetsTests
   }
 
   [Theory]
-  // The values the shipped devices actually carry, so a preset that drifts off them is caught.
+  // The values the shipped devices carry, so a preset that drifts off them is caught.
   [InlineData(0.5f, 0.5f, 0.273f, 0.01f, "Single tube")]
   [InlineData(0.5361f, 0.5f, 0.274f, 0.01f, "Dual tube")]
   [InlineData(0.525f, 0.5f, 0.285f, 0.01f, "Quad tube")]
   // The PNV-10T biocular: one tube, two eyes, and the same centred position as the PVS-14 to
-  // within a thousandth. Two hand-tunings of one preset, not two presets.
+  // within a thousandth, so it matches the same preset.
   [InlineData(0.5011f, 0.5f, 0.274f, 0.01f, "Single tube")]
-  // Far enough from all three to be someone's own measurement.
+  // Far enough from all three to count as a custom measurement.
   [InlineData(0.62f, 0.5f, 0.31f, 0.01f, "Custom")]
   public void MatchesTheShippedDevices(float x, float y, float radius, float feather, string expected)
   {
@@ -74,8 +74,8 @@ public class CotiMaskPresetsTests
   [Fact]
   public void GuidanceNamesAVanillaGoggleForEachLayout()
   {
-    // The blurb is the only guidance in the panel now, so it has to name devices a reader can
-    // actually look at. Every one of these is in the base game.
+    // The blurb is the only guidance in the panel, so it names devices every reader has. Each of
+    // these is in the base game.
     Assert.Contains("PVS-14", CotiMaskPresets.Guidance);
     Assert.Contains("N-15", CotiMaskPresets.Guidance);
     Assert.Contains("GPNVG-18", CotiMaskPresets.Guidance);

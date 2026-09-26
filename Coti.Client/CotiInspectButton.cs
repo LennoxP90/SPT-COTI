@@ -53,10 +53,8 @@ namespace Coti.Client
       if( panel == null )
         return;
 
-      // The host check comes FIRST and gates creation itself, not just interactability - a
-      // weapon or any other non-host item must get no button at all, per the brief. The earlier
-      // draft of this method only fed the gate into SetButtonInteraction, which left a
-      // permanently-disabled button on every single item in the game.
+      // The host check comes first and gates creation itself, not just interactability: a
+      // non-host item gets no button at all.
       var item = EftCompat.InspectedItemField().GetValue( panel ) as Item;
       var gate = ResolveGate( item );
       if( gate == CotiInspectGate.NoButton )
@@ -88,14 +86,13 @@ namespace Coti.Client
 
       try
       {
-        // Bound into the SAME redraw cycle the built-in buttons use - see the class comment.
+        // Bound into the same redraw cycle the built-in buttons use.
         EftCompat.BindButtonMethod().Invoke( container, new object[] { button } );
       }
       catch
       {
-        // BindButton is what would otherwise register this button's own teardown. If BindButton
-        // itself is what threw, nothing else will ever clean this instance up - do it here rather
-        // than leaving an untracked button behind, then let CotiPatchGuard log the failure.
+        // BindButton registers this button's teardown, so if it threw nothing else will clean
+        // this instance up. Destroy it here, then let CotiPatchGuard log the failure.
         DestroyOrphanButton( button );
         throw;
       }
@@ -105,9 +102,8 @@ namespace Coti.Client
 
     /// <summary>
     /// Mirrors what BindButton's own dispose action does to a button it tracked (Close(), then
-    /// destroy unless it is the template's SingleInstance) - the same cleanup this button would
-    /// have received on the next redraw, done immediately instead because binding it into that
-    /// cycle is exactly what failed.
+    /// destroy unless it is the template's SingleInstance), done immediately because the button
+    /// never joined the redraw cycle that would otherwise clean it up.
     /// </summary>
     private static void DestroyOrphanButton( SimpleContextMenuButton button )
     {

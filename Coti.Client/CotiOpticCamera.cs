@@ -6,16 +6,16 @@ namespace Coti.Client
   /// <summary>
   /// The magnified optic EFT is rendering this frame, read from the game's own optic manager.
   ///
-  /// Measured in a raid: an optic camera is live only while aiming a magnified sight, it renders to
-  /// its own 1024x1024 target which the game draws onto the lens, variable zoom moves fieldOfView on
-  /// ONE reused camera, and its parent is null - it sits at the scope, not at the eye. That last
-  /// point is why callers must take the transform from here rather than assuming the eye.
+  /// An optic camera is live only while aiming a magnified sight. It renders to its own 1024x1024
+  /// target which the game draws onto the lens, variable zoom moves fieldOfView on one reused
+  /// camera, and its parent is null. It sits at the scope rather than the eye, so callers take the
+  /// transform from here.
   ///
   /// Asking the manager rather than scanning <c>Camera.allCameras</c> also hands over
   /// <see cref="OpticSight.LensRenderer"/>, which no renderer search can find: the lens texture is
   /// published with <c>Shader.SetGlobalTexture</c>, on no material and no property block.
   ///
-  /// Presence is NOT the 1x test - <see cref="CotiOpticFusion.ShouldMagnify"/> is, by ratio.
+  /// Presence is not the 1x test - <see cref="CotiOpticFusion.ShouldMagnify"/> is, by ratio.
   /// </summary>
   internal static class CotiOpticCamera
   {

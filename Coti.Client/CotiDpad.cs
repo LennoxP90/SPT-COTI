@@ -9,11 +9,10 @@ namespace Coti.Client
   /// The four-way pad and labelled pair used by both editors. Three axes fit one cluster as a pad
   /// plus a flanking pair.
   ///
-  /// Cells are labelled by axis and sign rather than with arrows: this panel already had to
-  /// replace a UTF-8 delta sign with ASCII because the IMGUI font's coverage is not reliable, and
-  /// "Y+" is less ambiguous than an up arrow for a thing with three axes anyway.
+  /// Cells are labelled by axis and sign rather than with arrows: the IMGUI font's coverage of
+  /// non-ASCII glyphs is not reliable, and "Y+" is less ambiguous than an up arrow with three axes.
   ///
-  /// Cell width is measured from the labels, never chosen - a hardcoded 42px clipped "Pitch+".
+  /// Cell width is measured from the labels so a long label such as "Pitch+" is never clipped.
   /// </summary>
   public static class CotiDpad
   {
@@ -64,8 +63,7 @@ namespace Coti.Client
 
       GUILayout.BeginHorizontal();
       var hMinus = Cell( keyPrefix + "lt", left, step, -1f, cell );
-      // The centre is a label, not a button. A dead-looking button reads worse than an honest one,
-      // and every caller so far has a Reset already.
+      // The centre is a label rather than a button that does nothing; every caller has its own Reset.
       GUILayout.Label( centre, GUILayout.Width( cell ) );
       var hPlus = Cell( keyPrefix + "rt", right, step, 1f, cell );
       GUILayout.EndHorizontal();
@@ -99,11 +97,10 @@ namespace Coti.Client
     /// <summary>
     /// One RepeatButton wired to CotiTunerStep. Returns the signed step for this frame.
     ///
-    /// Only Repaint may touch Holds or call Step. DoRepeatButton reports true under Repaint
-    /// only, and Unity runs a Layout pass first where the control is never hot - doing the
-    /// bookkeeping on every event type let Layout wipe the hold state an instant before Repaint
-    /// recreated it at zero, collapsing the ramp to its tap branch every frame. RepeatButton itself
-    /// must still be called on every pass so GUILayout's control count stays consistent.
+    /// Only Repaint may touch Holds or call Step. DoRepeatButton reports true under Repaint only,
+    /// and Unity runs a Layout pass first where the control is never hot, so bookkeeping on Layout
+    /// would wipe the hold state every frame and collapse the ramp to its tap branch. RepeatButton
+    /// itself is still called on every pass so GUILayout's control count stays consistent.
     /// </summary>
     private static float Cell( string key, string label, float step, float sign, float width )
     {

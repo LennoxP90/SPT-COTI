@@ -76,12 +76,9 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Null-safe on every member, for the same reason the server half is (see its own comment):
-    /// Newtonsoft assigns null over a "= new()" initialiser for an explicit null just as
-    /// System.Text.Json does, and this side parses two payloads it does not author - the server's
-    /// /coti/hosts response and the publish result. Keeping the two halves of one wire contract
-    /// null-safe together is the point; the original defect was exactly that knowledge on one side
-    /// of the boundary not crossing it.
+    /// Null-safe on every member, like the server half: Newtonsoft assigns null over a "= new()"
+    /// initialiser for an explicit null just as System.Text.Json does, and this side parses two
+    /// payloads it does not author - the server's /coti/hosts response and the publish result.
     /// </summary>
     public CotiDeviceFile ToShared()
     {

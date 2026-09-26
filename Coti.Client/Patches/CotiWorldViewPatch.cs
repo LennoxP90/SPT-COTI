@@ -10,9 +10,9 @@ using UnityEngine;
 namespace Coti.Client.Patches
 {
   /// <summary>
-  /// Rebinds the shader and starts the visibility mirror for item views built for the WORLD.
+  /// Rebinds the shader and starts the visibility mirror for item views built for the world.
   /// CotiAttachReportPatch does the same off ContainerCollectionView.SlotView, which is inventory UI
-  /// only, so in raid neither ran.
+  /// only and never runs in raid.
   /// </summary>
   public class CotiWorldViewPatch : ModulePatch
   {
@@ -57,9 +57,9 @@ namespace Coti.Client.Patches
     }
 
     /// <summary>
-    /// Only ever the DEVICE is rebound, never the view around it: the host's own renderers use the
-    /// same shader, and rebinding those both touches items that are not ours and corrupts the
-    /// lookup - see CotiShaderRebind.GameShader.
+    /// Only the device is rebound, never the view around it: the host's own renderers use the
+    /// same shader, and rebinding those touches other items and corrupts the lookup. See
+    /// CotiShaderRebind.GameShader.
     /// </summary>
     internal static void Dress( GameObject view, bool viewIsDevice )
     {
@@ -94,8 +94,8 @@ namespace Coti.Client.Patches
 
     /// <summary>
     /// Re-equipping goggles reattaches to the pooled view instead of building a new one, so
-    /// CreateItemAsync never runs and both faults came back. CotiMountBonePatch prefixes this same
-    /// method to create the bone; this is the other half, after the mods are on it.
+    /// CreateItemAsync never runs. CotiMountBonePatch prefixes this same method to create the bone;
+    /// this is the other half, after the mods are on it.
     /// </summary>
     public class OnAttachMods : ModulePatch
     {

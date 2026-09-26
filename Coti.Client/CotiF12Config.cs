@@ -16,12 +16,10 @@ namespace Coti.Client
     public ConfigEntry<KeyboardShortcut> PowerToggle { get; private set; }
 
     /// <summary>
-    /// hostFallback replaces the old CotiNvgHosts.All - per-host mask and mount geometry now
-    /// comes from device files (hosts/*.json, embedded as the offline fallback and overtaken by
-    /// CotiHostTableClient's fetch once it lands), not from a compiled-in table. This constructor
-    /// only needs a synchronous seed for the geometry the mask generator and mount patches read
-    /// immediately; CotiHostTableClient.Apply is what also runs the slot patch, from Update, once
-    /// the game's own singletons are up.
+    /// Per-host mask and mount geometry comes from device files (hosts/*.json, embedded as the
+    /// offline fallback and replaced by CotiHostTableClient's fetch once it lands). hostFallback is
+    /// the synchronous seed for the geometry the mask generator and mount patches read immediately;
+    /// CotiHostTableClient.Apply runs the slot patch from Update once the game's singletons are up.
     /// </summary>
     public CotiF12Config( ConfigFile file, IReadOnlyList<CotiDeviceFile> hostFallback )
     {
@@ -137,26 +135,16 @@ namespace Coti.Client
 
       var rows = _file.Bind( "Image", "Sensor Resolution (rows)", Current.ThermalCamera.Height,
           new ConfigDescription(
-              "Vertical resolution of the thermal render. Raising it is what recovers DISTANT " +
-              "contacts: a target far enough away covers only a fraction of a texel, its heat is " +
-              "averaged with the cold background, and below about a quarter coverage it falls under " +
-              "the heat threshold and contributes nothing at all - so it dims, flickers as it moves, " +
-              "and eventually vanishes. At 576 a man at 300 m already swings between a fifth of full " +
-              "brightness and full brightness depending on where he lands on the texel grid. Costs " +
-              "fill rate, which measurement says is not the bottleneck - the second camera is bound " +
-              "by CPU-side culling and draw submission, and those do not change with resolution. " +
-              "Contour thickness is scaled to match, so the picture keeps its look. The values BELOW " +
-              "576 are a test aid rather than a setting: angular size in texels is (size / range) x " +
-              "(rows / fov), so halving the rows is identical to doubling the range. 288 at 50 m " +
-              "shows what 576 does at 100 m, which is how the failure can be provoked on a sightline " +
-              "you actually have.",
+              "Vertical resolution of the thermal image. Higher values keep distant targets visible: " +
+              "a target smaller than one pixel of the sensor blends into the cold background and can " +
+              "flicker or vanish. Contour thickness scales to match. Values below 576 are for testing: " +
+              "halving the rows shows what the default does at twice the range.",
               new AcceptableValueList<int>( CotiSensorResolutions.All ) ) );
 
       var hz = _file.Bind( "Image", "Sensor Refresh (Hz)", Current.ThermalCamera.Hz, new ConfigDescription(
-          "The sensor's simulated refresh. The thermal image is captured at this rate and the " +
-          "held copy is re-blitted in between, which is what a low-refresh core looks like. Set " +
-          "0 to disable the hold entirely and capture every frame. This is NOT a render cap and " +
-          "costs no extra rendering either way - the camera renders every frame regardless.",
+          "The sensor's simulated refresh. The thermal image updates at this rate and holds in " +
+          "between, as a real low-refresh core does. 0 updates every frame. Performance is the " +
+          "same either way: the camera renders every frame regardless.",
           new AcceptableValueRange<int>( 0, 240 ) ) );
 
       var magnify = _file.Bind( "Image", "Magnify With Optic", defaults.MagnifyWithOptic,
@@ -165,9 +153,8 @@ namespace Coti.Client
               "what the scope shows instead of with the 1x view around it, and keeps the 1x heat " +
               "off the lens. Off by default: the COTI is an offset sensor looking downrange on its " +
               "own axis, so a 1x thermal is what it would really produce. Costs a second scene " +
-              "render while aiming. Non-magnified sights are unaffected either way. If Borkel's " +
-              "scope blur is on, this spends that render aligning heat onto a deliberately blurred " +
-              "picture." ) );
+              "render while aiming. Non-magnified sights are unaffected either way. With Borkel's " +
+              "scope blur on, the heat is aligned onto the blurred scope picture." ) );
 
       _appliers.Add( () =>
       {
@@ -193,7 +180,7 @@ namespace Coti.Client
         Current.ThermalCamera.Hz = hz.Value;
 
         // Width follows height at the sensor's own 4:3 ratio, so one control cannot leave the two
-        // inconsistent. EnsureRenderTexture already reallocates only when the size really changes.
+        // inconsistent. EnsureRenderTexture reallocates only when the size changes.
         Current.ThermalCamera.Height = rows.Value;
         Current.ThermalCamera.Width = CotiSensorResolutions.WidthFor( rows.Value );
       } );
@@ -245,18 +232,16 @@ namespace Coti.Client
       var dumpFrames = _file.Bind( "Debug", "Dump Frames", 0, new ConfigDescription(
           "Writes this many frames of every thermal render target to coti-dumps/ as PNGs, with " +
           "per-channel statistics in the log, then stops. Change the number to start a fresh batch. " +
-          "Live, because the alternative was a rebuild per attempt: dumpFrames is a compiled-in " +
-          "default and nothing else on this panel can reach it. The channel MEANS are the point - " +
-          "under a grayscale palette a real thermal render has neutral means and a lit one is " +
-          "colour-cast, which is the check four in-raid screenshot comparisons could not settle.",
+          "Under a grayscale palette a correct thermal render has neutral channel means; a " +
+          "colour cast means the target was lit rather than thermal.",
           new AcceptableValueRange<int>( 0, 30 ) ) );
 #endif
 
       // An action rather than a setting, so the drawer replaces the usual editor with a button.
       // The bound value is never read: CotiMaskPanel owns whether it is open, because the window
       // has its own Close button and hotkey and has to be able to shut itself without this menu
-      // being on screen. Deliberately NOT under Debug and not IsAdvanced - it is the only entry
-      // point to the editor, so hiding it would hide the feature.
+      // being on screen. Not under Debug and not IsAdvanced: it is the only entry point to the
+      // editor.
       _file.Bind( "Mask Editor", "Open", false, new ConfigDescription(
           "Opens the thermal circle editor. It stays open after this menu closes, so you can drop " +
           "your goggles and adjust the circle while looking through them.",

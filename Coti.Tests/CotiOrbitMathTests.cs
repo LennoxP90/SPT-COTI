@@ -30,8 +30,8 @@ public class CotiOrbitMathTests
     [Fact]
     public void DistanceClampsAtTheNearLimit()
     {
-        // This is the whole point of building a dedicated camera: closer than EFT's own inspect
-        // window allows. A near limit that clamped away before that point would defeat it.
+        // The dedicated camera exists to get closer than EFT's own inspect window allows, so the
+        // near limit must not clamp before that point.
         Assert.Equal(CotiOrbitMath.MinDistanceMetres, CotiOrbitMath.ClampDistance(-5f));
     }
 
@@ -64,10 +64,8 @@ public class CotiOrbitMathTests
     [Fact]
     public void DraggingDownTurnsTheViewTheSameWayTheInspectWindowDoes()
     {
-        // The requirement is a direction, not a formula: IMGUI reports a POSITIVE delta.y for a
-        // downward drag, and the preview must turn the same way EFT's own inspect window turns an
-        // item under the same drag. The previous version of this test asserted -10 purely because
-        // the implementation subtracted, and it passed happily while the axis was inverted in game.
+        // IMGUI reports a positive delta.y for a downward drag, and the preview must turn the same
+        // way EFT's own inspect window turns an item under the same drag.
         CotiOrbitMath.ApplyDrag(0f, 0f, 0f, 10f, 1f, out var yaw, out var pitch);
         Assert.Equal(0f, yaw, 3);
         Assert.True(pitch > 0f, "a downward drag must raise pitch, matching the inspect window");
@@ -76,7 +74,7 @@ public class CotiOrbitMathTests
     [Fact]
     public void ADragCannotPushPitchPastItsClamp()
     {
-        // Positive delta.y now drives pitch upward, so the clamp is reached by dragging DOWN.
+        // Positive delta.y drives pitch upward, so the clamp is reached by dragging down.
         CotiOrbitMath.ApplyDrag(0f, 80f, 0f, 100f, 1f, out _, out var pitch);
         Assert.Equal(CotiOrbitMath.MaxPitchDegrees, pitch);
     }
@@ -115,8 +113,7 @@ public class CotiOrbitMathTests
     [Fact]
     public void FramingDistanceMatchesTheHalfAngleFormulaAt90Degrees()
     {
-        // Derived from the requirement, not from the implementation. An object of size s must
-        // occupy fraction f of the frame's height, so the frame must be s/f tall and its
+        // An object of size s must occupy fraction f of the frame's height, so the frame must be s/f tall and its
         // half-height (s/2)/f. At a 90-degree vertical field of view tan(45 degrees) is exactly 1,
         // so the camera's distance equals that half-height.
         var size = 0.4f;
@@ -130,10 +127,8 @@ public class CotiOrbitMathTests
     [Fact]
     public void FramingLeavesAMarginRatherThanCroppingTheObject()
     {
-        // The direction of the fill fraction, stated so a sign error cannot pass: framing to
-        // 70 percent of the frame must sit FURTHER out than framing to 100 percent, which is what
-        // an object exactly filling the frame would need. Multiplying by the fraction instead of
-        // dividing inverts this and crops.
+        // Framing to 70 percent of the frame must sit further out than framing to 100 percent.
+        // Multiplying by the fraction instead of dividing inverts this and crops.
         var size = 0.4f;
         var exactlyFilling = size * 0.5f;
 

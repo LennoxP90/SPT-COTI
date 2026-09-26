@@ -40,8 +40,8 @@ namespace Coti.Client.Patches
       if( bone == null || bone.name != CotiModSlotName )
         return;
 
-      // Match the goggles' own visibility - see CotiDressMirror. This replaces three failed attempts
-      // to work out whether the bone belonged to the wearer; the host already knows.
+      // Match the goggles' own visibility - see CotiDressMirror. The host already knows whether it
+      // belongs to the wearer, so the bone's owner is never worked out here.
       CotiDressMirror.Register( itemView, bone );
       CotiShaderRebind.Apply( itemView );
 

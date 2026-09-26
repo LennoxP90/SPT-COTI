@@ -60,8 +60,8 @@ public static class CotiAddonPackager
   /// Where the files land, relative to an SPT 4.1 install root. The archive carries the whole
   /// path so extracting it over an install puts every file where it belongs.
   ///
-  /// 4.1 only: Coti.Server.Web is absent from the 4.0 distribution, so nobody on 4.0 can reach
-  /// the export button.
+  /// 4.1 only: Coti.Server.Web is absent from the 4.0 distribution, so the export button does not
+  /// exist there.
   /// </summary>
   public const string InstallPath = "SPT_Runtime/user/mods/LennoxP90-COTI/nvghostcompat";
 

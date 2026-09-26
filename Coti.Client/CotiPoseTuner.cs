@@ -67,8 +67,8 @@ namespace Coti.Client
     private static string _lastPublishNote;
 
     /// <summary>
-    /// The host's own root, NOT _bone.root - that would be the player root in a raid, so bounds
-    /// would measure the whole player every frame the header draws.
+    /// The host's own root. _bone.root is the player root in a raid, so bounds measured from it
+    /// would cover the whole player.
     /// </summary>
     private static Transform _hostRoot;
 
@@ -101,9 +101,8 @@ namespace Coti.Client
       var hostId = host.StringTemplateId;
       if( hostId != null && hostId != _hostId )
       {
-        // Not fatal - the dictionaries below are keyed by hostId, so the numbers this panel shows
-        // are still correct. Only the "watch it move live" feedback is unavailable until this host
-        // mounts again, which OnMountPosed will report on its own the moment it does.
+        // The deltas are keyed by hostId, so the panel's numbers stay correct; only the live
+        // preview waits until this host mounts again.
         Plugin.Log.LogWarning(
             $"[COTI TUNE] pose editor opened for {hostId} but the last mounted host was " +
             $"{_hostId ?? "(none)"} - nudges will not be visible until this host mounts again." );
@@ -225,8 +224,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Moves the pending anchor to the next (or, with a negative direction, previous) candidate.
-    /// Offered, not forced - this only ever changes what cycling shows and what the flip test
-    /// exercises; nothing is written to disk until Publish.
+    /// Nothing is written to disk until Publish.
     /// </summary>
     public static void CycleAnchorBone( int direction )
     {
@@ -242,8 +240,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Jumps straight to whatever the CurveRotator suggested, if anything did. A human still has
-    /// to click this - nothing here applies the suggestion on its own.
+    /// Selects the CurveRotator's suggestion, if there is one. The suggestion is never applied
+    /// automatically.
     /// </summary>
     public static void UseSuggestedAnchorBone()
     {
@@ -292,9 +290,7 @@ namespace Coti.Client
 
       _bone.transform.SetParent( anchor, worldPositionStays: false );
 
-      // The pose is expressed relative to the anchor, so it has to be re-applied against the new
-      // parent - otherwise the COTI keeps the offsets it had under the old one and lands somewhere
-      // that looks like the anchor change did the wrong thing rather than nothing.
+      // The pose is relative to the anchor, so it is re-applied against the new parent.
       CotiMountPose.Apply( _bone, _host, Delta( Positions, _hostId ), Delta( Rotations, _hostId ),
           ScaleDelta( _hostId ) );
     }
@@ -314,11 +310,9 @@ namespace Coti.Client
     private static CurveRotator LiveRotator => _rotator != null && _hostId == OpenHostId ? _rotator : null;
 
     /// <summary>
-    /// Null exactly when the flip test buttons should be enabled. Two distinct disabled reasons,
-    /// not one: a host that has simply never been viewed live this session ("model not in scene")
-    /// is a different situation from a host that HAS been viewed and genuinely carries no
-    /// CurveRotator ("no flip hardware") - conflating them would make a perfectly flip-capable
-    /// host that just is not mounted right now look like it can never flip at all.
+    /// Null exactly when the flip test buttons should be enabled. A host that is not mounted live
+    /// ("model not in scene") is reported separately from a mounted host with no CurveRotator
+    /// ("no flip hardware"), so a flip-capable host that is not mounted is not shown as unable to flip.
     /// </summary>
     public static string FlipUnavailableReason
     {
@@ -335,8 +329,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Jumps to the end pose. CurveRotator's flag means DEPLOYED, and a deployed goggle is rotated
-    /// DOWN - passing "up = true" through reverses both buttons.
+    /// Jumps to the end pose. CurveRotator's flag means deployed, and a deployed goggle is rotated
+    /// down, so passing "up = true" would reverse both buttons.
     /// </summary>
     public static void FlipSnap( bool deployed )
     {
@@ -346,9 +340,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Set(isOn, initial: false) - animates at the prefab's own RotationSpeed, which is what lets
-    /// a pose that is correct at both extremes but sweeps through the host mid-flip be caught; a
-    /// snap test alone would show both ends looking fine and miss it.
+    /// Set(isOn, initial: false) animates at the prefab's own RotationSpeed, which shows a pose
+    /// that is correct at both ends but sweeps through the host mid-flip.
     /// </summary>
     public static void FlipAnimate( bool deployed )
     {
@@ -460,8 +453,8 @@ namespace Coti.Client
           RollDegrees = mount.RollDegrees + rotation.z,
           PitchDegrees = mount.PitchDegrees + rotation.x,
           YawDegrees = mount.YawDegrees + rotation.y,
-          // Not clamped to CotiMountPose's MinimumScale - this is a readout of what Publish would
-          // write, and clamping is a rendering safety net, not something the panel should hide.
+          // Not clamped to CotiMountPose's MinimumScale: this is what Publish would write, and the
+          // clamp only applies when rendering.
           Scale = mount.Scale + scale,
         }
       };
@@ -601,8 +594,8 @@ namespace Coti.Client
     /// </summary>
     private static bool SendPublish( CotiDeviceFile device, string hostId, string hostName )
     {
-      // Rounded here so every publish path gets it. A NEW block, because PublishMask passes the live
-      // table's own mount straight through.
+      // Rounded here so every publish path gets it. Round returns a new block, because PublishMask
+      // passes the live table's own mount straight through.
       if( device?.Mount != null )
         device.Mount = CotiMountRounding.Round( device.Mount );
 
@@ -671,10 +664,9 @@ namespace Coti.Client
       if( !replaced )
         next.Add( published );
 
-      // patchSlots: the server accepted this publish, so its own InjectInto pass has just run over
-      // every host the device declares - this is exactly the mid-session divergence
-      // CotiSlotPatcher exists to close, and the one case where the client is entitled to add the
-      // slot itself rather than wait for a relaunch.
+      // patchSlots: the server accepted this publish and has already run InjectInto over every
+      // host the device declares, so the client adds the slot itself rather than waiting for a
+      // relaunch.
       CotiHostTableClient.Apply( next, Plugin.Config, patchSlots: true );
 
       CotiNvgHostConfig liveHost;
@@ -755,10 +747,8 @@ namespace Coti.Client
       // GameObject that has since been reused.
       _rotator = hostRoot == null ? null : hostRoot.GetComponentInChildren<CurveRotator>( true );
 
-      // Re-applied every pass for the same reason Positions/Rotations/Scales are re-read via
-      // Delta() below rather than applied once: an override made while this host was NOT the one
-      // live (SetAnchorBone's own direct write only reaches _host when _hostId already matches)
-      // must still take effect the moment it actually mounts, not be silently lost.
+      // Re-applied every pass so an override made while another host was live takes effect when
+      // this one mounts; SetAnchorBone only writes to _host when _hostId already matches.
       ApplyAnchorOverride( hostId, host );
 
       ForgetDeltasIfConfigChanged( hostId, host );
@@ -814,9 +804,7 @@ namespace Coti.Client
         SuggestedBoneByHost[templateId] = ResolveSuggestedBone( root );
       }
 
-      // AttachMods runs on every item view, so an unguarded line below would repeat constantly
-      // while the inventory screen is open - the capture above is cheap and per-host-once
-      // regardless, but the verbose report is only worth writing to the log the first time.
+      // AttachMods runs on every item view, so the verbose report is logged once per host.
       if( !LoggedHosts.Add( templateId ) )
         return;
 
@@ -838,7 +826,7 @@ namespace Coti.Client
 
     /// <summary>
     /// CurveRotator.RotatedTransform is the transform that rotates when the goggle flips, so for a
-    /// flip-capable host it is the correct anchor - which is what the GPNVG-18's "axis" already was.
+    /// flip-capable host it is the correct anchor.
     /// </summary>
     private static string ResolveSuggestedBone( Transform root )
     {
@@ -910,14 +898,12 @@ namespace Coti.Client
       return report.ToString();
     }
 
-    // ---- The keyboard shortcut, unchanged from before promotion --------------------------------
+    // ---- The keyboard shortcut ------------------------------------------------------------------
 
     /// <summary>
-    /// The arrow-key nudge, arming and step sizes all as before - the pose editor's on-screen
-    /// buttons are an additional input surface over the same deltas, not a replacement for this
-    /// one. Gated on EnablePoseModifier same as always: the editor's own buttons need no such gate,
-    /// since clicking one is already a deliberate action, but these keys are otherwise free ones
-    /// EFT does not bind, and firing on every keypress without an opt-in would be a surprise.
+    /// The arrow-key nudge. It edits the same deltas as the pose editor's buttons. Gated on
+    /// EnablePoseModifier because these keys would otherwise fire on every keypress; the editor's
+    /// buttons need no gate since a click is already intentional.
     /// </summary>
     public static void Tick()
     {

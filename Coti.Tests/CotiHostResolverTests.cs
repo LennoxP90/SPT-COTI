@@ -48,8 +48,8 @@ public class CotiHostResolverTests
     [Fact]
     public void AMovedIdIsRefoundByPrefabPath()
     {
-        // The whole point: the host mod renumbered its items, so the addon's id is stale but
-        // the MESH is the same, and the pose is a function of the mesh.
+        // The host mod renumbered its items, so the addon's id is stale but the mesh is the same,
+        // and the pose is a function of the mesh.
         var items = new FakeItems();
         items.Items["999"] = ("chimera.bundle", "nv");
 
@@ -65,9 +65,9 @@ public class CotiHostResolverTests
     [Fact]
     public void OneDeviceCannotStealAHostAnotherHasAlreadyResolved()
     {
-        // CotiDeviceMerge's duplicate-host guard compares DECLARED ids only, so it cannot see a
+        // CotiDeviceMerge's duplicate-host guard compares declared ids only, so it cannot see a
         // prefab fallback landing on an id another device declared outright. Without an occupancy
-        // check the later claim silently wins and the host mounts with the wrong pose and mask.
+        // check the later claim wins and the host mounts with the wrong pose and mask.
         var items = new FakeItems();
         items.Items["111"] = ("chimera.bundle", "nv");
 
@@ -85,10 +85,9 @@ public class CotiHostResolverTests
     [Fact]
     public void ARefusedHostIsNotPlacedOnTheWireByTheDeviceThatLostIt()
     {
-        // Here the loser loses on the EXACT-id path, so its own declared id IS the contested one.
-        // Emitting it anyway would hand the client the same key twice and let the losing device's
-        // pose and mask win there, while the server had fitted the slot for the winner - the
-        // occupancy guard's own failure mode, leaking through the wire instead of the table.
+        // Here the loser loses on the exact-id path, so its own declared id is the contested one.
+        // Emitting it would hand the client the same key twice and let the losing device's pose
+        // and mask win there, while the server fitted the slot for the winner.
         var items = new FakeItems();
         items.Items["111"] = ("chimera.bundle", "nv");
         items.Items["444"] = ("other.bundle", "nv");
@@ -111,9 +110,8 @@ public class CotiHostResolverTests
     [Fact]
     public void TheWireCarriesTheResolvedIdWhileTheFileKeepsTheDeclaredOne()
     {
-        // The whole point of the two lists: the client keys its config, its slot patch and its
-        // inspect gate on what it is handed, so it must be handed the id the server FITTED - while
-        // the device file itself is never rewritten behind the addon author's back.
+        // The client keys its config, slot patch and inspect gate on the id it is handed, so it
+        // must get the id the server fitted, while the device file itself is never rewritten.
         var items = new FakeItems();
         items.Items["999"] = ("chimera.bundle", "nv");
 
@@ -133,8 +131,8 @@ public class CotiHostResolverTests
     [Fact]
     public void TheWireKeepsTheDeclaredIdOfAHostThatResolvedToNothing()
     {
-        // Dropping it would truncate the author's host list the first time anyone published a
-        // pose for a device whose other variants are not installed - Publish writes this list back.
+        // Publish writes this list back, so dropping it would truncate the author's host list for
+        // a device whose other variants are not installed.
         var items = new FakeItems();
         items.Items["111"] = ("chimera.bundle", "nv");
 
@@ -195,10 +193,9 @@ public class CotiHostResolverTests
     public void AnItemWithNoPrefabPathNeverEntersTheIndex()
     {
         // The host-level empty-prefab guard short-circuits before the index is built, so this is
-        // the only test that reaches BuildPrefabIndex's own exclusion. Without it, removing that
-        // exclusion stays green here and throws in production: real items declare no prefab, and
-        // a null dictionary key is an ArgumentNullException the first time any device needs the
-        // fallback at all.
+        // the only test that reaches BuildPrefabIndex's own exclusion. Real items declare no
+        // prefab, and a null dictionary key throws ArgumentNullException when any device needs
+        // the fallback.
         var items = new FakeItems();
         items.Items["901"] = (null, "nv");
         items.Items["902"] = ("", "nv");
@@ -228,8 +225,8 @@ public class CotiHostResolverTests
     [Fact]
     public void AnAbsentHostIsANoteNotAWarning()
     {
-        // A supported-but-absent host is the NORMAL case: several hosts come from optional
-        // mods. Warning about it makes a healthy install look broken.
+        // A supported-but-absent host is normal, since several hosts come from optional mods, so
+        // it is not warned about.
         var r = CotiHostResolver.Resolve(
             Merged(Device("pvs31a", null, new CotiHostRef { Id = "111" })),
             new FakeItems(), new HashSet<string>());

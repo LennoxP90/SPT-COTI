@@ -10,8 +10,7 @@ namespace Coti.Shared
   /// Binocular, and a clone inherits its donor's, so C11's Chimeras arrive as Anvis - the
   /// family whose geometry is already measured.
   ///
-  /// This is a starting point, never an answer. The device stays tuned:false until a human
-  /// confirms it.
+  /// The seed is only a starting point: the device stays tuned:false until someone confirms it.
   /// </summary>
   public static class CotiMaskFamilies
   {
@@ -52,10 +51,8 @@ namespace Coti.Shared
   }
 
   /// <summary>
-  /// What SeedFor found, not just what it built. A caller that wants to say WHICH of the two
-  /// paths happened - matched a tuned device, or fell back - must be told directly. Re-testing
-  /// the match condition itself in the caller puts a second copy of that condition in another
-  /// file, where it can drift out of sync with this one and only a log line would ever reveal it.
+  /// What SeedFor found as well as what it built, so a caller can tell whether it matched a tuned
+  /// device or fell back without re-testing the match condition and risking drift.
   /// </summary>
   public class CotiMaskSeed
   {

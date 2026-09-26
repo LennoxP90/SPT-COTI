@@ -51,8 +51,7 @@ namespace Coti.Client.Patches
           return;
       }
 
-      // Plugin.Log is null if this somehow runs before the plugin awakes, and a throw from the
-      // reporter would defeat the whole point of the guard.
+      // Plugin.Log is null if this runs before the plugin awakes, and the reporter must not throw.
       try
       {
         Plugin.Log?.LogError( $"[COTI] {site} failed and was suppressed - further failures at this " +

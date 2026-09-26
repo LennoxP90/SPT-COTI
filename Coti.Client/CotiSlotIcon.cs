@@ -8,10 +8,8 @@ namespace Coti.Client
   public static class CotiSlotIcon
   {
     /// <summary>
-    /// Derived rather than spelled out: the game keys slot icons by slot name, so this and the
-    /// transform the mount patch creates are the same identifier wearing two hats. Written out
-    /// separately they could drift, and the symptom would be a slot with no icon rather than
-    /// anything that names the cause.
+    /// Derived from CotiIds.ModSlotName: the game keys slot icons by slot name, which is also the
+    /// transform the mount patch creates. If the two drifted, the slot would silently show no icon.
     /// </summary>
     private const string CacheKey = "Slots/" + CotiIds.ModSlotName;
 
@@ -49,9 +47,8 @@ namespace Coti.Client
         return;
       }
 
-      // Resampled to the cell size rather than used at its authored resolution. ModSlotView
-      // draws this background at the sprite's native size, so a 128px image overflowed a 64px
-      // slot - the same mistake the item icon made in the stash grid.
+      // Resampled to the cell size: ModSlotView draws this background at the sprite's native size,
+      // so a larger image would overflow the slot.
       Object.DontDestroyOnLoad( texture );
       _sprite = CotiSpriteScaler.Get( "slot", texture, SlotPixelSize, SlotPixelSize );
 

@@ -3,20 +3,20 @@ namespace Coti.Client
   /// <summary>
   /// Keeps the overlay's look fixed when the sensor's resolution changes.
   ///
-  /// <c>_OutlineWidth</c> is specified in TEXELS, so its apparent thickness halves every time the
-  /// target's resolution doubles. Without this, raising the resolution to recover distant contacts
-  /// would also thin every contour, and the two changes could not be judged apart.
+  /// <c>_OutlineWidth</c> is specified in texels, so its apparent thickness halves every time the
+  /// target's resolution doubles. Scaling it keeps contour thickness constant when the resolution
+  /// is raised to recover distant contacts.
   /// </summary>
   public static class CotiOverlayScale
   {
     /// <summary>
-    /// The resolution the configured width was tuned against. A scale of exactly 1 here is what
-    /// makes this invisible to anyone who never touches the resolution.
+    /// The resolution the configured width was tuned against. At this resolution the scale is
+    /// exactly 1.
     /// </summary>
     public const int ReferenceRows = 576;
 
     /// <summary>
-    /// Values at or above this are diagnostic bands, not widths - the shader keys debug output off
+    /// Values at or above this are diagnostic bands rather than widths: the shader keys debug output off
     /// <c>_OutlineWidth</c> above 600. Scaling one would select a different band.
     /// </summary>
     public const float DiagnosticFloor = 100f;

@@ -4,13 +4,13 @@ namespace Coti.Client
   /// Decides whether the magnified path should run this frame, and where the lens sits on screen.
   ///
   /// Pure and over primitives: everything else in this feature needs a running game, so this is the
-  /// only part that can be reasoned about at a desk.
+  /// only part that can be tested outside it.
   /// </summary>
   public static class CotiOpticFusion
   {
     /// <summary>
     /// Below this the optic magnifies too little to be worth a second scene render. A variable
-    /// scope at its bottom stop measured 35.00 main against 26.50 optic, a ratio of 1.32.
+    /// scope at its bottom stop is about 1.32 (35 main against 26.5 optic), so it stays above.
     /// </summary>
     public const float MinimumMagnification = 1.15f;
 

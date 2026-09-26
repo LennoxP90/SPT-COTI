@@ -1,9 +1,8 @@
 using Coti.Client;
 using Xunit;
 
-// ComputeCoverage draws the feathered edge of the overlay's circular mask. Its failure
-// mode is subtle - a wrong falloff still looks plausible in raid - so the boundaries and
-// the midpoint are pinned rather than eyeballed.
+// ComputeCoverage draws the feathered edge of the overlay's circular mask. A wrong falloff
+// still looks plausible on screen, so the boundaries and the midpoint are pinned here.
 public class MaskGeometryTests
 {
     private const float Tolerance = 0.0001f;

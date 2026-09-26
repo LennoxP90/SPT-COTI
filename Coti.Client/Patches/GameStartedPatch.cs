@@ -19,9 +19,8 @@ namespace Coti.Client.Patches
     {
       CotiPatchGuard.Run( "GameStartedPatch", () =>
       {
-        // Patches are only ever Enabled from the non-headless branch of Plugin.Awake, so this
-        // can never actually run on the headless - guarded anyway, matching Update()'s own
-        // belt-and-braces IsHeadless check, since a per-tick NRE on that box is not cosmetic.
+        // Patches are only enabled from the non-headless branch of Plugin.Awake. Guarded anyway,
+        // like Update()'s IsHeadless check, since a per-tick NRE on the headless is costly.
         if( Plugin.IsHeadless )
           return;
 

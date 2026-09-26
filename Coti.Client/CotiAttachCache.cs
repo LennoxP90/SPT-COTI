@@ -6,7 +6,8 @@ namespace Coti.Client
   /// A probe result held against the host it was taken from, re-run only when the host changes or
   /// something invalidates it.
   ///
-  /// Keyed on reference identity, not equality: two items that compare equal are still two items.
+  /// Keyed on reference identity rather than equality: two items that compare equal are still two
+  /// items.
   /// Pure and free of EFT types so Coti.Tests can drive it with a counting probe.
   /// </summary>
   internal sealed class CotiAttachCache<T> where T : class

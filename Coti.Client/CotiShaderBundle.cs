@@ -21,9 +21,9 @@ namespace Coti.Client
     private static string _loadedPath;
 
     /// <summary>
-    /// The overlay shader, or null when the bundle is absent or does not contain it. Null is a
-    /// hard stop for the compositor rather than a reason to fall back: the fallbacks are exactly
-    /// the broken behaviours this bundle exists to replace.
+    /// The overlay shader, or null when the bundle is absent or does not contain it. Null stops the
+    /// compositor rather than triggering a fallback, because the fallbacks are the broken
+    /// behaviours this bundle replaces.
     /// </summary>
     internal static Shader Overlay
     {
@@ -46,10 +46,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Loads the bundle from beside this assembly. Logs precisely which step failed - a missing
-    /// bundle, a bundle that will not open, or a bundle without the expected shader are three
-    /// different problems with three different fixes, and "the effect does nothing" is not a
-    /// usable diagnosis for any of them.
+    /// Loads the bundle from beside this assembly. Logs which step failed: a missing bundle, a
+    /// bundle that will not open, and a bundle without the expected shader have different fixes.
     /// </summary>
     private static void Load()
     {

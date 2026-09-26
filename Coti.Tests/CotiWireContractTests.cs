@@ -10,10 +10,9 @@ using ServerTable = Coti.Server.CotiHostTableDto;
 using ServerPublishResult = Coti.Server.CotiPublishResultDto;
 
 /// <summary>
-/// The server serialises with System.Text.Json, which is CASE-SENSITIVE with no naming
-/// policy; the client deserialises with Newtonsoft, which is case-insensitive. So a rename on
-/// the server binds the client's property to its default and throws nothing at all. This test
-/// is the only thing that catches it.
+/// The server serialises with System.Text.Json, which is case-sensitive with no naming policy;
+/// the client deserialises with Newtonsoft, which is case-insensitive. A rename on the server
+/// binds the client's property to its default and throws nothing, so these tests pin the names.
 /// </summary>
 public class CotiWireContractTests
 {
@@ -72,8 +71,8 @@ public class CotiWireContractTests
     }
 
     /// <summary>
-    /// Round-trips the whole publish result - not just its device field - server-writes to
-    /// client-reads. Every field carries a non-default value, so a property left bound to its
+    /// Round-trips the whole publish result, including its device field, from server write to
+    /// client read. Every field carries a non-default value, so a property left bound to its
     /// default is a visible failure rather than a silent one.
     /// </summary>
     [Fact]
@@ -106,7 +105,7 @@ public class CotiWireContractTests
     [Fact]
     public void ClientJsonDeserialisesIntoTheServerDto()
     {
-        // The publish direction. A name that only works one way is still a broken contract.
+        // The publish direction: names must bind both ways.
         var json = Newtonsoft.Json.JsonConvert.SerializeObject(ClientDto.FromShared(Sample()));
 
         var got = System.Text.Json.JsonSerializer.Deserialize<ServerDto>(json)!.ToShared();
@@ -118,9 +117,8 @@ public class CotiWireContractTests
 
     /// <summary>
     /// POST /coti/hosts/publish calls ToShared() straight off the request, before any validation,
-    /// and that route is deliberately ungated - so an explicit null in any of the three object
-    /// members, or a null entry inside hosts, must come back as a rejection rather than an
-    /// exception out of the route. Both serialisers assign null over a "= new()" initialiser, so
+    /// and that route is ungated, so an explicit null in any of the three object members, or a
+    /// null entry inside hosts, has to come back as a rejection rather than an exception. Both serialisers assign null over a "= new()" initialiser, so
     /// both halves of the contract are pinned here.
     /// </summary>
     [Theory]
@@ -142,9 +140,9 @@ public class CotiWireContractTests
     }
 
     /// <summary>
-    /// The substituted defaults above are not silently accepted either: a zero mask radius
-    /// generates no mask at all and a device with no hosts can mount nothing, so the shared merge
-    /// rules reject both - which is what turns a would-be 500 into a named rejection.
+    /// The substituted defaults above are then rejected: a zero mask radius generates no mask and
+    /// a device with no hosts can mount nothing, so the shared merge rules return a named
+    /// rejection rather than a 500.
     /// </summary>
     [Fact]
     public void ADeviceWithNullBlocksIsRejectedByTheSharedMergeRules()
@@ -162,8 +160,8 @@ public class CotiWireContractTests
     [Fact]
     public void EveryWireNameIsLowerCamelCase()
     {
-        // Hand-authored addon files are read by the SERVER dto, so its names are the public
-        // file format. PascalCase would leak C# convention into a format humans write.
+        // Hand-authored addon files are read by the server dto, so its names are the public
+        // file format, which uses lower camelCase.
         var json = System.Text.Json.JsonSerializer.Serialize(ServerDto.FromShared(Sample()));
 
         foreach (var name in new[] { "schema", "device", "displayName", "requires", "tuned",
@@ -174,10 +172,10 @@ public class CotiWireContractTests
     [Fact]
     public void AHandAuthoredDeviceFileParsesWithEveryFieldPopulated()
     {
-        // Device files are hand-written by addon authors, so the server DTO's names ARE the
+        // Device files are hand-written by addon authors, so the server DTO's names are the
         // public file format. Round-tripping objects pins the two DTOs against each other but
-        // never proves the documented spelling parses from text - and `requires` has no shipped
-        // file to check against, because shipped devices deliberately omit it.
+        // does not prove the documented spelling parses from text, and shipped devices omit
+        // `requires`, so no shipped file covers it.
         const string json = """
         {
           "schema": 1,

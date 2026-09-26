@@ -53,8 +53,8 @@
         <MudStack Row="true" Spacing="2">
           @if (addonMod is not null)
           {
-            @* The controller already sets Content-Disposition; naming it here as well costs
-               nothing and does not depend on the header surviving a proxy. *@
+            @* The controller also sets Content-Disposition; naming it here does not depend on the
+               header surviving a proxy. *@
             <MudButton StartIcon="@Icons.Material.Filled.Archive" Variant="Variant.Outlined"
                        Color="Color.Secondary" Href="@($"/coti/addon/{addonMod}")"
                        download="@CotiAddonPackager.FileNameFor(addonMod!)"
@@ -70,8 +70,7 @@
 
     @if (withoutMesh.Count > 0)
     {
-      @* Was "converting mod bundles is not built yet". It is, so a device only lands here now
-         when its bundle could not be read at all. *@
+      @* A device lands here only when its bundle could not be read. *@
       <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
         No preview for @string.Join(", ", withoutMesh).
         COTI could not read a mesh out of @(withoutMesh.Count == 1 ? "its" : "their")
@@ -133,7 +132,7 @@
 
         if (!CotiHostMeshes.TryGetSlug(host.Id, out _))
         {
-          // One entry per device, not per host: a device with three hosts was named three times.
+          // One entry per device rather than per host, so a multi-host device is named once.
           if (!withoutMesh.Contains(deviceName))
           {
             withoutMesh.Add(deviceName);
@@ -182,7 +181,6 @@
     }
   }
 
-  /// <summary>
   /// <summary>The viewer's overlay buttons land here; the pick is saved with the mount.</summary>
   [JSInvokable]
   public Task OnMask(string name)
@@ -339,8 +337,8 @@
       device.Mask = maskOverride;
     }
 
-    // Saving makes this device a seed donor for its family, so a wrong mask here does not stay
-    // local - it becomes the starting point for every device discovered after it.
+    // Saving makes this device a seed donor for its family, so its mask becomes the starting
+    // point for every device discovered after it.
     device.Tuned = true;
 
     var result = Publisher.Publish(device, "web mount editor");
