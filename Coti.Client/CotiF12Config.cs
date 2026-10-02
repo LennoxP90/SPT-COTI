@@ -44,6 +44,7 @@ namespace Coti.Client
 
       BindImage( defaults );
       BindControls();
+      BindPowerSequence( defaults );
       BindDebug( defaults );
 
       Apply();
@@ -194,6 +195,43 @@ namespace Coti.Client
               "Switches the ECOTI on and off without touching the night vision device. Keep a " +
               "modifier: EFT does not require an exact match on its own binds, so a bare N would " +
               "toggle the goggles as well." ) );
+    }
+
+    private void BindPowerSequence( CotiConfig defaults )
+    {
+      const string section = "Power Sequence";
+      var power = defaults.PowerSequence ?? new CotiPowerSequenceConfig();
+
+      var enabled = _file.Bind( section, "Enabled", power.Enabled, new ConfigDescription(
+          "Plays the device's own start-up and shut-down when Power Toggle is pressed: " +
+          "Initializing..., then the thermal with its calibration click, and Power Off... on the " +
+          "way down. Off switches the thermal on and off instantly." ) );
+
+      var initializing = _file.Bind( section, "Initializing Seconds", power.InitializingSeconds,
+          new ConfigDescription( "How long Initializing... shows before the sensor starts.",
+              new AcceptableValueRange<float>( 0.2f, 5f ) ) );
+
+      var warming = _file.Bind( section, "Warm-up Gap Seconds", power.WarmingSeconds,
+          new ConfigDescription( "The lit, empty display between Initializing... and the thermal image.",
+              new AcceptableValueRange<float>( 0f, 3f ) ) );
+
+      var powerOff = _file.Bind( section, "Power Off Seconds", power.PowerOffSeconds,
+          new ConfigDescription( "How long Power Off... shows before the display goes dark.",
+              new AcceptableValueRange<float>( 0.2f, 5f ) ) );
+
+      var clickVolume = _file.Bind( section, "Click Volume", power.ClickVolume,
+          new ConfigDescription( "Loudness of the calibration click, on top of the game's own " +
+              "volume settings. 0 mutes it.",
+              new AcceptableValueRange<float>( 0f, 1f ) ) );
+
+      _appliers.Add( () =>
+      {
+        Current.PowerSequence.Enabled = enabled.Value;
+        Current.PowerSequence.InitializingSeconds = initializing.Value;
+        Current.PowerSequence.WarmingSeconds = warming.Value;
+        Current.PowerSequence.PowerOffSeconds = powerOff.Value;
+        Current.PowerSequence.ClickVolume = clickVolume.Value;
+      } );
     }
 
     private void BindDebug( CotiConfig defaults )

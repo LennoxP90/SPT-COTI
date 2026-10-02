@@ -77,6 +77,9 @@ namespace Coti.Client
     [JsonProperty( "image" )]
     public CotiImageConfig Image { get; set; } = new CotiImageConfig();
 
+    [JsonProperty( "powerSequence" )]
+    public CotiPowerSequenceConfig PowerSequence { get; set; } = new CotiPowerSequenceConfig();
+
     /// <summary>
     /// Mask used when a host has no entry, or its named mask is missing.
     /// </summary>
@@ -122,6 +125,32 @@ namespace Coti.Client
     public int DumpFrames { get; set; }
 #endif
 
+  }
+
+  /// <summary>
+  /// The F12 "Power Sequence" section. Enabled false restores the instant CTRL+N toggle.
+  /// </summary>
+  public class CotiPowerSequenceConfig
+  {
+    public bool Enabled { get; set; } = true;
+    public float InitializingSeconds { get; set; } = 1.2f;
+    public float WarmingSeconds { get; set; } = 0.3f;
+    public float PowerOffSeconds { get; set; } = 1.5f;
+
+    /// <summary>
+    /// On top of the game's own volume settings. 0 mutes the click.
+    /// </summary>
+    public float ClickVolume { get; set; } = 1f;
+
+    /// <summary>
+    /// Into an existing instance rather than a new one: this runs every frame.
+    /// </summary>
+    public void CopyTo( CotiPowerTimings target )
+    {
+      target.InitializingSeconds = InitializingSeconds;
+      target.WarmingSeconds = WarmingSeconds;
+      target.PowerOffSeconds = PowerOffSeconds;
+    }
   }
 
   public class CotiNvgHostConfig

@@ -39,4 +39,26 @@ public class CotiActivationTests
         // Every condition is ANDed: a powered COTI on unpowered goggles still shows nothing.
         Assert.False( CotiActivation.ShouldBeActive( false, attached, hostOn, poweredOn ) );
     }
+
+    [Fact]
+    public void DisplayShowsOnlyWhenAttachedTubeLitAndDisplayLit()
+    {
+        Assert.True( CotiActivation.ShouldShowDisplay( false, true, true, true ) );
+    }
+
+    [Theory]
+    [InlineData( false, true, true )]
+    [InlineData( true, false, true )]
+    [InlineData( true, true, false )]
+    public void AnyMissingConditionHidesTheDisplay( bool attached, bool hostOn, bool lit )
+    {
+        // Seen through the tube like the thermal is, so a raised goggle hides the message.
+        Assert.False( CotiActivation.ShouldShowDisplay( false, attached, hostOn, lit ) );
+    }
+
+    [Fact]
+    public void HeadlessNeverShowsTheDisplay()
+    {
+        Assert.False( CotiActivation.ShouldShowDisplay( true, true, true, true ) );
+    }
 }

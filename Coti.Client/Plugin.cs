@@ -1,5 +1,6 @@
 using Coti.Shared;
 using System;
+using System.IO;
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
@@ -40,6 +41,10 @@ namespace Coti.Client
       _settings = new CotiF12Config( ( (BaseUnityPlugin)this ).Config, hostFallback );
       Config = _settings.Current;
       CotiPowerToggle.Bind( _settings.PowerToggle );
+
+      var pluginDirectory = Path.GetDirectoryName( Info.Location );
+      CotiDisplayText.Load( pluginDirectory );
+      CotiCalibrationClick.Load( pluginDirectory );
 
       // Seeded with the same table CotiF12Config just read, then the server's copy is fetched.
       // Both are applied from Update only: Awake runs before the game's singletons (ItemFactory,
@@ -126,6 +131,7 @@ namespace Coti.Client
       CotiOpticThermalCamera.Teardown();
       CotiOpticOverlayCompositor.Teardown();
       CotiTunerPreview.Teardown();
+      CotiDisplayText.Teardown();
 
       // Unconditional Detach rather than Sync(): the config still reports the mode as enabled
       // here, so Sync would re-attach the buffer being torn down.
@@ -167,6 +173,10 @@ namespace Coti.Client
 
         UpdateCotiState();
 
+        // After state resolution: they read CotiState.Showing, Host and CotiAttached.
+        CotiDisplayText.Tick();
+        CotiCalibrationClick.Tick( CotiPowerToggle.Frame );
+
         // Order matters: CotiState must be resolved first, since the thermal camera reads
         // CotiState.Active and CotiState.Host to decide whether and how to render.
         CotiThermalCamera.Tick();
@@ -185,6 +195,7 @@ namespace Coti.Client
           _loggedUpdateError = true;
         }
         CotiState.Active = false;
+        CotiState.Showing = CotiShowing.Nothing;
       }
       finally
       {

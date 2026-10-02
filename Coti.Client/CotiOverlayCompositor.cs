@@ -18,6 +18,12 @@ namespace Coti.Client
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
 
+    /// <summary>
+    /// The message's brightness. 1 renders the letters at exactly HotColour, the tube's own
+    /// near-white phosphor tint.
+    /// </summary>
+    private const float TextIntensity = 1f;
+
     private static CommandBuffer _commandBuffer;
     private static Camera _attachedTo;
     private static Material _material;
@@ -30,7 +36,7 @@ namespace Coti.Client
     private static float _setIntensity = float.NaN;
     private static Color? _setHotColour;
     private static Color? _setCoolColour;
-    private static RenderTexture _builtThermal;
+    private static Texture _builtSource;
 
     private static bool _broken;
     private static bool _loggedAttached;
@@ -85,11 +91,10 @@ namespace Coti.Client
         }
 
         // Attached only while there is something to draw.
-        var wanted = CotiThermalCamera.ModeEnabled
-                     && CotiState.Active
+        var source = CurrentSource();
+        var wanted = source != null
                      && CotiState.Host != null
                      && CotiState.Mask != null
-                     && CotiThermalCamera.HasOutput
                      && CotiShaderBundle.OverlayMaterial != null;
 
         if( !wanted || camera == null )
@@ -101,9 +106,9 @@ namespace Coti.Client
         if( _attachedTo != camera )
           Detach();
 
-        EnsureBuffer( camera );
+        EnsureBuffer( camera, source );
 
-        ApplyMaterialValues();
+        ApplyMaterialValues( source );
       }
       catch( Exception ex )
       {
@@ -114,13 +119,31 @@ namespace Coti.Client
       }
     }
 
-    private static void EnsureBuffer( Camera camera )
+    /// <summary>
+    /// The thermal while it runs, the device's own message while it boots or shuts down. Both go
+    /// through the same material, so the message glows in the phosphor tint inside the circle.
+    /// </summary>
+    private static Texture CurrentSource()
     {
-      var thermal = CotiThermalCamera.Output;
+      if( !CotiThermalCamera.ModeEnabled )
+        return null;
 
+      switch( CotiState.Showing )
+      {
+        case CotiShowing.Thermal:
+          return CotiState.Active && CotiThermalCamera.HasOutput ? CotiThermalCamera.Output : null;
+        case CotiShowing.Message:
+          return CotiDisplayText.Output;
+        default:
+          return null;
+      }
+    }
+
+    private static void EnsureBuffer( Camera camera, Texture thermal )
+    {
       if( _commandBuffer != null
           && _attachedTo == camera
-          && ReferenceEquals( _builtThermal, thermal ) )
+          && ReferenceEquals( _builtSource, thermal ) )
       {
         return;
       }
@@ -142,7 +165,7 @@ namespace Coti.Client
       camera.AddCommandBuffer( InjectionPoint, _commandBuffer );
 
       _attachedTo = camera;
-      _builtThermal = thermal;
+      _builtSource = thermal;
 
       if( !_loggedAttached )
       {
@@ -156,17 +179,26 @@ namespace Coti.Client
     /// <summary>
     /// Pushes the overlay's inputs onto the material, writing only what changed.
     ///
-    /// Every setter is a native call keyed by property id, and only the intensity moves frame to
-    /// frame - the phosphor fade rides vanilla's switch flash. The rest hold for a whole raid.
+    /// A message pins threshold, outline and intensity, so a player's outline or high-threshold
+    /// preset cannot hollow out or hide the letters. The change-gated setters put the player's
+    /// values back on the first thermal frame.
     /// </summary>
-    private static void ApplyMaterialValues()
+    private static void ApplyMaterialValues( Texture source )
     {
       var image = Plugin.Config.Image;
 
-      SetTextureIfChanged( MainTexId, CotiThermalCamera.Output, ref _setMainTex );
+      SetTextureIfChanged( MainTexId, source, ref _setMainTex );
       SetTextureIfChanged( MaskTexId, CotiState.Mask, ref _setMaskTex );
 
       ApplyPhosphorTint();
+
+      if( CotiState.Showing == CotiShowing.Message )
+      {
+        SetFloatIfChanged( ThresholdId, 0f, ref _setThreshold );
+        SetFloatIfChanged( OutlineMixId, 0f, ref _setOutlineMix );
+        SetFloatIfChanged( IntensityId, TextIntensity * PhosphorFade, ref _setIntensity );
+        return;
+      }
 
       SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
       SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
@@ -174,7 +206,8 @@ namespace Coti.Client
           Mathf.Max( 0.5f, image.OutlineWidth ),
           CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height ), ref _setOutlineWidth );
       SetFloatIfChanged( IntensityId,
-          Mathf.Max( 0f, image.OverlayIntensity ) * PhosphorFade, ref _setIntensity );
+          Mathf.Max( 0f, image.OverlayIntensity ) * PhosphorFade * CotiPowerToggle.Frame.GainBoost,
+          ref _setIntensity );
     }
 
     private static void SetFloatIfChanged( int id, float value, ref float last )
@@ -377,7 +410,7 @@ namespace Coti.Client
       _commandBuffer?.Release();
       _commandBuffer = null;
       _attachedTo = null;
-      _builtThermal = null;
+      _builtSource = null;
     }
   }
 }

@@ -15,7 +15,9 @@ Modelled on the Safran DSI AN/PAS-29B.
 - **Fused, not switched.** The thermal image is added inside the night vision circle only. Anything
   cooler than the heat threshold contributes exactly nothing, so the tube image stays readable.
 - **Its own power.** `Ctrl+N` toggles the imager independently of the goggles, like the real device's
-  own button. The night vision stays on when the thermal goes off.
+  own button. The night vision stays on when the thermal goes off. Powering up shows the device's
+  own `Initializing...`, then the thermal arrives with the core's calibration click; powering down
+  shows `Power Off...`. Switch the sequence off in F12 for an instant toggle.
 - **Mounts to five devices** - PVS-14, N-15, GPNVG-18, PVS-31A and the DTNVS from WTT Clothing and
   Gear - each with its own tuned position. A device whose mod is not installed is skipped silently.
 - **Other players see it on you.** It renders on your head in third person and is hidden from your
@@ -90,6 +92,7 @@ are server-side, in `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json` - 
 | `trader.loyaltyLevel` / `priceUsd` / `buyLimit` | Peacekeeper's offer. Defaults to LL4, $2000, three per profile. |
 | `loot.enabled` | Turn off to make the trader the only source. |
 | `loot.weightFraction` | Spawn weight relative to the night vision already at each spot. `0.25` makes it a quarter as likely as the goggles themselves. |
+| `flea.playerSellable` | Off by default, so the only flea listing is Peacekeeper's own, at `priceUsd`. On also lets SPT list simulated player offers and lets players sell their own. SPT prices those listings itself, not from `priceUsd`: expect roughly two to three times Peacekeeper's price. |
 
 The F12 page:
 
@@ -100,6 +103,9 @@ The F12 page:
 | | Overlay Intensity | Brightness of the heat that does show. Lower it if bodies read as solid white blobs rather than shapes. |
 | | Outline Mix | 0 is solid hot shapes, 1 is edge-only contours. |
 | **Controls** | Power Toggle | Click and press the combination you want. Default `Ctrl+N`. Keep a modifier - EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
+| **Power Sequence** | Enabled | On by default. Off makes `Ctrl+N` switch the thermal instantly, with no messages and no click. |
+| | Initializing / Warm-up Gap / Power Off Seconds | How long each stage lasts. Defaults 1.2, 0.3 and 1.5 - a little quicker than the real device. |
+| | Click Volume | The calibration click, on top of the game's own volume. 0 mutes it. |
 | **Debug** | Verbose Logging | Off for normal play. Writes detailed diagnostics to the BepInEx log if you are reporting a problem. |
 
 Deliberately not exposed: the thermal camera's resolution and refresh, the per-device mask geometry,

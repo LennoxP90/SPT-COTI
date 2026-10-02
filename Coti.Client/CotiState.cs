@@ -1,7 +1,15 @@
+using Coti.Shared;
 using UnityEngine;
 
 namespace Coti.Client
 {
+  public enum CotiShowing
+  {
+    Nothing,
+    Thermal,
+    Message,
+  }
+
   /// <summary>
   /// Resolves whether the COTI should render this frame and with what. Holds no rendering code -
   /// the patches in Coti.Client.Patches read these fields, they never compute activation themselves.
@@ -11,6 +19,19 @@ namespace Coti.Client
     public static bool Active;
     public static Texture2D Mask;
     public static CotiNvgHostConfig Host;
+
+    /// <summary>
+    /// What the circle shows this frame. Message covers the boot and shutdown text and the lit,
+    /// blank display between them; Active stays "the thermal renders".
+    /// </summary>
+    public static CotiShowing Showing;
+
+    public static CotiDisplayMessage Message;
+
+    /// <summary>
+    /// A COTI is in the equipped night vision's slot, whatever its power or the tube's state.
+    /// </summary>
+    public static bool CotiAttached;
 
     /// <summary>
     /// The template id <see cref="Host"/> was resolved from. The mask editor needs it to find
@@ -47,14 +68,21 @@ namespace Coti.Client
       Mask = null;
       Host = null;
       HostTemplateId = null;
+      Showing = CotiShowing.Nothing;
+      Message = CotiDisplayMessage.None;
       EquippedHostTemplateId = hostTemplateId;
+      CotiAttached = cotiAttached;
 
-      // Folded into "powered on" rather than given its own branch, so it travels the same
-      // already-proven path.
-      var poweredOn = CotiPowerToggle.PoweredOn && ( Plugin.Config?.Enabled ?? true );
+      var enabled = Plugin.Config?.Enabled ?? true;
+      var frame = CotiPowerToggle.Frame;
 
-      if( !CotiActivation.ShouldBeActive(
-              Plugin.IsHeadless, cotiAttached, hostNvgOn, poweredOn ) )
+      var thermal = CotiActivation.ShouldBeActive(
+          Plugin.IsHeadless, cotiAttached, hostNvgOn, frame.ThermalOn && enabled );
+
+      var display = !thermal && CotiActivation.ShouldShowDisplay(
+          Plugin.IsHeadless, cotiAttached, hostNvgOn, frame.Message != CotiDisplayMessage.None && enabled );
+
+      if( !thermal && !display )
       {
         Active = false;
         return;
@@ -102,7 +130,9 @@ namespace Coti.Client
       Host = host;
       HostTemplateId = hostTemplateId;
       Mask = mask;
-      Active = true;
+      Active = thermal;
+      Showing = thermal ? CotiShowing.Thermal : CotiShowing.Message;
+      Message = frame.Message;
     }
 
     private static void LogHostResolvedOnce( string hostTemplateId, string maskLabel, CotiNvgHostConfig host )
