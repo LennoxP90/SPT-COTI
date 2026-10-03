@@ -10,12 +10,25 @@ namespace Coti.Client
   /// </summary>
   internal static class CotiShaderBundle
   {
+    /// <summary>
+    /// Protects an asset from Resources.UnloadUnusedAssets, which the game runs mid-raid (spawning a bot is enough).
+    /// On the il2cpp line a plugin field is not an engine reference, so the overlay material was destroyed under the
+    /// compositor and the circle stopped drawing.
+    /// </summary>
+    internal static void KeepLoaded( UnityEngine.Object asset )
+    {
+      if( asset != null )
+        asset.hideFlags |= HideFlags.DontUnloadUnusedAsset;
+    }
+
     private const string BundleFileName = "coti_shaders";
     private const string OverlayShaderName = "Coti/Overlay";
+    private const string HeatOnlyShaderName = "Coti/HeatOnly";
 
     private static AssetBundle _bundle;
     private static Shader _overlay;
     private static Material _material;
+    private static Shader _heatOnly;
     private static bool _attempted;
 
     private static string _loadedPath;
@@ -32,6 +45,17 @@ namespace Coti.Client
         if( !_attempted )
           Load();
         return _overlay;
+      }
+    }
+
+    /// <summary>The thermal camera's replacement shader, or null with a bundle that predates it.</summary>
+    internal static Shader HeatOnly
+    {
+      get
+      {
+        if( !_attempted )
+          Load();
+        return _heatOnly;
       }
     }
 
@@ -87,18 +111,29 @@ namespace Coti.Client
         }
 
         var materials = _bundle.LoadAllAssets<Material>();
+        // By shader name: the bundle carries one material per shader, in no guaranteed order.
         for( var i = 0; i < materials.Length; i++ )
         {
-          if( materials[i] == null || materials[i].shader == null )
+          var shader = materials[i] == null ? null : materials[i].shader;
+          if( shader == null )
+            continue;
+
+          if( shader.name == HeatOnlyShaderName )
+          {
+            _heatOnly = shader;
+            Plugin.Log.LogInfo( $"[COTI] Loaded replacement shader '{shader.name}' (isSupported={shader.isSupported})" );
+            continue;
+          }
+
+          if( _material != null )
             continue;
 
           _material = materials[i];
-          _overlay = materials[i].shader;
+          _overlay = shader;
 
           Plugin.Log.LogInfo(
               $"[COTI] Loaded material '{_material.name}' with shader '{_overlay.name}' " +
               $"(isSupported={_overlay.isSupported}, passes={_material.passCount})" );
-          break;
         }
 
         var shaders = _overlay != null ? new Shader[0] : _bundle.LoadAllAssets<Shader>();
@@ -136,6 +171,10 @@ namespace Coti.Client
           _overlay = null;
           return;
         }
+
+        KeepLoaded( _material );
+        KeepLoaded( _overlay );
+        KeepLoaded( _heatOnly );
 
         Plugin.Log.LogInfo(
             $"[COTI] Loaded shader bundle from {path}; '{OverlayShaderName}' ready" );

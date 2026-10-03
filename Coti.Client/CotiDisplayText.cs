@@ -96,6 +96,11 @@ namespace Coti.Client
       Remember( message, host );
 
       var image = ImageFor( message );
+#if COTI_DEV
+      var state = image != null ? image.width + "x" + image.height : ReferenceEquals( image, null ) ? "never loaded" : "destroyed";
+      Plugin.Log.LogInfo( $"[COTI] message {message}: image {state}, " +
+                          $"target {_target.width}x{_target.height}, circle ({host.MaskCenterX:F3},{host.MaskCenterY:F3}) r={host.MaskRadius:F3}" );
+#endif
       if( image == null )
         return; // Blank, or a missing file: the lit, empty display
 
@@ -143,11 +148,14 @@ namespace Coti.Client
     /// </summary>
     private static Texture2D WithMipChain( Texture2D decoded, string name )
     {
+      // Loaded at the menu and used in raid. The raid's scene load unloads every asset nothing in the
+      // engine references, and on the il2cpp line a plugin field is not an engine reference.
       var texture = new Texture2D( decoded.width, decoded.height, TextureFormat.RGB24, true )
       {
         name = name,
         wrapMode = TextureWrapMode.Clamp,
         filterMode = FilterMode.Trilinear,
+        hideFlags = HideFlags.DontUnloadUnusedAsset,
       };
 
       texture.SetPixels32( decoded.GetPixels32() );

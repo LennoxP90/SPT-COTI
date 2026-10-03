@@ -58,6 +58,48 @@ namespace Coti.Client
       "CameraLodBiasController",
     };
 
+    /// <summary>
+    /// Draws the camera with Coti/HeatOnly, so only surfaces EFT authors as warm reach the thermal image and every
+    /// cold one draws black. See that shader for the rule. Forward, because the replacement has no deferred pass,
+    /// and with ThermalVision off, since its passes post-process a G-buffer this camera no longer fills.
+    ///
+    /// Run every frame after the camera copies its settings from the one it follows, which writes the rendering
+    /// path and clear flags back. With a bundle that predates the shader, ThermalVision renders as before.
+    /// </summary>
+    internal static void ApplyRenderMode( Camera camera, ThermalVision thermal, ref bool replacing )
+    {
+      var heatOnly = CotiShaderBundle.HeatOnly;
+      if( heatOnly == null )
+      {
+        thermal.enabled = true;
+        thermal.On = true;
+        return;
+      }
+
+      thermal.enabled = false;
+
+      if( !replacing )
+      {
+        camera.SetReplacementShader( heatOnly, "RenderType" );
+
+        // ThermalVision's buffers and the volumetric pass it kept switched off: in a forward camera with no G-buffer
+        // either can draw over the finished frame, and this camera needs neither.
+        camera.RemoveAllCommandBuffers();
+        var volumetric = camera.GetComponent<VolumetricLightRenderer>();
+        if( volumetric != null )
+          volumetric.enabled = false;
+
+        replacing = true;
+      }
+
+      if( camera.renderingPath != RenderingPath.Forward )
+        camera.renderingPath = RenderingPath.Forward;
+      if( camera.clearFlags != CameraClearFlags.SolidColor )
+        camera.clearFlags = CameraClearFlags.SolidColor;
+      if( camera.backgroundColor != Color.black )
+        camera.backgroundColor = Color.black;
+    }
+
     internal static GameObject LoadPrefab()
     {
       return Resources.Load<GameObject>( PrefabName );

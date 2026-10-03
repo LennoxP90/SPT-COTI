@@ -25,6 +25,9 @@ namespace Coti.Client
 
     private static GameObject _go;
     private static Camera _cam;
+
+    /// <summary>Whether the replacement shader is set on this clone. Cleared with the camera in Teardown.</summary>
+    private static bool _replacing;
     private static ThermalVision _tv;
     private static RenderTexture _rt;
     private static Transform _followed;
@@ -282,8 +285,7 @@ namespace Coti.Client
         _mirroredAspect = main.aspect;
       }
 
-      _tv.enabled = true;
-      _tv.On = true;
+      CotiThermalRig.ApplyRenderMode( _cam, _tv, ref _replacing );
 
       ApplyTuning( cfg );
 
@@ -582,6 +584,7 @@ namespace Coti.Client
 
       _go = null;
       _cam = null;
+      _replacing = false;
       _tv = null;
       _followed = null;
       _broken = false;

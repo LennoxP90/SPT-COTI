@@ -150,6 +150,7 @@ namespace Coti.Client
       // Built from the bundle material rather than the shader: a material built from a shader whose
       // programs were stripped renders nothing while reporting isSupported=true.
       _material = new Material( shared ) { name = "CotiMagnifiedOverlay" };
+      CotiShaderBundle.KeepLoaded( _material );
       ForgetMaterialValues();
       return true;
     }
