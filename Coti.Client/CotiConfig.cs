@@ -109,13 +109,19 @@ namespace Coti.Client
     public int Height { get; set; } = 1152;
 
     /// <summary>
-    /// Sensor refresh in hertz - the real ECOTI's is 60. Drives ThermalVision's own frame hold, so
-    /// the image updates at this rate over a night-vision picture running at full framerate. 0 is
-    /// smooth. Costs slightly more than smooth, never less: the scene is still drawn every frame and
-    /// the held copy is blitted over it.
+    /// Sensor refresh in hertz - the real ECOTI's is 60. The thermal cameras render only on frames due at this rate
+    /// (CotiSensorPacer) and the last picture stands between, over a night-vision picture running at full framerate,
+    /// which also saves the skipped scene passes. 0 renders every frame.
     /// </summary>
     [JsonProperty( "hz" )]
     public int Hz { get; set; } = 60;
+
+    /// <summary>
+    /// How far the 1x thermal draws, in metres; through a magnified scope, this times the zoom, since a target that
+    /// far through the scope looks as near. 0 draws as far as the eye's own camera does (the player's Overall
+    /// Visibility). Never further than the eye.
+    /// </summary>
+    public float RangeMetres { get; set; }
 
 #if COTI_DEV
     /// <summary>
@@ -123,6 +129,13 @@ namespace Coti.Client
     /// </summary>
     [JsonProperty( "dumpFrames" )]
     public int DumpFrames { get; set; }
+
+    /// <summary>
+    /// The magnified lens redraw, taken apart for diagnosis: 0 as shipped, 1 adds the heat texture straight to the
+    /// screen, 2 draws the lens mesh with the overlay's copy pass instead of the lens shader, 3 redraws with culling
+    /// inverted.
+    /// </summary>
+    public int LensProbe { get; set; }
 #endif
 
   }

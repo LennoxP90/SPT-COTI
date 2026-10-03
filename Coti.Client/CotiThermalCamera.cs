@@ -1,3 +1,4 @@
+using Coti.Shared;
 using System;
 using System.IO;
 using Coti.Client.Dev;
@@ -25,6 +26,7 @@ namespace Coti.Client
 
     private static GameObject _go;
     private static Camera _cam;
+    private static readonly CotiSensorPacer Pacer = new CotiSensorPacer();
 
     /// <summary>Whether the replacement shader is set on this clone. Cleared with the camera in Teardown.</summary>
     private static bool _replacing;
@@ -48,7 +50,13 @@ namespace Coti.Client
     private static bool _mirroredOcclusion;
     private static float _mirroredDepth;
     private static float _mirroredFov = float.NaN;
+    private static readonly CotiCullMirror Cull = new CotiCullMirror();
     private static float _mirroredAspect = float.NaN;
+
+    // What the cropped projection was last built from. Cleared with the camera in Teardown.
+    private static float _projectedFov = float.NaN;
+    private static float _projectedAspect = float.NaN;
+    private static CotiCropBox _projectedBox;
 
     private static bool _tuned;
     private static int _tunedHz;
@@ -78,6 +86,12 @@ namespace Coti.Client
 #endif
 
     internal static RenderTexture Output => _rt;
+
+    /// <summary>
+    /// Where <see cref="Output"/> sits on screen: the box around the COTI's circle that this camera renders, in the
+    /// mask's UV. Its rows over the box's height give the full frame's, for anything sized per screen.
+    /// </summary>
+    internal static CotiCropBox Box { get; private set; } = CotiCropBox.Whole;
 
     /// <summary>The vertical field of view this camera renders with, for projecting the outline.</summary>
     internal static float FieldOfView => _cam != null ? _cam.fieldOfView : 0f;
@@ -125,7 +139,10 @@ namespace Coti.Client
       {
         // Idled rather than destroyed: rebuilding it on every NVG toggle costs far more than
         // leaving it asleep, and leaving it awake draws an extra scene pass nothing reads.
-        if( !CotiState.Active )
+        // While the magnified composite draws, the 1x overlay stands down (CotiOverlayCompositor.Sync), so this
+        // camera's picture would go unread: about 2.5 ms of GPU per scoped frame, measured on Customs.
+        if( !CotiState.Active || CotiOpticCamera.ThermalSightAimed
+            || ( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached ) )
         {
           Idle();
           return;
@@ -143,6 +160,10 @@ namespace Coti.Client
         // Gate: no activation and no render until a target is proven bound.
         if( !ActivateIfReady() )
           return;
+
+        // At the sensor's refresh rate rather than every frame, as the real device runs; the last picture stands
+        // between, and the skipped frames save the scene pass. CotiCameraConfig.Hz, 60 by default; 0 is every frame.
+        _cam.enabled = Pacer.Due( Time.realtimeSinceStartupAsDouble, cfg.Hz );
 
 #if COTI_DEV
         DumpIfRequested( cfg );
@@ -212,6 +233,7 @@ namespace Coti.Client
     /// </summary>
     private static void Idle()
     {
+      Pacer.Reset();
       if( _go != null && _go.activeSelf )
         _go.SetActive( false );
     }
@@ -272,7 +294,16 @@ namespace Coti.Client
       Follow( main );
       MirrorSettings( main );
 
-      EnsureRenderTexture( cfg );
+      // Only the circle is ever shown, so only a box around it is rendered: a sixth of the pixels for the GPNVG, and a
+      // narrower view that culls everything outside it.
+      var host = CotiState.Host;
+      CotiCropBox box;
+      if( host == null
+          || !CotiSensorCrop.TryBox( host.MaskCenterX, host.MaskCenterY, host.MaskRadius, host.MaskFeather, main.aspect, out box ) )
+        box = CotiCropBox.Whole;
+      Box = box;
+
+      EnsureRenderTexture( cfg, box );
 
       // aspect after targetTexture: assigning a target texture recomputes aspect from that
       // texture's dimensions, which would undo this and squash the image.
@@ -288,10 +319,35 @@ namespace Coti.Client
         _mirroredAspect = main.aspect;
       }
 
+      ApplyCrop( main, box );
+
       CotiThermalRig.ApplyRenderMode( _cam, _tv, ref _replacing );
 
       ApplyTuning( cfg );
 
+    }
+
+    /// <summary>
+    /// The main camera's perspective, built from its own field of view and aspect (so no jitter it may carry), then
+    /// scaled and shifted in clip space so the box fills the target. Culling follows the projection.
+    /// </summary>
+    private static void ApplyCrop( Camera main, CotiCropBox box )
+    {
+      if( _projectedFov == main.fieldOfView && _projectedAspect == main.aspect && _projectedBox.Equals( box ) )
+        return;
+
+      float sx, sy, tx, ty;
+      CotiSensorCrop.Projection( box, out sx, out sy, out tx, out ty );
+      var crop = Matrix4x4.identity;
+      crop.m00 = sx;
+      crop.m03 = tx;
+      crop.m11 = sy;
+      crop.m13 = ty;
+      _cam.projectionMatrix = crop * Matrix4x4.Perspective( main.fieldOfView, main.aspect, main.nearClipPlane, main.farClipPlane );
+
+      _projectedFov = main.fieldOfView;
+      _projectedAspect = main.aspect;
+      _projectedBox = box;
     }
 
     private static void Follow( Camera main )
@@ -378,6 +434,9 @@ namespace Coti.Client
         _mirroredOcclusion = main.useOcclusionCulling;
       }
 
+      // The eye's per-layer cull distances, capped at the thermal's range: copying only the far clip drew to 10 km.
+      Cull.Apply( _cam, main, Plugin.Config?.ThermalCamera?.RangeMetres ?? 0f );
+
       // Render before the main camera. Unity orders cameras by depth, and the compositor's buffer
       // runs on the main camera's AfterEverything, so a higher depth here would composite the
       // previous frame's heat, visible as lag when the player turns.
@@ -427,10 +486,11 @@ namespace Coti.Client
     /// radius covers (at maskRadius 0.274, about 55% of the height), so a blocky overlay calls for
     /// raising them.
     /// </summary>
-    private static void EnsureRenderTexture( CotiCameraConfig cfg )
+    private static void EnsureRenderTexture( CotiCameraConfig cfg, CotiCropBox box )
     {
-      var width = Mathf.Clamp( cfg.Width, 16, 4096 );
-      var height = Mathf.Clamp( cfg.Height, 16, 4096 );
+      // The full frame's texel density, over the box only.
+      var width = CotiSensorCrop.Pixels( Mathf.Clamp( cfg.Width, 16, 4096 ), box.Width );
+      var height = CotiSensorCrop.Pixels( Mathf.Clamp( cfg.Height, 16, 4096 ), box.Height );
 
       if( _rt != null && _rtWidth == width && _rtHeight == height )
       {
@@ -595,7 +655,11 @@ namespace Coti.Client
 
       _mirrored = false;
       _mirroredFov = float.NaN;
+      Cull.Reset();
       _mirroredAspect = float.NaN;
+      _projectedFov = float.NaN;
+      _projectedAspect = float.NaN;
+      Box = CotiCropBox.Whole;
       _tuned = false;
 
       ReleaseRenderTexture();

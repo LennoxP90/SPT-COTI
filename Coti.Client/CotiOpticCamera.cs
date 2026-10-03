@@ -20,6 +20,19 @@ namespace Coti.Client
   internal static class CotiOpticCamera
   {
     /// <summary>
+    /// Whether the player is looking through a thermal sight (a REAP-IR, an RS-32) this frame. COTI stands down
+    /// entirely then: the sight is already a thermal picture, and COTI's heat drawn over it would be a second, offset
+    /// one. Read once per frame by <see cref="Tick"/>, before the cameras and compositors.
+    /// </summary>
+    internal static bool ThermalSightAimed { get; private set; }
+
+    internal static void Tick()
+    {
+      var optic = Read();
+      ThermalSightAimed = optic.Present && optic.IsThermal;
+    }
+
+    /// <summary>
     /// The optic for this frame, or an absent view. Never cached: the camera comes and goes with
     /// aiming and its fieldOfView moves under it as the player works a variable scope's zoom.
     /// </summary>
@@ -70,5 +83,21 @@ namespace Coti.Client
     /// The lens the game draws the optic's picture onto, and the mask source for the composite.
     /// </summary>
     internal Renderer Lens => Present ? _sight.LensRenderer : null;
+
+    /// <summary>
+    /// A thermal sight renders its picture with the optic camera's ThermalVision on; on every other sight that
+    /// component is disabled.
+    /// </summary>
+    internal bool IsThermal
+    {
+      get
+      {
+        if( !Present )
+          return false;
+
+        var thermal = _camera.GetComponent<ThermalVision>();
+        return thermal != null && thermal.enabled && thermal.On;
+      }
+    }
   }
 }

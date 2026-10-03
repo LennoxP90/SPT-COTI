@@ -154,9 +154,14 @@ namespace Coti.Client
 
       var hz = _file.Bind( "Image", "Sensor Refresh (Hz)", Current.ThermalCamera.Hz, new ConfigDescription(
           "The sensor's simulated refresh. The thermal image updates at this rate and holds in " +
-          "between, as a real low-refresh core does. 0 updates every frame. Performance is the " +
-          "same either way: the camera renders every frame regardless.",
+          "between, as a real low-refresh core does, and the frames between cost nothing. 0 updates every frame.",
           new AcceptableValueRange<int>( 0, 240 ) ) );
+
+      var range = _file.Bind( "Image", "Thermal Range (m)", Current.ThermalCamera.RangeMetres, new ConfigDescription(
+          "How far the thermal draws at 1x. Through a magnified scope this is multiplied by the zoom, since a target " +
+          "that far through the scope looks as near. 0 draws as far as your eyes do (Overall Visibility). Shorter " +
+          "is cheaper.",
+          new AcceptableValueRange<float>( 0f, 3000f ), new ConfigurationManagerAttributes { IsAdvanced = true } ) );
 
       var magnify = _file.Bind( "Image", "Magnify With Optic", defaults.MagnifyWithOptic,
           new ConfigDescription(
@@ -190,6 +195,7 @@ namespace Coti.Client
         Current.Image.RampShift = rampShift.Value;
 
         Current.ThermalCamera.Hz = hz.Value;
+        Current.ThermalCamera.RangeMetres = range.Value;
 
         // Width follows height at the sensor's own 4:3 ratio, so one control cannot leave the two
         // inconsistent. EnsureRenderTexture reallocates only when the size changes.
@@ -302,6 +308,12 @@ namespace Coti.Client
           "Under a grayscale palette a correct thermal render has neutral channel means; a " +
           "colour cast means the target was lit rather than thermal.",
           new AcceptableValueRange<int>( 0, 30 ) ) );
+
+      var lensProbe = _file.Bind( "Debug", "Lens Probe", 0, new ConfigDescription(
+          "Takes the magnified lens redraw apart: 0 as shipped, 1 the heat texture added to the screen, 2 the lens " +
+          "mesh drawn with the overlay's copy pass, 3 the redraw with culling inverted, 10 to 14 the redraw with " +
+          "that lens shader pass (10 is pass 0), 20 to 24 the same with the heat texture flat grey.",
+          new AcceptableValueRange<int>( 0, 24 ) ) );
 #endif
 
       // An action rather than a setting, so the drawer replaces the usual editor with a button.
@@ -346,6 +358,7 @@ namespace Coti.Client
         Current.TunerStepScale = stepScale.Value;
 #if COTI_DEV
         Current.ThermalCamera.DumpFrames = dumpFrames.Value;
+        Current.ThermalCamera.LensProbe = lensProbe.Value;
 #endif
       } );
     }

@@ -1,3 +1,4 @@
+using Coti.Shared;
 using System;
 using System.IO;
 using Coti.Client.Dev;
@@ -21,6 +22,7 @@ namespace Coti.Client
   {
     private static GameObject _go;
     private static Camera _cam;
+    private static readonly CotiSensorPacer Pacer = new CotiSensorPacer();
 
     /// <summary>Whether the replacement shader is set on this clone. Cleared with the camera in Teardown.</summary>
     private static bool _replacing;
@@ -43,6 +45,7 @@ namespace Coti.Client
     private static float _mirroredFarClip = float.NaN;
     private static float _mirroredDepth = float.NaN;
     private static float _mirroredFov = float.NaN;
+    private static readonly CotiCullMirror Cull = new CotiCullMirror();
     private static float _mirroredAspect = float.NaN;
 
     private static bool _tuned;
@@ -126,7 +129,7 @@ namespace Coti.Client
       {
         Optic = default( CotiOpticView );
 
-        if( !CotiState.Active )
+        if( !CotiState.Active || CotiOpticCamera.ThermalSightAimed )
         {
           Idle();
           return;
@@ -155,6 +158,10 @@ namespace Coti.Client
         // Gate: no activation and no render until a target is proven bound.
         if( !ActivateIfReady() )
           return;
+
+        // At the sensor's refresh rate rather than every frame, as the real device runs; the last picture stands
+        // between, and the skipped frames save the scene pass. CotiCameraConfig.Hz, 60 by default; 0 is every frame.
+        _cam.enabled = Pacer.Due( Time.realtimeSinceStartupAsDouble, cfg.Hz );
 
         // Only once the camera is rendering into a bound target, or the compositor would blit a
         // texture nothing has written.
@@ -323,6 +330,11 @@ namespace Coti.Client
         _mirroredFarClip = source.farClipPlane;
       }
 
+      // The scope camera's own cull distances, capped at the thermal's range times the zoom: a target that far
+      // through the scope looks as near as the range does at 1x.
+      var range = Plugin.Config?.ThermalCamera?.RangeMetres ?? 0f;
+      Cull.Apply( _cam, source, range > 0f ? range * CotiOpticFusion.Magnification( main.fieldOfView, source.fieldOfView ) : 0f );
+
       // Before the optic camera, whose AfterEverything composites this - otherwise the composite
       // takes the previous frame's heat, which reads as lag when the player turns.
       if( first || _mirroredDepth != source.depth )
@@ -418,6 +430,7 @@ namespace Coti.Client
     /// </summary>
     private static void Idle()
     {
+      Pacer.Reset();
       if( _go != null && _go.activeSelf )
         _go.SetActive( false );
     }
@@ -589,7 +602,9 @@ namespace Coti.Client
     /// </summary>
     private static void MatchOpticBeforeCulling( Camera rendering )
     {
-      if( _broken || !ReferenceEquals( rendering, _cam ) )
+      // ==, not ReferenceEquals: on il2cpp each callback hands over a fresh wrapper for the native camera, so reference
+      // identity never matches there; Unity's == compares the native objects.
+      if( _broken || rendering != _cam )
         return;
 
       try
@@ -643,6 +658,7 @@ namespace Coti.Client
       _mirroredFarClip = float.NaN;
       _mirroredDepth = float.NaN;
       _mirroredFov = float.NaN;
+      Cull.Reset();
       _mirroredAspect = float.NaN;
       _tuned = false;
 

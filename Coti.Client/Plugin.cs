@@ -179,6 +179,7 @@ namespace Coti.Client
 
         // Order matters: CotiState must be resolved first, since the thermal camera reads
         // CotiState.Active and CotiState.Host to decide whether and how to render.
+        CotiOpticCamera.Tick();
         CotiThermalCamera.Tick();
 
         // After the 1x camera: the magnified path reads the same CotiState and the same

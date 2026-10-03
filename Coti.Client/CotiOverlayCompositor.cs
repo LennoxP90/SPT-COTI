@@ -17,6 +17,7 @@ namespace Coti.Client
     private static readonly int OutlineWidthId = Shader.PropertyToID( "_OutlineWidth" );
     private static readonly int OutlineWorldWidthId = Shader.PropertyToID( "_OutlineWorldWidth" );
     private static readonly int PixelsPerMetreId = Shader.PropertyToID( "_PixelsPerMetre" );
+    private static readonly int ThermalRectId = Shader.PropertyToID( "_ThermalRect" );
     private static readonly int OutlineMinTexelsId = Shader.PropertyToID( "_OutlineMinTexels" );
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
@@ -38,6 +39,7 @@ namespace Coti.Client
     private static float _setOutlineWidth = float.NaN;
     private static float _setOutlineWorldWidth = float.NaN;
     private static float _setPixelsPerMetre = float.NaN;
+    private static Vector4? _setThermalRect;
     private static float _setOutlineMinTexels = float.NaN;
     private static float _setIntensity = float.NaN;
     private static Color? _setHotColour;
@@ -90,7 +92,9 @@ namespace Coti.Client
         //
         // Both conditions, because they fail independently: standing down for a composite that is
         // not running would leave no thermal at all.
-        if( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached )
+        // Through a thermal sight COTI stands down: the sight's own picture is the thermal.
+        if( CotiOpticCamera.ThermalSightAimed
+            || ( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached ) )
         {
           Detach();
           return;
@@ -166,7 +170,7 @@ namespace Coti.Client
 
       // The entire composite. The shader blends additively, so the destination is only written
       // to and needs no temporary target or frame copy.
-      _commandBuffer.Blit( thermal, BuiltinRenderTextureType.CameraTarget, _material );
+      _commandBuffer.Blit( thermal, BuiltinRenderTextureType.CameraTarget, _material, 0 );
 
       camera.AddCommandBuffer( InjectionPoint, _commandBuffer );
 
@@ -200,22 +204,29 @@ namespace Coti.Client
 
       if( CotiState.Showing == CotiShowing.Message )
       {
+        // The display text is drawn screen-sized, not in the thermal's box.
+        SetThermalRect( CotiCropBox.Whole );
         SetFloatIfChanged( ThresholdId, 0f, ref _setThreshold );
         SetFloatIfChanged( OutlineMixId, 0f, ref _setOutlineMix );
         SetFloatIfChanged( IntensityId, TextIntensity * PhosphorFade, ref _setIntensity );
         return;
       }
 
+      // The thermal renders only a box around the circle; the full frame's rows are its rows over the box's height,
+      // which is what the outline's sizes are worked out per.
+      var box = CotiThermalCamera.Box;
+      SetThermalRect( box );
+      var fullRows = CotiThermalCamera.Output == null ? 0 : Mathf.RoundToInt( CotiThermalCamera.Output.height / box.Height );
+
       SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
       SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
-      SetOutlineRange( image, CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height,
-          _attachedTo != null ? _attachedTo.pixelHeight : Screen.height, 1f );
+      SetOutlineRange( image, fullRows, _attachedTo != null ? _attachedTo.pixelHeight : Screen.height, 1f );
 
       // Perspective outline, only with the heat-only thermal: it is what puts each surface's distance in alpha.
       var thickness = CotiShaderBundle.HeatOnly != null ? Mathf.Max( 0f, image.OutlineThicknessCm ) / 100f : 0f;
       SetFloatIfChanged( OutlineWorldWidthId, thickness, ref _setOutlineWorldWidth );
-      SetFloatIfChanged( PixelsPerMetreId, CotiOverlayScale.PixelsPerMetre(
-          CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height, CotiThermalCamera.FieldOfView ), ref _setPixelsPerMetre );
+      SetFloatIfChanged( PixelsPerMetreId, CotiOverlayScale.PixelsPerMetre( fullRows, CotiThermalCamera.FieldOfView ),
+          ref _setPixelsPerMetre );
       SetFloatIfChanged( IntensityId,
           Mathf.Max( 0f, image.OverlayIntensity ) * PhosphorFade * CotiPowerToggle.Frame.GainBoost,
           ref _setIntensity );
@@ -232,6 +243,16 @@ namespace Coti.Client
           CotiOverlayScale.TexelsPerPixel( rows, screenRows ), out min, out max );
       SetFloatIfChanged( OutlineMinTexelsId, min, ref _setOutlineMinTexels );
       SetFloatIfChanged( OutlineWidthId, max, ref _setOutlineWidth );
+    }
+
+    private static void SetThermalRect( CotiCropBox box )
+    {
+      var value = new Vector4( box.X, box.Y, box.Width, box.Height );
+      if( _setThermalRect.HasValue && _setThermalRect.Value == value )
+        return;
+
+      _material.SetVector( ThermalRectId, value );
+      _setThermalRect = value;
     }
 
     private static void SetFloatIfChanged( int id, float value, ref float last )
@@ -274,6 +295,7 @@ namespace Coti.Client
       _setOutlineWidth = float.NaN;
       _setOutlineWorldWidth = float.NaN;
       _setPixelsPerMetre = float.NaN;
+      _setThermalRect = null;
       _setOutlineMinTexels = float.NaN;
       _setIntensity = float.NaN;
       _setHotColour = null;
@@ -415,7 +437,7 @@ namespace Coti.Client
       GL.Clear( false, true, Color.black );
       RenderTexture.active = previous;
 
-      Graphics.Blit( CotiThermalCamera.Output, target, _material );
+      Graphics.Blit( CotiThermalCamera.Output, target, _material, 0 );
       return target;
     }
 

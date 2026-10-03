@@ -5,15 +5,30 @@ using UnityEngine.Rendering;
 namespace Coti.Client
 {
   /// <summary>
-  /// Composites the magnified thermal into the optic camera's own render target, which the game
-  /// draws onto the lens as weapon geometry.
+  /// Draws the magnified thermal through the scope's own lens, on top of the finished frame.
   ///
-  /// Writing into the target leaves the scope's position, size and angle to the game. The lens
-  /// cannot be located on screen: the texture it displays is published with <c>Shader.SetGlobalTexture</c>, on no material and no property block.
+  /// The game shows the scope camera's picture on the lens through the global <c>_CamTex</c>. Heat written into that
+  /// picture went through the main camera's effects with the rest of the scene, and UltimateBloom haloed it. So once
+  /// the main camera has finished, the heat is composited alone into a texture of its own, <c>_CamTex</c> points at it
+  /// while the lens is drawn again into a scratch target with its reticle blanked, <c>_CamTex</c> is put back, and the
+  /// scratch target is added onto the frame. The lens's own shader maps the heat, so it lands exactly where the
+  /// picture does, and the game's picture is never touched.
+  ///
+  /// Recorded at the main camera's pre-cull, when its matrices are final for the frame.
   /// </summary>
   internal static class CotiOpticOverlayCompositor
   {
     private const CameraEvent InjectionPoint = CameraEvent.AfterEverything;
+    private const int CompositePass = 0;
+    private const int AddPass = 1;
+    private const int LensDepthPass = 2;
+    private const int AddVisiblePass = 3;
+
+    /// <summary>
+    /// The pass of CW FX/OpticSight that draws <c>_CamTex</c> through the lens's eye-box mask: found by drawing each of
+    /// its five unnamed passes with the heat texture flat grey (Debug > Lens Probe 20 to 24), where only pass 2 drew.
+    /// </summary>
+    private const int LensPass = 2;
 
     private static readonly int MainTexId = Shader.PropertyToID( "_MainTex" );
     private static readonly int MaskTexId = Shader.PropertyToID( "_MaskTex" );
@@ -28,9 +43,20 @@ namespace Coti.Client
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
     private static readonly int CircleGlowId = Shader.PropertyToID( "_CircleGlow" );
 
+    /// <summary>The global the scope's lens samples its picture from (OpticCameraManager._camTexId).</summary>
+    private static readonly int CamTexId = Shader.PropertyToID( "_CamTex" );
+    private static readonly int MarkTexId = Shader.PropertyToID( "_MarkTex" );
+    private static readonly int ScratchId = Shader.PropertyToID( "_CotiLensScratch" );
+
     private static CommandBuffer _commandBuffer;
     private static Camera _attachedTo;
-    private static RenderTexture _builtThermal;
+
+    /// <summary>The magnified heat alone, composited on black: what <c>_CamTex</c> points at while the lens redraws.</summary>
+    private static RenderTexture _heat;
+
+    /// <summary>A copy of the lens's material with the reticle blanked, so the redraw does not add a second reticle.</summary>
+    private static Material _lensMaterial;
+    private static Material _lensSource;
 
     /// <summary>
     /// A private copy of the shared material. A command buffer reads the material's properties at
@@ -55,9 +81,9 @@ namespace Coti.Client
     private static bool _loggedAttached;
 
     /// <summary>
-    /// Whether the composite is attached and drawing. The 1x overlay gates its lens hole on this
-    /// rather than on the camera: the two fail independently, and this one latches until the
-    /// setting is toggled, so gating on the camera can leave a dead circle with nothing behind it.
+    /// Whether the composite is attached and drawing. The 1x overlay stands down on this rather than
+    /// on the camera: the two fail independently, and this one latches until the setting is
+    /// toggled, so gating on the camera could leave no thermal at all.
     /// </summary>
     internal static bool Attached => _commandBuffer != null && _attachedTo != null && !_broken;
 
@@ -79,25 +105,22 @@ namespace Coti.Client
           return;
         }
 
-        // The camera publishes what it configured against. Re-reading here could attach the buffer
-        // to a camera nothing rendered for.
-        var optic = CotiOpticThermalCamera.Optic;
-
+        var main = Camera.main;
         var wanted = CotiOpticThermalCamera.Magnifying
                      && CotiState.Active
                      && CotiState.Host != null
-                     && CotiShaderBundle.OverlayMaterial != null;
+                     && CotiShaderBundle.OverlayMaterial != null
+                     && CotiOpticThermalCamera.Optic.Lens != null;
 
-        if( !wanted || optic.Camera == null )
+        if( !wanted || main == null )
         {
           Detach();
           return;
         }
 
-        EnsureBuffer( optic.Camera );
+        EnsureBuffer( main );
         if( Attached )
-          CotiScopeBloom.Hold();
-        ApplyMaterialValues();
+          ApplyMaterialValues( main );
       }
       catch( Exception ex )
       {
@@ -109,16 +132,10 @@ namespace Coti.Client
       }
     }
 
-    private static void EnsureBuffer( Camera opticCamera )
+    private static void EnsureBuffer( Camera main )
     {
-      var thermal = CotiOpticThermalCamera.Output;
-
-      if( _commandBuffer != null
-          && _attachedTo == opticCamera
-          && ReferenceEquals( _builtThermal, thermal ) )
-      {
+      if( _commandBuffer != null && _attachedTo == main )
         return;
-      }
 
       Detach();
 
@@ -126,25 +143,146 @@ namespace Coti.Client
         return;
 
       _commandBuffer = new CommandBuffer { name = "COTI magnified overlay" };
+      main.AddCommandBuffer( InjectionPoint, _commandBuffer );
+      _attachedTo = main;
 
-      // CameraTarget on a camera rendering to a texture is that texture, so this lands in
-      // SSAAOpticCurrent without naming it. Additive blend, so the destination is only written to.
-      _commandBuffer.Blit( thermal, BuiltinRenderTextureType.CameraTarget, _material );
-
-      opticCamera.AddCommandBuffer( InjectionPoint, _commandBuffer );
-
-      _attachedTo = opticCamera;
-      _builtThermal = thermal;
+      Camera.onPreCull -= RecordBeforeCulling;
+      Camera.onPreCull += RecordBeforeCulling;
 
       if( !_loggedAttached )
       {
         _loggedAttached = true;
-        Plugin.Log.LogInfo(
-            $"[COTI] Magnified overlay attached to {opticCamera.name} at {InjectionPoint} " +
-            $"(thermal {thermal.width}x{thermal.height} into " +
-            $"{( opticCamera.targetTexture == null ? "SCREEN" : opticCamera.targetTexture.name )})" );
+        Plugin.Log.LogInfo( $"[COTI] Magnified overlay attached to {main.name} at {InjectionPoint}, drawn through the scope's lens" );
       }
     }
+
+    private static void RecordBeforeCulling( Camera rendering )
+    {
+      // ==, not ReferenceEquals: on il2cpp each callback hands over a fresh wrapper for the native camera, so reference
+      // identity never matches there; Unity's == compares the native objects.
+      if( _broken || _commandBuffer == null || rendering != _attachedTo )
+        return;
+
+      try
+      {
+        Record( rendering );
+      }
+      catch( Exception ex )
+      {
+        // Empty, never half-recorded: a buffer that set _CamTex without putting it back would show the heat alone in
+        // place of the scope's picture.
+        _commandBuffer.Clear();
+        _broken = true;
+        Plugin.Log.LogError(
+            "[COTI] Magnified composite disabled - switch Magnify With Optic off and on to retry: " + ex );
+      }
+    }
+
+    private static void Record( Camera main )
+    {
+      var buffer = _commandBuffer;
+      buffer.Clear();
+
+      var thermal = CotiOpticThermalCamera.Output;
+      var optic = CotiOpticThermalCamera.Optic;
+      var lens = optic.Lens;
+      var picture = optic.Camera != null ? optic.Camera.targetTexture : null;
+      if( thermal == null || lens == null || !lens.enabled || picture == null
+          || !EnsureLensMaterial( lens.sharedMaterial ) || !EnsureHeat( thermal ) )
+      {
+#if COTI_DEV
+        LogSkipOnce( thermal, lens, picture );
+#endif
+        return;
+      }
+
+#if COTI_DEV
+      var probe = Plugin.Config?.ThermalCamera?.LensProbe ?? 0;
+      LogRecordOnce( lens, picture, probe );
+#endif
+
+      buffer.SetRenderTarget( _heat );
+#if COTI_DEV
+      if( probe >= 20 )
+        buffer.ClearRenderTarget( false, true, new Color( 0.5f, 0.5f, 0.5f, 1f ) );
+      else
+      {
+        buffer.ClearRenderTarget( false, true, Color.clear );
+        buffer.Blit( thermal, _heat, _material, CompositePass );
+      }
+#else
+      buffer.ClearRenderTarget( false, true, Color.clear );
+      buffer.Blit( thermal, _heat, _material, CompositePass );
+#endif
+
+      buffer.GetTemporaryRT( ScratchId, -1, -1, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf );
+      buffer.SetRenderTarget( ScratchId );
+      buffer.ClearRenderTarget( false, true, Color.clear );
+      buffer.SetGlobalTexture( CamTexId, _heat );
+      buffer.SetViewProjectionMatrices( main.worldToCameraMatrix, main.projectionMatrix );
+#if COTI_DEV
+      if( probe == 3 )
+        buffer.SetInvertCulling( true );
+      if( probe == 2 )
+        buffer.DrawRenderer( lens, _material, 0, AddPass );
+      else
+        buffer.DrawRenderer( lens, _lensMaterial, 0, probe >= 20 ? probe - 20 : probe >= 10 ? probe - 10 : LensPass );
+#else
+      buffer.DrawRenderer( lens, _lensMaterial, 0, LensPass );
+#endif
+      // The lens's own distance into the scratch target's alpha, so the add below can hide what the scope's housing
+      // or a hand covers: this redraw has no depth buffer of its own.
+      buffer.DrawRenderer( lens, _material, 0, LensDepthPass );
+#if COTI_DEV
+      if( probe == 3 )
+        buffer.SetInvertCulling( false );
+#endif
+      buffer.SetGlobalTexture( CamTexId, picture );
+
+#if COTI_DEV
+      if( probe == 1 )
+        buffer.Blit( _heat, BuiltinRenderTextureType.CameraTarget, _material, AddPass );
+      else
+#endif
+      buffer.Blit( ScratchId, BuiltinRenderTextureType.CameraTarget, _material, AddVisiblePass );
+      buffer.ReleaseTemporaryRT( ScratchId );
+    }
+
+#if COTI_DEV
+    private static bool _loggedSkip;
+    private static int _loggedProbe = -1;
+
+    private static void LogSkipOnce( RenderTexture thermal, Renderer lens, Texture picture )
+    {
+      if( _loggedSkip )
+        return;
+      _loggedSkip = true;
+      Plugin.Log.LogInfo( $"[COTI] lens redraw skipped: thermal={( thermal == null ? "null" : thermal.name )} " +
+                          $"lens={( lens == null ? "null" : lens.name + ( lens.enabled ? "" : " (disabled)" ) )} " +
+                          $"picture={( picture == null ? "null" : picture.name )} " +
+                          $"lensMaterial={( lens == null || lens.sharedMaterial == null ? "null" : lens.sharedMaterial.name )}" );
+    }
+
+    private static void LogRecordOnce( Renderer lens, Texture picture, int probe )
+    {
+      if( _loggedProbe == probe )
+        return;
+      _loggedProbe = probe;
+      var shader = _lensMaterial.shader;
+      Plugin.Log.LogInfo( $"[COTI] lens redraw probe {probe}: lens {lens.name} layer {lens.gameObject.layer}, " +
+                          $"material {_lensMaterial.name} shader {( shader == null ? "null" : shader.name )} " +
+                          $"passes {_lensMaterial.passCount} [{PassNames( _lensMaterial )}], picture {picture.name}, " +
+                          $"heat {_heat.width}x{_heat.height}" );
+    }
+
+    private static string PassNames( Material material )
+    {
+      var names = new string[material.passCount];
+      for( var i = 0; i < names.Length; i++ )
+        names[i] = i + ":" + material.shader.FindPassTagValue( i, new ShaderTagId( "LightMode" ) ).name;
+      return string.Join( " ", names );
+    }
+#endif
 
     private static bool EnsureMaterial()
     {
@@ -159,7 +297,48 @@ namespace Coti.Client
       // programs were stripped renders nothing while reporting isSupported=true.
       _material = new Material( shared ) { name = "CotiMagnifiedOverlay" };
       CotiShaderBundle.KeepLoaded( _material );
+
+      // The magnified heat is rendered full-frame; the copy may carry the 1x path's crop box from the shared material.
+      _material.SetVector( Shader.PropertyToID( "_ThermalRect" ), new Vector4( 0f, 0f, 1f, 1f ) );
+
+      // The lens samples the heat past its edges and clamps; a black frame keeps that from streaking an outline that
+      // touches the edge out across the screen.
+      _material.SetFloat( Shader.PropertyToID( "_BlackFrame" ), 1f );
       ForgetMaterialValues();
+      return true;
+    }
+
+    private static bool EnsureLensMaterial( Material source )
+    {
+      if( source == null )
+        return false;
+      if( _lensMaterial != null && ReferenceEquals( _lensSource, source ) )
+        return true;
+
+      DestroyLensMaterial();
+      _lensMaterial = new Material( source ) { name = "CotiLensRedraw" };
+      _lensMaterial.SetTexture( MarkTexId, Texture2D.blackTexture );
+      CotiShaderBundle.KeepLoaded( _lensMaterial );
+      _lensSource = source;
+      return true;
+    }
+
+    private static bool EnsureHeat( RenderTexture thermal )
+    {
+      if( _heat != null && _heat.width == thermal.width && _heat.height == thermal.height )
+        return true;
+
+      DestroyHeat();
+      _heat = new RenderTexture( thermal.width, thermal.height, 0, RenderTextureFormat.ARGBHalf )
+      {
+        name = "CotiMagnifiedHeat",
+        useMipMap = false,
+        autoGenerateMips = false,
+        filterMode = FilterMode.Bilinear,
+        wrapMode = TextureWrapMode.Clamp,
+        hideFlags = HideFlags.DontUnloadUnusedAsset,
+      };
+      _heat.Create();
       return true;
     }
 
@@ -169,7 +348,7 @@ namespace Coti.Client
     /// Same reasoning as the 1x compositor: these are native setters, and only the intensity moves
     /// frame to frame.
     /// </summary>
-    private static void ApplyMaterialValues()
+    private static void ApplyMaterialValues( Camera main )
     {
       var image = Plugin.Config.Image;
 
@@ -185,12 +364,12 @@ namespace Coti.Client
 
       SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
       SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
+
       // The magnified picture fills the lens, so a screen pixel is the lens's height in it, and the zoom lets a near
       // line thicken with the object.
-      var main = Camera.main;
       SetOutlineRange( image, CotiOpticThermalCamera.Output == null ? 0 : CotiOpticThermalCamera.Output.height,
           LensScreenRows( main ),
-          CotiOpticFusion.Magnification( main == null ? 0f : main.fieldOfView, CotiOpticThermalCamera.Optic.FieldOfView ) );
+          CotiOpticFusion.Magnification( main.fieldOfView, CotiOpticThermalCamera.Optic.FieldOfView ) );
 
       // Perspective outline, only with the heat-only thermal: it is what puts each surface's distance in alpha.
       var thickness = CotiShaderBundle.HeatOnly != null ? Mathf.Max( 0f, image.OutlineThicknessCm ) / 100f : 0f;
@@ -297,8 +476,7 @@ namespace Coti.Client
 
     /// <summary>
     /// Renders the magnified overlay alone, so its contribution can be told apart from the scope
-    /// picture it is added to. The optic target carries both, and a blown-out target says nothing
-    /// about which of the two blew out.
+    /// picture it is added to.
     /// </summary>
     internal static RenderTexture RenderOverlayForDiagnostics( int width, int height )
     {
@@ -316,7 +494,7 @@ namespace Coti.Client
       GL.Clear( false, true, Color.black );
       RenderTexture.active = previous;
 
-      Graphics.Blit( CotiOpticThermalCamera.Output, target, _material );
+      Graphics.Blit( CotiOpticThermalCamera.Output, target, _material, CompositePass );
       return target;
     }
 
@@ -338,7 +516,7 @@ namespace Coti.Client
 
     internal static void Detach()
     {
-      CotiScopeBloom.Release();
+      Camera.onPreCull -= RecordBeforeCulling;
 
       if( _commandBuffer != null && _attachedTo != null )
       {
@@ -348,8 +526,7 @@ namespace Coti.Client
         }
         catch( Exception ex )
         {
-          // The optic camera is destroyed between raids and throws here. The buffer is dropped
-          // regardless.
+          // The camera is destroyed between raids and throws here. The buffer is dropped regardless.
           Plugin.Log.LogWarning(
               $"[COTI] Removing magnified overlay command buffer failed: {ex.Message}" );
         }
@@ -358,12 +535,11 @@ namespace Coti.Client
       _commandBuffer?.Release();
       _commandBuffer = null;
       _attachedTo = null;
-      _builtThermal = null;
     }
 
     /// <summary>
-    /// Drops the material as well as the buffer, for plugin shutdown. Detach runs on every weapon
-    /// lower, where rebuilding a material would be waste.
+    /// Drops the materials and the heat texture as well as the buffer, for plugin shutdown. Detach runs on every
+    /// weapon lower, where rebuilding them would be waste.
     /// </summary>
     internal static void Teardown()
     {
@@ -375,8 +551,28 @@ namespace Coti.Client
         _material = null;
       }
 
+      DestroyLensMaterial();
+      DestroyHeat();
       _loggedAttached = false;
       _broken = false;
+    }
+
+    private static void DestroyLensMaterial()
+    {
+      if( _lensMaterial != null )
+        UnityEngine.Object.Destroy( _lensMaterial );
+      _lensMaterial = null;
+      _lensSource = null;
+    }
+
+    private static void DestroyHeat()
+    {
+      if( _heat != null )
+      {
+        _heat.Release();
+        UnityEngine.Object.Destroy( _heat );
+      }
+      _heat = null;
     }
   }
 }
