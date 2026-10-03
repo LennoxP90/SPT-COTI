@@ -15,6 +15,9 @@ namespace Coti.Client
     private static readonly int ThresholdId = Shader.PropertyToID( "_Threshold" );
     private static readonly int OutlineMixId = Shader.PropertyToID( "_OutlineMix" );
     private static readonly int OutlineWidthId = Shader.PropertyToID( "_OutlineWidth" );
+    private static readonly int OutlineWorldWidthId = Shader.PropertyToID( "_OutlineWorldWidth" );
+    private static readonly int PixelsPerMetreId = Shader.PropertyToID( "_PixelsPerMetre" );
+    private static readonly int OutlineMinTexelsId = Shader.PropertyToID( "_OutlineMinTexels" );
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
 
@@ -33,6 +36,9 @@ namespace Coti.Client
     private static float _setThreshold = float.NaN;
     private static float _setOutlineMix = float.NaN;
     private static float _setOutlineWidth = float.NaN;
+    private static float _setOutlineWorldWidth = float.NaN;
+    private static float _setPixelsPerMetre = float.NaN;
+    private static float _setOutlineMinTexels = float.NaN;
     private static float _setIntensity = float.NaN;
     private static Color? _setHotColour;
     private static Color? _setCoolColour;
@@ -202,12 +208,30 @@ namespace Coti.Client
 
       SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
       SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
-      SetFloatIfChanged( OutlineWidthId, CotiOverlayScale.OutlineWidth(
-          Mathf.Max( 0.5f, image.OutlineWidth ),
-          CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height ), ref _setOutlineWidth );
+      SetOutlineRange( image, CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height,
+          _attachedTo != null ? _attachedTo.pixelHeight : Screen.height, 1f );
+
+      // Perspective outline, only with the heat-only thermal: it is what puts each surface's distance in alpha.
+      var thickness = CotiShaderBundle.HeatOnly != null ? Mathf.Max( 0f, image.OutlineThicknessCm ) / 100f : 0f;
+      SetFloatIfChanged( OutlineWorldWidthId, thickness, ref _setOutlineWorldWidth );
+      SetFloatIfChanged( PixelsPerMetreId, CotiOverlayScale.PixelsPerMetre(
+          CotiThermalCamera.Output == null ? 0 : CotiThermalCamera.Output.height, CotiThermalCamera.FieldOfView ), ref _setPixelsPerMetre );
       SetFloatIfChanged( IntensityId,
           Mathf.Max( 0f, image.OverlayIntensity ) * PhosphorFade * CotiPowerToggle.Frame.GainBoost,
           ref _setIntensity );
+    }
+
+    /// <summary>
+    /// The outline's floor and cap for a target of <paramref name="rows"/> shown <paramref name="screenRows"/> pixels
+    /// tall at <paramref name="zoom"/>; see <see cref="CotiOverlayScale.OutlineRange"/>.
+    /// </summary>
+    private static void SetOutlineRange( CotiImageConfig image, int rows, float screenRows, float zoom )
+    {
+      float min, max;
+      CotiOverlayScale.OutlineRange( Mathf.Max( 0.5f, image.OutlineWidth ), screenRows, zoom,
+          CotiOverlayScale.TexelsPerPixel( rows, screenRows ), out min, out max );
+      SetFloatIfChanged( OutlineMinTexelsId, min, ref _setOutlineMinTexels );
+      SetFloatIfChanged( OutlineWidthId, max, ref _setOutlineWidth );
     }
 
     private static void SetFloatIfChanged( int id, float value, ref float last )
@@ -248,6 +272,9 @@ namespace Coti.Client
       _setThreshold = float.NaN;
       _setOutlineMix = float.NaN;
       _setOutlineWidth = float.NaN;
+      _setOutlineWorldWidth = float.NaN;
+      _setPixelsPerMetre = float.NaN;
+      _setOutlineMinTexels = float.NaN;
       _setIntensity = float.NaN;
       _setHotColour = null;
       _setCoolColour = null;

@@ -1,3 +1,4 @@
+using Coti.Shared;
 using Newtonsoft.Json;
 
 namespace Coti.Client
@@ -56,16 +57,36 @@ namespace Coti.Client
     public float HeatThreshold { get; set; } = 0.16f;
 
     /// <summary>
-    /// Crossfades solid hot shapes (0) against edge-only contours (1).
+    /// How heat is drawn. Alt+N switches it; F12 remembers it.
     /// </summary>
-    [JsonProperty( "outlineMix" )]
-    public float OutlineMix { get; set; } = 1.0f;
+    [JsonProperty( "mode" )]
+    public CotiThermalMode Mode { get; set; } = CotiThermalMode.Outline;
+
+    /// <summary>
+    /// Full mode's interior brightness under its full-brightness rim, in percent.
+    /// </summary>
+    [JsonProperty( "fullFillPercent" )]
+    public float FullFillPercent { get; set; } = 55f;
+
+    /// <summary>
+    /// The overlay's solid (0) to edge-only (1) crossfade, from the mode.
+    /// </summary>
+    [JsonIgnore]
+    public float OutlineMix => CotiThermalModes.OutlineMix( Mode, FullFillPercent );
 
     /// <summary>
     /// Contour thickness in texels of the thermal target, when OutlineMix &gt; 0.
     /// </summary>
     [JsonProperty( "outlineWidth" )]
     public float OutlineWidth { get; set; } = 1.5f;
+
+    /// <summary>
+    /// The outline's thickness on the object itself, in centimetres. Projected through the camera, so the line
+    /// thins as the object recedes and thickens under magnification, between one texel and OutlineWidth. Zero
+    /// keeps the fixed width.
+    /// </summary>
+    [JsonProperty( "outlineThicknessCm" )]
+    public float OutlineThicknessCm { get; set; } = 2.0f;
 
     /// <summary>
     /// Overall brightness of the added heat.

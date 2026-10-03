@@ -4,6 +4,7 @@ namespace Coti.Shared
   {
     Off,
     Initializing,
+    ShowingMode,
     Warming,
     On,
     PoweringOff,
@@ -19,11 +20,14 @@ namespace Coti.Shared
     Blank,
     Initializing,
     PowerOff,
+    /// <summary>The current thermal mode's name.</summary>
+    Mode,
   }
 
   public sealed class CotiPowerTimings
   {
     public double InitializingSeconds { get; set; } = 1.2;
+    public double ModeSeconds { get; set; } = 0.75;
     public double WarmingSeconds { get; set; } = 0.3;
     public double PowerOffSeconds { get; set; } = 1.5;
   }
@@ -58,6 +62,7 @@ namespace Coti.Shared
         switch( Phase )
         {
           case CotiPowerPhase.Initializing: return CotiDisplayMessage.Initializing;
+          case CotiPowerPhase.ShowingMode: return CotiDisplayMessage.Mode;
           case CotiPowerPhase.Warming: return CotiDisplayMessage.Blank;
           case CotiPowerPhase.PoweringOff: return CotiDisplayMessage.PowerOff;
           default: return CotiDisplayMessage.None;
@@ -72,8 +77,9 @@ namespace Coti.Shared
   }
 
   /// <summary>
-  /// The ECOTI's power state. CTRL+N calls Press; every frame calls Advance with the same clock.
-  /// A press mid-transition reverses it. Disabled, a press flips straight between Off and On.
+  /// The ECOTI's power state. CTRL+N calls Press, ALT+N calls ShowMode; every frame calls Advance with the
+  /// same clock. A press mid-transition reverses it. Disabled, a press flips straight between Off and On and
+  /// no label shows. The boot runs Initializing, the mode's name, the warm-up gap, then the thermal.
   /// </summary>
   public sealed class CotiPowerSequence
   {
@@ -84,10 +90,11 @@ namespace Coti.Shared
     private double _phaseStart;
     private double _settleStart = double.NaN;
     private bool _clicked;
+    private bool _bootLabel;
 
     /// <summary>
-    /// The calibration click comes this long before the image, inside the warm-up gap; a gap
-    /// shorter than this clicks as it begins.
+    /// The calibration click comes this long before the image, inside the warm-up gap or a mode change's
+    /// label; one shorter than this clicks as it begins.
     /// </summary>
     public const double ClickLeadSeconds = 0.15;
 
@@ -119,6 +126,19 @@ namespace Coti.Shared
       Enter( next, now );
     }
 
+    /// <summary>
+    /// Names a newly chosen mode. Only while the thermal is up: the boot names it anyway, and a device
+    /// that is off or shutting down shows nothing.
+    /// </summary>
+    public void ShowMode( double now )
+    {
+      if( !Enabled || ( _phase != CotiPowerPhase.On && !( _phase == CotiPowerPhase.ShowingMode && !_bootLabel ) ) )
+        return;
+
+      Enter( CotiPowerPhase.ShowingMode, now );
+      _bootLabel = false;
+    }
+
     public CotiPowerFrame Advance( double now )
     {
       if( !Enabled )
@@ -145,11 +165,26 @@ namespace Coti.Shared
 
         if( _phase == CotiPowerPhase.Initializing && elapsed >= Duration( Timings.InitializingSeconds ) )
         {
-          Step( CotiPowerPhase.Warming, Timings.InitializingSeconds );
+          Step( CotiPowerPhase.ShowingMode, Timings.InitializingSeconds );
+          _bootLabel = true;
           continue;
         }
 
-        if( _phase == CotiPowerPhase.Warming && !_clicked && elapsed >= ClickPoint() )
+        // A mode change clicks as the boot does, just before the thermal returns. The boot's own label leaves it to
+        // the warm-up gap, so a boot still clicks once.
+        if( _phase == CotiPowerPhase.ShowingMode && !_bootLabel && !_clicked && elapsed >= ClickPoint( Timings.ModeSeconds ) )
+        {
+          _clicked = true;
+          clicked = true;
+        }
+
+        if( _phase == CotiPowerPhase.ShowingMode && elapsed >= Duration( Timings.ModeSeconds ) )
+        {
+          Step( _bootLabel ? CotiPowerPhase.Warming : CotiPowerPhase.On, Timings.ModeSeconds );
+          continue;
+        }
+
+        if( _phase == CotiPowerPhase.Warming && !_clicked && elapsed >= ClickPoint( Timings.WarmingSeconds ) )
         {
           _clicked = true;
           clicked = true;
@@ -186,15 +221,15 @@ namespace Coti.Shared
       _clicked = false;
     }
 
-    private double ClickPoint()
+    private static double ClickPoint( double gapSeconds )
     {
-      var point = Duration( Timings.WarmingSeconds ) - ClickLeadSeconds;
+      var point = Duration( gapSeconds ) - ClickLeadSeconds;
       return point > 0 ? point : 0;
     }
 
     private void SnapToDestination()
     {
-      if( _phase == CotiPowerPhase.Initializing || _phase == CotiPowerPhase.Warming )
+      if( _phase == CotiPowerPhase.Initializing || _phase == CotiPowerPhase.ShowingMode || _phase == CotiPowerPhase.Warming )
         _phase = CotiPowerPhase.On;
       else if( _phase == CotiPowerPhase.PoweringOff )
         _phase = CotiPowerPhase.Off;

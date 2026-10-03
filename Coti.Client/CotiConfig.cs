@@ -134,6 +134,7 @@ namespace Coti.Client
   {
     public bool Enabled { get; set; } = true;
     public float InitializingSeconds { get; set; } = 1.2f;
+    public float ModeSeconds { get; set; } = 0.75f;
     public float WarmingSeconds { get; set; } = 0.3f;
     public float PowerOffSeconds { get; set; } = 1.5f;
 
@@ -148,6 +149,7 @@ namespace Coti.Client
     public void CopyTo( CotiPowerTimings target )
     {
       target.InitializingSeconds = InitializingSeconds;
+      target.ModeSeconds = ModeSeconds;
       target.WarmingSeconds = WarmingSeconds;
       target.PowerOffSeconds = PowerOffSeconds;
     }

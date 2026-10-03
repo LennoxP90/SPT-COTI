@@ -8,7 +8,8 @@ public class CotiPowerSequenceTests
 {
     private static CotiPowerTimings ExactTimings()
     {
-        return new CotiPowerTimings { InitializingSeconds = 1.25, WarmingSeconds = 0.25, PowerOffSeconds = 1.5 };
+        // No mode label, so the boot tests below time Initializing straight into the warm-up gap.
+        return new CotiPowerTimings { InitializingSeconds = 1.25, WarmingSeconds = 0.25, PowerOffSeconds = 1.5, ModeSeconds = 0 };
     }
 
     private static CotiPowerSequence StartingOff()
@@ -222,7 +223,7 @@ public class CotiPowerSequenceTests
     [Fact]
     public void ZeroAndInvalidDurationsCountAsZero()
     {
-        var timings = new CotiPowerTimings { InitializingSeconds = -1, WarmingSeconds = double.NaN, PowerOffSeconds = 0 };
+        var timings = new CotiPowerTimings { InitializingSeconds = -1, ModeSeconds = double.NaN, WarmingSeconds = double.NaN, PowerOffSeconds = 0 };
         var sequence = new CotiPowerSequence( timings, startOn: false );
 
         sequence.Press( 0 );
@@ -285,7 +286,7 @@ public class CotiPowerSequenceTests
     [Fact]
     public void AGapShorterThanTheLeadClicksAsTheGapBegins()
     {
-        var timings = new CotiPowerTimings { InitializingSeconds = 1.25, WarmingSeconds = 0.0625, PowerOffSeconds = 1.5 };
+        var timings = new CotiPowerTimings { InitializingSeconds = 1.25, WarmingSeconds = 0.0625, PowerOffSeconds = 1.5, ModeSeconds = 0 };
         var sequence = new CotiPowerSequence( timings, startOn: false );
         sequence.Press( 0 );
 

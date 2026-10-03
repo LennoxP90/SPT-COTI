@@ -21,6 +21,9 @@ namespace Coti.Client
     private static readonly int ThresholdId = Shader.PropertyToID( "_Threshold" );
     private static readonly int OutlineMixId = Shader.PropertyToID( "_OutlineMix" );
     private static readonly int OutlineWidthId = Shader.PropertyToID( "_OutlineWidth" );
+    private static readonly int OutlineWorldWidthId = Shader.PropertyToID( "_OutlineWorldWidth" );
+    private static readonly int PixelsPerMetreId = Shader.PropertyToID( "_PixelsPerMetre" );
+    private static readonly int OutlineMinTexelsId = Shader.PropertyToID( "_OutlineMinTexels" );
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
     private static readonly int CircleGlowId = Shader.PropertyToID( "_CircleGlow" );
@@ -41,6 +44,9 @@ namespace Coti.Client
     private static float _setThreshold = float.NaN;
     private static float _setOutlineMix = float.NaN;
     private static float _setOutlineWidth = float.NaN;
+    private static float _setOutlineWorldWidth = float.NaN;
+    private static float _setPixelsPerMetre = float.NaN;
+    private static float _setOutlineMinTexels = float.NaN;
     private static float _setIntensity = float.NaN;
     private static Color? _setHotColour;
     private static Color? _setCoolColour;
@@ -89,6 +95,8 @@ namespace Coti.Client
         }
 
         EnsureBuffer( optic.Camera );
+        if( Attached )
+          CotiScopeBloom.Hold();
         ApplyMaterialValues();
       }
       catch( Exception ex )
@@ -177,10 +185,18 @@ namespace Coti.Client
 
       SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
       SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
-      SetFloatIfChanged( OutlineWidthId, CotiOverlayScale.OutlineWidth(
-          Mathf.Max( 0.5f, image.OutlineWidth ),
-          CotiOpticThermalCamera.Output == null ? 0 : CotiOpticThermalCamera.Output.height ),
-          ref _setOutlineWidth );
+      // The magnified picture fills the lens, so a screen pixel is the lens's height in it, and the zoom lets a near
+      // line thicken with the object.
+      var main = Camera.main;
+      SetOutlineRange( image, CotiOpticThermalCamera.Output == null ? 0 : CotiOpticThermalCamera.Output.height,
+          LensScreenRows( main ),
+          CotiOpticFusion.Magnification( main == null ? 0f : main.fieldOfView, CotiOpticThermalCamera.Optic.FieldOfView ) );
+
+      // Perspective outline, only with the heat-only thermal: it is what puts each surface's distance in alpha.
+      var thickness = CotiShaderBundle.HeatOnly != null ? Mathf.Max( 0f, image.OutlineThicknessCm ) / 100f : 0f;
+      SetFloatIfChanged( OutlineWorldWidthId, thickness, ref _setOutlineWorldWidth );
+      SetFloatIfChanged( PixelsPerMetreId, CotiOverlayScale.PixelsPerMetre(
+          CotiOpticThermalCamera.Output == null ? 0 : CotiOpticThermalCamera.Output.height, CotiOpticThermalCamera.FieldOfView ), ref _setPixelsPerMetre );
 
       // Phosphor and switching fade from the 1x path: the magnified image sits inside the same
       // tube, so a different tint would read as two instruments.
@@ -194,6 +210,42 @@ namespace Coti.Client
               * Mathf.Clamp( image.MagnifiedIntensityScale, 0.05f, 1f )
               * CotiOverlayCompositor.PhosphorFade,
           ref _setIntensity );
+    }
+
+    /// <summary>
+    /// The outline's floor and cap for a target of <paramref name="rows"/> shown <paramref name="screenRows"/> pixels
+    /// tall at <paramref name="zoom"/>; see <see cref="CotiOverlayScale.OutlineRange"/>.
+    /// </summary>
+    private static void SetOutlineRange( CotiImageConfig image, int rows, float screenRows, float zoom )
+    {
+      float min, max;
+      CotiOverlayScale.OutlineRange( Mathf.Max( 0.5f, image.OutlineWidth ), screenRows, zoom,
+          CotiOverlayScale.TexelsPerPixel( rows, screenRows ), out min, out max );
+      SetFloatIfChanged( OutlineMinTexelsId, min, ref _setOutlineMinTexels );
+      SetFloatIfChanged( OutlineWidthId, max, ref _setOutlineWidth );
+    }
+
+    /// <summary>
+    /// The lens's height on screen in pixels: its bounds' corners through the main camera. 0 without a lens.
+    /// </summary>
+    private static float LensScreenRows( Camera main )
+    {
+      var lens = CotiOpticThermalCamera.Optic.Lens;
+      if( lens == null || main == null )
+        return 0f;
+
+      var bounds = lens.bounds;
+      float low = float.MaxValue, high = float.MinValue;
+      for( var i = 0; i < 8; i++ )
+      {
+        var corner = bounds.center + Vector3.Scale( bounds.extents,
+            new Vector3( ( i & 1 ) == 0 ? -1f : 1f, ( i & 2 ) == 0 ? -1f : 1f, ( i & 4 ) == 0 ? -1f : 1f ) );
+        var y = main.WorldToScreenPoint( corner ).y;
+        low = Mathf.Min( low, y );
+        high = Mathf.Max( high, y );
+      }
+
+      return high - low;
     }
 
     private static void SetFloatIfChanged( int id, float value, ref float last )
@@ -235,6 +287,9 @@ namespace Coti.Client
       _setThreshold = float.NaN;
       _setOutlineMix = float.NaN;
       _setOutlineWidth = float.NaN;
+      _setOutlineWorldWidth = float.NaN;
+      _setPixelsPerMetre = float.NaN;
+      _setOutlineMinTexels = float.NaN;
       _setIntensity = float.NaN;
       _setHotColour = null;
       _setCoolColour = null;
@@ -283,6 +338,8 @@ namespace Coti.Client
 
     internal static void Detach()
     {
+      CotiScopeBloom.Release();
+
       if( _commandBuffer != null && _attachedTo != null )
       {
         try

@@ -14,12 +14,13 @@ public class CotiPowerSequenceConfigTests
         Assert.Equal( 0.3f, config.WarmingSeconds );
         Assert.Equal( 1.5f, config.PowerOffSeconds );
         Assert.Equal( 1f, config.ClickVolume );
+        Assert.Equal( 0.75f, config.ModeSeconds );
     }
 
     [Fact]
     public void CopiesItsDurationsIntoTheSequenceTimings()
     {
-        var config = new CotiPowerSequenceConfig { InitializingSeconds = 2f, WarmingSeconds = 0.5f, PowerOffSeconds = 3f };
+        var config = new CotiPowerSequenceConfig { InitializingSeconds = 2f, WarmingSeconds = 0.5f, PowerOffSeconds = 3f, ModeSeconds = 1f };
         var timings = new CotiPowerTimings();
 
         config.CopyTo( timings );
@@ -27,5 +28,6 @@ public class CotiPowerSequenceConfigTests
         Assert.Equal( 2.0, timings.InitializingSeconds );
         Assert.Equal( 0.5, timings.WarmingSeconds );
         Assert.Equal( 3.0, timings.PowerOffSeconds );
+        Assert.Equal( 1.0, timings.ModeSeconds );
     }
 }

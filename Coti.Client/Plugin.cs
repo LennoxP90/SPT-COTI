@@ -40,7 +40,7 @@ namespace Coti.Client
 
       _settings = new CotiF12Config( ( (BaseUnityPlugin)this ).Config, hostFallback );
       Config = _settings.Current;
-      CotiPowerToggle.Bind( _settings.PowerToggle );
+      CotiPowerToggle.Bind( _settings.PowerToggle, _settings.ModeToggle, _settings.ThermalMode );
 
       var pluginDirectory = Path.GetDirectoryName( Info.Location );
       CotiDisplayText.Load( pluginDirectory );

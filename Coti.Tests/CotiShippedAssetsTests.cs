@@ -37,6 +37,8 @@ public class CotiShippedAssetsTests
     [Theory]
     [InlineData( "coti_text_initializing.png" )]
     [InlineData( "coti_text_power_off.png" )]
+    [InlineData( "coti_text_mode_outline.png" )]
+    [InlineData( "coti_text_mode_full.png" )]
     public void MessageImagesArePngs( string file )
     {
         var bytes = File.ReadAllBytes( Path.Combine( RepoRoot(), "textures", file ) );

@@ -16,10 +16,13 @@ namespace Coti.Client
 
     private static Texture2D _initializing;
     private static Texture2D _powerOff;
+    private static Texture2D _outline;
+    private static Texture2D _full;
     private static RenderTexture _target;
 
     private static bool _drawn;
     private static CotiDisplayMessage _drawnMessage;
+    private static CotiThermalMode _drawnMode;
     private static float _drawnCenterX;
     private static float _drawnCenterY;
     private static float _drawnRadius;
@@ -32,6 +35,8 @@ namespace Coti.Client
       var folder = Path.Combine( pluginDirectory, TextureFolder );
       _initializing = LoadPng( Path.Combine( folder, "coti_text_initializing.png" ) );
       _powerOff = LoadPng( Path.Combine( folder, "coti_text_power_off.png" ) );
+      _outline = LoadPng( Path.Combine( folder, "coti_text_mode_outline.png" ) );
+      _full = LoadPng( Path.Combine( folder, "coti_text_mode_full.png" ) );
     }
 
     internal static void Tick()
@@ -63,6 +68,7 @@ namespace Coti.Client
     {
       return _drawn
              && _drawnMessage == message
+             && _drawnMode == CurrentMode
              && _drawnCenterX == host.MaskCenterX
              && _drawnCenterY == host.MaskCenterY
              && _drawnRadius == host.MaskRadius;
@@ -126,10 +132,13 @@ namespace Coti.Client
     {
       _drawn = true;
       _drawnMessage = message;
+      _drawnMode = CurrentMode;
       _drawnCenterX = host.MaskCenterX;
       _drawnCenterY = host.MaskCenterY;
       _drawnRadius = host.MaskRadius;
     }
+
+    private static CotiThermalMode CurrentMode => Plugin.Config?.Image?.Mode ?? CotiThermalMode.Outline;
 
     private static Texture2D ImageFor( CotiDisplayMessage message )
     {
@@ -137,6 +146,7 @@ namespace Coti.Client
       {
         case CotiDisplayMessage.Initializing: return _initializing;
         case CotiDisplayMessage.PowerOff: return _powerOff;
+        case CotiDisplayMessage.Mode: return CurrentMode == CotiThermalMode.Full ? _full : _outline;
         default: return null;
       }
     }

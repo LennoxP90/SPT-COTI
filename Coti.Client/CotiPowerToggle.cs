@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Coti.Client
 {
   /// <summary>
-  /// The COTI's own power button, driving CotiPowerSequence.
+  /// The COTI's own power and mode buttons, driving CotiPowerSequence.
   ///
   /// A clip-on is a separate device with its own switch, so killing the thermal while keeping night
   /// vision is faithful as well as useful.
@@ -17,6 +17,8 @@ namespace Coti.Client
     private static readonly CotiPowerSequence Sequence = new CotiPowerSequence( Timings );
 
     private static ConfigEntry<KeyboardShortcut> _shortcut;
+    private static ConfigEntry<KeyboardShortcut> _modeShortcut;
+    private static ConfigEntry<CotiThermalMode> _mode;
 
     /// <summary>
     /// This frame's power state. Read by CotiState, the compositor and the click.
@@ -25,45 +27,47 @@ namespace Coti.Client
 
     internal static bool PoweredOn => Frame.ThermalOn;
 
-    internal static void Bind( ConfigEntry<KeyboardShortcut> shortcut )
+    internal static void Bind(
+        ConfigEntry<KeyboardShortcut> shortcut, ConfigEntry<KeyboardShortcut> modeShortcut, ConfigEntry<CotiThermalMode> mode )
     {
       _shortcut = shortcut;
+      _modeShortcut = modeShortcut;
+      _mode = mode;
     }
 
     /// <summary>
-    /// True while the bind's modifiers are held and nothing else is - the same test as
+    /// True while either bind's modifiers are held and nothing else is - the same test as
     /// KeyboardShortcut.IsDown. A looser test would suppress the goggles on presses that never fire
-    /// the toggle, swallowing the key.
+    /// a COTI bind, swallowing the key.
     /// </summary>
-    internal static bool ModifierHeld
+    internal static bool ModifierHeld => Held( _shortcut ) || Held( _modeShortcut );
+
+    private static bool Held( ConfigEntry<KeyboardShortcut> shortcut )
     {
-      get
+      if( shortcut == null )
+        return false;
+
+      var modifiers = shortcut.Value.Modifiers;
+      var any = false;
+
+      foreach( var modifier in modifiers )
       {
-        if( _shortcut == null )
+        if( !Input.GetKey( modifier ) )
           return false;
 
-        var modifiers = _shortcut.Value.Modifiers;
-        var any = false;
-
-        foreach( var modifier in modifiers )
-        {
-          if( !Input.GetKey( modifier ) )
-            return false;
-
-          any = true;
-        }
-
-        if( !any )
-          return false;
-
-        foreach( var candidate in ModifierKeys )
-        {
-          if( Input.GetKey( candidate ) && !modifiers.Contains( candidate ) )
-            return false;
-        }
-
-        return true;
+        any = true;
       }
+
+      if( !any )
+        return false;
+
+      foreach( var candidate in ModifierKeys )
+      {
+        if( Input.GetKey( candidate ) && !modifiers.Contains( candidate ) )
+          return false;
+      }
+
+      return true;
     }
 
     private static readonly KeyCode[] ModifierKeys =
@@ -85,6 +89,13 @@ namespace Coti.Client
       {
         Sequence.Press( now );
         Plugin.Log.LogInfo( $"[COTI] Power toggle pressed - {Sequence.Phase}" );
+      }
+
+      if( _modeShortcut != null && _mode != null && _modeShortcut.Value.IsDown() )
+      {
+        _mode.Value = CotiThermalModes.Next( _mode.Value );
+        Sequence.ShowMode( now );
+        Plugin.Log.LogInfo( $"[COTI] Mode toggle pressed - {_mode.Value}" );
       }
 
       var previous = Frame.Phase;

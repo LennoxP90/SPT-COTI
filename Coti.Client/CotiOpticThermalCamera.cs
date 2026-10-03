@@ -72,6 +72,9 @@ namespace Coti.Client
 
     internal static RenderTexture Output => _rt;
 
+    /// <summary>The vertical field of view this camera renders with, for projecting the outline.</summary>
+    internal static float FieldOfView => _cam != null ? _cam.fieldOfView : 0f;
+
     internal static bool HasOutput => !_broken && _cam != null && _rt != null;
 
     /// <summary>

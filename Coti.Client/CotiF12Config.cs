@@ -15,6 +15,10 @@ namespace Coti.Client
 
     public ConfigEntry<KeyboardShortcut> PowerToggle { get; private set; }
 
+    public ConfigEntry<KeyboardShortcut> ModeToggle { get; private set; }
+
+    public ConfigEntry<CotiThermalMode> ThermalMode { get; private set; }
+
     /// <summary>
     /// Per-host mask and mount geometry comes from device files (hosts/*.json, embedded as the
     /// offline fallback and replaced by CotiHostTableClient's fetch once it lands). hostFallback is
@@ -83,9 +87,15 @@ namespace Coti.Client
               "there read as a solid mass.",
               new AcceptableValueRange<float>( 0.05f, 1f ) ) );
 
-      var outline = _file.Bind( "Image", "Outline Mix", image.OutlineMix, new ConfigDescription(
-          "0% is solid hot shapes, 100% is edge-only contours.",
-          new AcceptableValueRange<float>( 0f, 1f ) ) );
+      var fill = _file.Bind( "Image", "Full Mode Fill (%)", image.FullFillPercent, new ConfigDescription(
+          "How bright Full mode fills a hot shape inside its outline. 100 is a solid shape; Outline mode " +
+          "ignores this.",
+          new AcceptableValueRange<float>( 0f, 100f ) ) );
+
+      var outlineThickness = _file.Bind( "Image", "Outline Thickness (cm)", image.OutlineThicknessCm, new ConfigDescription(
+          "The outline's thickness on the object itself. Projected through the view like the object, so it thins with " +
+          "distance and thickens under magnification, never past Outline Width. 0 keeps a fixed width.",
+          new AcceptableValueRange<float>( 0f, 20f ), new ConfigurationManagerAttributes { IsAdvanced = true } ) );
 
       var outlineWidth = _file.Bind( "Image", "Outline Width", image.OutlineWidth, new ConfigDescription(
           "Contour thickness in texels of the thermal target, when Outline Mix is above 0.",
@@ -165,8 +175,9 @@ namespace Coti.Client
         Current.Image.HeatThreshold = threshold.Value;
         Current.Image.OverlayIntensity = intensity.Value;
         Current.Image.MagnifiedIntensityScale = magnifiedScale.Value;
-        Current.Image.OutlineMix = outline.Value;
+        Current.Image.FullFillPercent = fill.Value;
         Current.Image.OutlineWidth = outlineWidth.Value;
+        Current.Image.OutlineThicknessCm = outlineThickness.Value;
         Current.Image.MinimumTemperatureValue = minimumTemperature.Value;
         Current.Image.MainTexColorCoef = mainTexColorCoef.Value;
         Current.Image.DepthFade = depthFade.Value;
@@ -195,6 +206,18 @@ namespace Coti.Client
               "Switches the ECOTI on and off without touching the night vision device. Keep a " +
               "modifier: EFT does not require an exact match on its own binds, so a bare N would " +
               "toggle the goggles as well." ) );
+
+      ModeToggle = _file.Bind( "Controls", "Mode Toggle",
+          new KeyboardShortcut( KeyCode.N, KeyCode.LeftAlt ),
+          new ConfigDescription(
+              "Switches the thermal between Outline and Full, naming the new mode on the display. Keep a " +
+              "modifier, for the same reason as Power Toggle." ) );
+
+      ThermalMode = _file.Bind( "Controls", "Thermal Mode", CotiThermalMode.Outline, new ConfigDescription(
+          "Outline draws only the edges of hot things; Full adds a dimmer fill inside them (see Image, " +
+          "Full Mode Fill). Mode Toggle changes this, and the device powers up in it." ) );
+
+      _appliers.Add( () => Current.Image.Mode = ThermalMode.Value );
     }
 
     private void BindPowerSequence( CotiConfig defaults )
@@ -215,6 +238,11 @@ namespace Coti.Client
           new ConfigDescription( "The lit, empty display between Initializing... and the thermal image.",
               new AcceptableValueRange<float>( 0f, 3f ) ) );
 
+      var modeLabel = _file.Bind( section, "Mode Label Seconds", power.ModeSeconds,
+          new ConfigDescription( "How long the mode's name shows after Initializing..., and when Mode Toggle " +
+              "is pressed. 0 never shows it.",
+              new AcceptableValueRange<float>( 0f, 3f ) ) );
+
       var powerOff = _file.Bind( section, "Power Off Seconds", power.PowerOffSeconds,
           new ConfigDescription( "How long Power Off... shows before the display goes dark.",
               new AcceptableValueRange<float>( 0.2f, 5f ) ) );
@@ -228,6 +256,7 @@ namespace Coti.Client
       {
         Current.PowerSequence.Enabled = enabled.Value;
         Current.PowerSequence.InitializingSeconds = initializing.Value;
+        Current.PowerSequence.ModeSeconds = modeLabel.Value;
         Current.PowerSequence.WarmingSeconds = warming.Value;
         Current.PowerSequence.PowerOffSeconds = powerOff.Value;
         Current.PowerSequence.ClickVolume = clickVolume.Value;

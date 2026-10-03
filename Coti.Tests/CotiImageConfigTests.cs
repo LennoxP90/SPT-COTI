@@ -24,4 +24,27 @@ public class CotiImageConfigTests
         Assert.False(c.IsMotionBlurred);
         Assert.Equal("", c.Palette);
     }
+
+    [Fact]
+    public void StartsInOutlineModeWithAFiftyFivePercentFillForFull()
+    {
+        var c = new CotiImageConfig();
+
+        Assert.Equal(Coti.Shared.CotiThermalMode.Outline, c.Mode);
+        Assert.Equal(55f, c.FullFillPercent);
+    }
+
+    [Fact]
+    public void OutlineMixFollowsTheMode()
+    {
+        var c = new CotiImageConfig { Mode = Coti.Shared.CotiThermalMode.Full, FullFillPercent = 70f };
+
+        Assert.Equal(0.3f, c.OutlineMix, 5);
+    }
+
+    [Fact]
+    public void OutlineThicknessDefaultsToTwoCentimetres()
+    {
+        Assert.Equal(2.0f, new CotiImageConfig().OutlineThicknessCm);
+    }
 }
