@@ -80,6 +80,8 @@ namespace Coti.Client
 
     internal static bool HasOutput => !_broken && _cam != null && _rt != null;
 
+    internal static bool Broken => _broken;
+
     /// <summary>
     /// The optic this camera is matched to, or an absent view. Published rather than re-read, so the
     /// compositor attaches to the same camera this was configured against.

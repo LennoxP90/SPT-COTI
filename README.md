@@ -14,6 +14,14 @@ Modelled on the Safran DSI AN/PAS-29B.
 
 - **Fused, not switched.** The thermal image is added inside the night vision circle only. Anything
   cooler than the heat threshold contributes exactly nothing, so the tube image stays readable.
+- **Heat is heat.** Only warm things draw: people, a fire, a barrel or suppressor hot from shooting.
+  Heat comes from the game's own heat value for each material, not from how bright a surface
+  renders, so weapon parts that never get hot and glossy surfaces stay dark.
+- **Two modes.** Outline draws the edges of hot things; Full fills them in. `Alt+N` switches between
+  them, and the display names the new mode with the calibration click.
+- **Through a scope.** With `Magnify With Optic` on, heat is drawn through a magnified scope's own
+  lens at the scope's zoom, so it lines up with what the scope shows. Behind a thermal sight such as
+  the REAP-IR or the RS-32, the imager stands down and the sight's own picture is left alone.
 - **Its own power.** `Ctrl+N` toggles the imager independently of the goggles, like the real device's
   own button. The night vision stays on when the thermal goes off. Powering up shows the device's
   own `Initializing...`, then the thermal arrives with the core's calibration click; powering down
@@ -101,26 +109,46 @@ The F12 page:
 | **Image** | Enabled | Master switch. Safe to toggle any time, including mid-raid. |
 | | Heat Threshold | How hot something must be before it shows. Raise it if the overlay washes the picture out; lower it to pick up cooler things. |
 | | Overlay Intensity | Brightness of the heat that does show. Lower it if bodies read as solid white blobs rather than shapes. |
-| | Outline Mix | 0 is solid hot shapes, 1 is edge-only contours. |
+| | Full Mode Fill (%) | How bright Full mode fills a hot shape inside its outline. 100 is a solid shape; Outline mode ignores it. |
+| | Magnify With Optic | Off by default. On draws the heat through a magnified scope's lens at the scope's zoom, at the cost of a second render while aiming. |
+| | Sensor Refresh (Hz) | The thermal image updates at this rate and holds in between, as a real low-refresh core does. The frames between cost nothing. Default 60; 0 updates every frame. |
 | **Controls** | Power Toggle | Click and press the combination you want. Default `Ctrl+N`. Keep a modifier - EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
+| | Mode Toggle | Switches Outline and Full. Default `Alt+N`. |
+| | Thermal Mode | The mode the device powers up in. Mode Toggle changes it. |
 | **Power Sequence** | Enabled | On by default. Off makes `Ctrl+N` switch the thermal instantly, with no messages and no click. |
 | | Initializing / Warm-up Gap / Power Off Seconds | How long each stage lasts. Defaults 1.2, 0.3 and 1.5 - a little quicker than the real device. |
 | | Click Volume | The calibration click, on top of the game's own volume. 0 mutes it. |
 | **Debug** | Verbose Logging | Off for normal play. Writes detailed diagnostics to the BepInEx log if you are reporting a problem. |
 
-Deliberately not exposed: the thermal camera's resolution and refresh, the per-device mask geometry,
-and the mount poses. Those are not preferences, they are measured values - exposing them mostly
+Deliberately not exposed: the per-device mask geometry and the mount poses. Those are not preferences, they are measured values - exposing them mostly
 offers a way to break the effect.
 
 ## Performance
 
-The imager renders the scene a second time, off-screen at 768x576, and composites the result inside
-the tube. That second pass runs only while the device is powered on and clipped to a host - it is
-switched off with the device, not merely hidden.
+The imager renders the scene a second time, off-screen, and composites the result inside the tube.
+That pass runs only while the device is powered on and clipped to a host, and since 3.2.0 it is
+built to cost as little as possible:
 
-There is nothing to tune for frames, and the settings that look like performance levers are not:
-`hz` is the sensor's refresh rate, driving a frame hold that is purely cosmetic, and the render
-target is small enough that its size is not the bottleneck.
+- **A heat-only shader.** The thermal camera draws each surface once, in a single unlit pass that
+  writes its heat or black, instead of a full lit render plus the game's thermal post-processing.
+- **Rendered at the sensor's rate.** The image updates at `Sensor Refresh` (60 Hz) and holds in
+  between; at a high frame rate most frames render nothing.
+- **Only the circle.** The camera renders just the part of the view inside the tube's circle.
+- **One camera at a time.** While a magnified scope draws its own heat, the 1x camera rests.
+- **Culled like your eyes.** The thermal skips what the main view would cull at the same distance.
+
+Measured on SPT 4.1, same install and scene, three runs each (frame time, median):
+
+| With the imager on | 3.1.0 | 3.2.0 |
+|---|---|---|
+| Cost at 1x, over the same view with it off | 0.41 ms | none measurable |
+| Cost through a magnified scope, over the scope alone | 0.58 to 0.62 ms | 0.05 ms |
+
+On that test that is about a quarter more frames per second while the imager is on. It was measured
+at 400 to 500 fps on an empty test range with heat targets at 5 to 1000 m, which is the imager's
+lightest case; a full map costs both versions more. The heat-only shader and the circle crop save the
+same at any frame rate. The 60 Hz rendering saves more the higher your frame rate runs, since above
+60 fps it skips more of the frames.
 
 ## Credits
 

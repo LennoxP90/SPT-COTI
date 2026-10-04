@@ -26,10 +26,22 @@ namespace Coti.Client
     /// </summary>
     internal static bool ThermalSightAimed { get; private set; }
 
+    /// <summary>
+    /// Whether a magnified sight is up with Magnify With Optic on, decided from the optic alone rather than from whether
+    /// the magnified camera is drawing yet. The 1x overlay reads it to draw only the message's text over the scope, and
+    /// never its own heat, including the frames the magnified path takes to come back after a message.
+    /// </summary>
+    internal static bool MagnifiedSightAimed { get; private set; }
+
     internal static void Tick()
     {
       var optic = Read();
       ThermalSightAimed = optic.Present && optic.IsThermal;
+      var main = Camera.main;
+      MagnifiedSightAimed = optic.Present && !optic.IsThermal && main != null
+                            && Plugin.Config?.MagnifyWithOptic == true && !CotiOpticThermalCamera.Broken
+                            && CotiOpticFusion.ShouldMagnify( configEnabled: true, cotiActive: true,
+                                   main.fieldOfView, optic.FieldOfView );
     }
 
     /// <summary>

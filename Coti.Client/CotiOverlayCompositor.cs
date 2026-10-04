@@ -21,6 +21,7 @@ namespace Coti.Client
     private static readonly int OutlineMinTexelsId = Shader.PropertyToID( "_OutlineMinTexels" );
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
+    private static readonly int CircleGlowId = Shader.PropertyToID( "_CircleGlow" );
 
     /// <summary>
     /// The message's brightness. 1 renders the letters at exactly HotColour, the tube's own
@@ -42,6 +43,8 @@ namespace Coti.Client
     private static Vector4? _setThermalRect;
     private static float _setOutlineMinTexels = float.NaN;
     private static float _setIntensity = float.NaN;
+    private static float _setCircleGlow = float.NaN;
+    private static float _defaultCircleGlow = float.NaN;
     private static Color? _setHotColour;
     private static Color? _setCoolColour;
     private static Texture _builtSource;
@@ -93,8 +96,12 @@ namespace Coti.Client
         // Both conditions, because they fail independently: standing down for a composite that is
         // not running would leave no thermal at all.
         // Through a thermal sight COTI stands down: the sight's own picture is the thermal.
+        // Behind a magnified sight the heat is the magnified path's even in the frames before it draws: when a mode
+        // change's message ends it takes a frame or two to come back, and in those the 1x heat and the circle's glow
+        // flashed over the scope. The message itself still draws here.
         if( CotiOpticCamera.ThermalSightAimed
-            || ( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached ) )
+            || ( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached )
+            || ( CotiOpticCamera.MagnifiedSightAimed && CotiState.Showing == CotiShowing.Thermal ) )
         {
           Detach();
           return;
@@ -202,6 +209,13 @@ namespace Coti.Client
 
       ApplyPhosphorTint();
 
+      // The circle's faint glow is the display being lit. Behind a magnified sight it lit a disc over the scope for as
+      // long as a message showed (a mode change), so there the message is its text alone.
+      if( float.IsNaN( _defaultCircleGlow ) )
+        _defaultCircleGlow = _material.GetFloat( CircleGlowId );
+      var textOnly = CotiState.Showing == CotiShowing.Message && CotiOpticCamera.MagnifiedSightAimed;
+      SetFloatIfChanged( CircleGlowId, textOnly ? 0f : _defaultCircleGlow, ref _setCircleGlow );
+
       if( CotiState.Showing == CotiShowing.Message )
       {
         // The display text is drawn screen-sized, not in the thermal's box.
@@ -298,6 +312,7 @@ namespace Coti.Client
       _setThermalRect = null;
       _setOutlineMinTexels = float.NaN;
       _setIntensity = float.NaN;
+      _setCircleGlow = float.NaN;
       _setHotColour = null;
       _setCoolColour = null;
     }

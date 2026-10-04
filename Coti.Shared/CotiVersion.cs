@@ -15,7 +15,7 @@ namespace Coti.Shared
     /// <summary>
     /// SPT 4.1 line. Bump here and the 4.1 client and server both follow.
     /// </summary>
-    public const string Spt41 = "3.1.0";
+    public const string Spt41 = "3.2.0";
 
     /// <summary>
     /// Whichever line this build belongs to. A const, so it is usable in the BepInPlugin attribute.
