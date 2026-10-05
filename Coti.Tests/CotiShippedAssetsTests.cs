@@ -45,4 +45,17 @@ public class CotiShippedAssetsTests
 
         Assert.Equal( new byte[] { 0x89, 0x50, 0x4E, 0x47 }, bytes.Take( 4 ).ToArray() );
     }
+
+    // Without a readable lamps.json no lamp shows heat at all.
+    [Fact]
+    public void LampListReadsAndNamesThePickedLamps()
+    {
+        var heated = Coti.Client.CotiLampFile.Parse( File.ReadAllText( Path.Combine( RepoRoot(), "lamps.json" ) ), out var error );
+
+        Assert.True( heated != null, error );
+        Assert.Contains( "Searchlight_01_B_source_on", heated );
+        Assert.Contains( "Searchlight_02_source_on", heated );
+        Assert.Contains( "Searchlight_03_source_on", heated );
+        Assert.All( heated, type => Assert.Equal( type, CotiLampHeat.TypeOf( type ) ) );
+    }
 }

@@ -110,7 +110,9 @@ The F12 page:
 | | Heat Threshold | How hot something must be before it shows. Raise it if the overlay washes the picture out; lower it to pick up cooler things. |
 | | Overlay Intensity | Brightness of the heat that does show. Lower it if bodies read as solid white blobs rather than shapes. |
 | | Full Mode Fill (%) | How bright Full mode fills a hot shape inside its outline. 100 is a solid shape; Outline mode ignores it. |
-| | Magnify With Optic | Off by default. On draws the heat through a magnified scope's lens at the scope's zoom, at the cost of a second render while aiming. |
+| | Magnify With Optic | Off by default. On draws the heat through a magnified scope's lens at the scope's zoom, at the cost of a second render while aiming. **Potential FPS improvement:** leave it off. |
+| | Render Flashlight Heat | On by default. A lit flashlight's head shows faintly warm, from its lens back; lasers and infrared illuminators stay cold. Off, every flashlight reads cold. |
+| | Render Searchlight Heat | On by default. A lit searchlight shows hot at its lens and warm around it; every other lamp stays cold. Off, searchlights read cold too. |
 | | Sensor Refresh (Hz) | The thermal image updates at this rate and holds in between, as a real low-refresh core does. The frames between cost nothing. Default 60; 0 updates every frame. |
 | **Controls** | Power Toggle | Click and press the combination you want. Default `Ctrl+N`. Keep a modifier - EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
 | | Mode Toggle | Switches Outline and Full. Default `Alt+N`. |

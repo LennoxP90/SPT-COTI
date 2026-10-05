@@ -25,6 +25,7 @@
     <Compile Include="..\Coti.Client\CotiMaskResolver.cs" Link="Client\CotiMaskResolver.cs" />
     <Compile Include="..\Coti.Client\CotiConfig.cs" Link="Client\CotiConfig.cs" />
     <Compile Include="..\Coti.Client\CotiImageConfig.cs" Link="Client\CotiImageConfig.cs" />
+    <Compile Include="..\Coti.Client\CotiLampFile.cs" Link="Client\CotiLampFile.cs" />
     <Compile Include="..\Coti.Client\MaskGeometry.cs" Link="Client\MaskGeometry.cs" />
     <Compile Include="..\Coti.Server\CotiDeviceDto.cs" Link="Server\CotiDeviceDto.cs" />
     <Compile Include="..\Coti.Client\CotiDeviceDto.cs" Link="Client\CotiDeviceDto.cs" />

@@ -180,6 +180,11 @@ namespace Coti.Client
       if( _go != null && _cam != null && _tv != null )
         return true;
 
+      // The clone lives in the raid's scene and is destroyed with it, while everything cached about it is static and
+      // was not: the next raid's clone skipped the replacement shader, the buffer strip, the crop and the mirrored
+      // settings, and drew nothing (2026-10-04). Start each clone from nothing.
+      Teardown();
+
       var prefab = CotiThermalRig.LoadPrefab();
       if( prefab == null )
       {

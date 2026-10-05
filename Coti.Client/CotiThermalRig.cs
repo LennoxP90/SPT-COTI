@@ -59,8 +59,8 @@ namespace Coti.Client
     };
 
     /// <summary>
-    /// Draws the camera with Coti/HeatOnly, so only surfaces EFT authors as warm reach the thermal image and every
-    /// cold one draws black. See that shader for the rule. Forward, because the replacement has no deferred pass,
+    /// Draws the camera with Coti/HeatOnly, so only what is warmer than the air reaches the thermal image and everything
+    /// else draws black. See that shader for the rule, and CotiThermalWorld for what it is fed. Forward, because the replacement has no deferred pass,
     /// and with ThermalVision off, since its passes post-process a G-buffer this camera no longer fills.
     ///
     /// Run every frame after the camera copies its settings from the one it follows, which writes the rendering
@@ -89,8 +89,17 @@ namespace Coti.Client
         if( volumetric != null )
           volumetric.enabled = false;
 
+        // Kept on the clone for ThermalVision.Awake (see StripComponentNames), but it resamples the finished image,
+        // alpha included, and alpha is each surface's distance: at a scope's zoom it pulled a body 25 m away down to
+        // 8-16 m, so the perspective outline drew it several times too thick.
+        if( camera.GetComponent( "ChromaticAberration" ) is Behaviour aberration )
+          aberration.enabled = false;
+
         replacing = true;
       }
+
+      // After the camera's own buffers are cleared on its first frame, so the terrain buffer it adds survives.
+      CotiThermalWorld.Update( camera );
 
       if( camera.renderingPath != RenderingPath.Forward )
         camera.renderingPath = RenderingPath.Forward;

@@ -96,6 +96,18 @@
       <HintPath>$(SptManaged)\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(SptManaged)\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TerrainModule">
+      <HintPath>$(SptManaged)\UnityEngine.TerrainModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(SptManaged)\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Unity.Postprocessing.Runtime">
       <HintPath>$(SptManaged)\Unity.Postprocessing.Runtime.dll</HintPath>
       <Private>false</Private>
@@ -154,6 +166,11 @@
 
     <Copy SourceFiles="@(CotiTextures)"
           DestinationFolder="$(CotiDist)\textures"
+          SkipUnchangedFiles="true" />
+
+    <!-- The lamps the thermal image heats, read beside the DLL at every raid start; without it no lamp shows heat. -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\lamps.json"
+          DestinationFolder="$(CotiDist)"
           SkipUnchangedFiles="true" />
   </Target>
 

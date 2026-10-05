@@ -63,10 +63,35 @@ namespace Coti.Client
     public CotiThermalMode Mode { get; set; } = CotiThermalMode.Outline;
 
     /// <summary>
+    /// How glass draws: Plain hides what is behind it; Reflections also mirrors the bodies in front of it.
+    /// </summary>
+    [JsonProperty( "glass" )]
+    public CotiGlassMode Glass { get; set; } = CotiGlassMode.Reflections;
+
+    /// <summary>
+    /// A multiplier on every heat signature's brightness, over the default the heat rule is tuned to. Below 1 dims the
+    /// image, above brightens it.
+    /// </summary>
+    [JsonProperty( "heatBrightness" )]
+    public float HeatBrightness { get; set; } = 1f;
+
+    /// <summary>
+    /// Whether a lit flashlight's head shows heat. Off, no weapon light is looked for or heated.
+    /// </summary>
+    [JsonProperty( "renderFlashlightHeat" )]
+    public bool RenderFlashlightHeat { get; set; } = true;
+
+    /// <summary>
+    /// Whether a lit lamp that lamps.json lists shows heat. Off, every lamp is cold and no lamp's shape is found.
+    /// </summary>
+    [JsonProperty( "renderSearchlightHeat" )]
+    public bool RenderSearchlightHeat { get; set; } = true;
+
+    /// <summary>
     /// Full mode's interior brightness under its full-brightness rim, in percent.
     /// </summary>
     [JsonProperty( "fullFillPercent" )]
-    public float FullFillPercent { get; set; } = 55f;
+    public float FullFillPercent { get; set; } = 45f;
 
     /// <summary>
     /// The overlay's solid (0) to edge-only (1) crossfade, from the mode.

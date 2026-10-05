@@ -92,6 +92,32 @@ namespace Coti.Client
           "ignores this.",
           new AcceptableValueRange<float>( 0f, 100f ) ) );
 
+      // 3.2.0 wrote 55 into every install; it becomes 45 once, and a value set afterwards stands.
+      var fillMoved = _file.Bind( "Image", "Full Mode Fill Moved", false, new ConfigDescription(
+          "Set once the 3.2.0 fill default has been moved to 45.", null,
+          new ConfigurationManagerAttributes { Browsable = false } ) );
+      if( !fillMoved.Value )
+      {
+        fill.Value = CotiThermalModes.MovedFill( fill.Value );
+        fillMoved.Value = true;
+      }
+
+      var glass = _file.Bind( "Image", "Glass", image.Glass, new ConfigDescription(
+          "Glass blocks heat. Plain shows it blank. Reflections also mirrors the bodies in front of it, " +
+          "you included, faintly face-on and strongly at a shallow angle, as real glass does to a thermal imager." ) );
+
+      var heatBrightness = _file.Bind( "Image", "Heat Brightness", image.HeatBrightness, new ConfigDescription(
+          "A multiplier on how bright heat signatures draw. 1 is the default; lower dims the image, higher brightens it.",
+          new AcceptableValueRange<float>( 0.25f, 2f ) ) );
+
+      var flashlightHeat = _file.Bind( "Image", "Render Flashlight Heat", image.RenderFlashlightHeat, new ConfigDescription(
+          "A lit flashlight's head shows faintly warm, from its lens back. Only visible light: lasers and infrared " +
+          "illuminators stay cold. Off, every flashlight reads cold." ) );
+
+      var searchlightHeat = _file.Bind( "Image", "Render Searchlight Heat", image.RenderSearchlightHeat, new ConfigDescription(
+          "A lit searchlight shows hot at its lens and warm around it; every other lamp stays cold. Off, searchlights " +
+          "read cold too." ) );
+
       var outlineThickness = _file.Bind( "Image", "Outline Thickness (cm)", image.OutlineThicknessCm, new ConfigDescription(
           "The outline's thickness on the object itself. Projected through the view like the object, so it thins with " +
           "distance and thickens under magnification, never past Outline Width. 0 keeps a fixed width.",
@@ -168,9 +194,10 @@ namespace Coti.Client
               "Renders a second thermal pass matched to a magnified scope, so heat lines up with " +
               "what the scope shows instead of with the 1x view around it, and keeps the 1x heat " +
               "off the lens. Off by default: the COTI is an offset sensor looking downrange on its " +
-              "own axis, so a 1x thermal is what it would really produce. Costs a second scene " +
-              "render while aiming. Non-magnified sights are unaffected either way. With Borkel's " +
-              "scope blur on, the heat is aligned onto the blurred scope picture." ) );
+              "own axis, so a 1x thermal is what it would really produce. Non-magnified sights are " +
+              "unaffected either way. With Borkel's scope blur on, the heat is aligned onto the blurred " +
+              "scope picture. Potential FPS improvement: leave it off, since on renders the scene a " +
+              "second time while aiming." ) );
 
       _appliers.Add( () =>
       {
@@ -183,6 +210,10 @@ namespace Coti.Client
         Current.Image.FullFillPercent = fill.Value;
         Current.Image.OutlineWidth = outlineWidth.Value;
         Current.Image.OutlineThicknessCm = outlineThickness.Value;
+        Current.Image.Glass = glass.Value;
+        Current.Image.HeatBrightness = heatBrightness.Value;
+        Current.Image.RenderFlashlightHeat = flashlightHeat.Value;
+        Current.Image.RenderSearchlightHeat = searchlightHeat.Value;
         Current.Image.MinimumTemperatureValue = minimumTemperature.Value;
         Current.Image.MainTexColorCoef = mainTexColorCoef.Value;
         Current.Image.DepthFade = depthFade.Value;

@@ -22,6 +22,7 @@ namespace Coti.Client
     private static readonly int HotColourId = Shader.PropertyToID( "_HotColour" );
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
     private static readonly int CircleGlowId = Shader.PropertyToID( "_CircleGlow" );
+    private static readonly int HeatBrightnessId = Shader.PropertyToID( "_HeatBrightness" );
 
     /// <summary>
     /// The message's brightness. 1 renders the letters at exactly HotColour, the tube's own
@@ -44,6 +45,7 @@ namespace Coti.Client
     private static float _setOutlineMinTexels = float.NaN;
     private static float _setIntensity = float.NaN;
     private static float _setCircleGlow = float.NaN;
+    private static float _setHeatBrightness = float.NaN;
     private static float _defaultCircleGlow = float.NaN;
     private static Color? _setHotColour;
     private static Color? _setCoolColour;
@@ -223,6 +225,7 @@ namespace Coti.Client
         SetFloatIfChanged( ThresholdId, 0f, ref _setThreshold );
         SetFloatIfChanged( OutlineMixId, 0f, ref _setOutlineMix );
         SetFloatIfChanged( IntensityId, TextIntensity * PhosphorFade, ref _setIntensity );
+        SetFloatIfChanged( HeatBrightnessId, 1f, ref _setHeatBrightness );
         return;
       }
 
@@ -234,6 +237,7 @@ namespace Coti.Client
 
       SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
       SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
+      SetFloatIfChanged( HeatBrightnessId, Mathf.Clamp( image.HeatBrightness, 0.25f, 2f ), ref _setHeatBrightness );
       SetOutlineRange( image, fullRows, _attachedTo != null ? _attachedTo.pixelHeight : Screen.height, 1f );
 
       // Perspective outline, only with the heat-only thermal: it is what puts each surface's distance in alpha.
@@ -305,6 +309,7 @@ namespace Coti.Client
       _setMainTex = null;
       _setMaskTex = null;
       _setThreshold = float.NaN;
+      _setHeatBrightness = float.NaN;
       _setOutlineMix = float.NaN;
       _setOutlineWidth = float.NaN;
       _setOutlineWorldWidth = float.NaN;

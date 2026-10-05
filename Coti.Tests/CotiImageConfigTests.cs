@@ -26,12 +26,12 @@ public class CotiImageConfigTests
     }
 
     [Fact]
-    public void StartsInOutlineModeWithAFiftyFivePercentFillForFull()
+    public void StartsInOutlineModeWithAFortyFivePercentFillForFull()
     {
         var c = new CotiImageConfig();
 
         Assert.Equal(Coti.Shared.CotiThermalMode.Outline, c.Mode);
-        Assert.Equal(55f, c.FullFillPercent);
+        Assert.Equal(45f, c.FullFillPercent);
     }
 
     [Fact]

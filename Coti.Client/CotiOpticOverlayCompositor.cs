@@ -34,6 +34,7 @@ namespace Coti.Client
     private static readonly int MaskTexId = Shader.PropertyToID( "_MaskTex" );
     private static readonly int IntensityId = Shader.PropertyToID( "_Intensity" );
     private static readonly int ThresholdId = Shader.PropertyToID( "_Threshold" );
+    private static readonly int HeatBrightnessId = Shader.PropertyToID( "_HeatBrightness" );
     private static readonly int OutlineMixId = Shader.PropertyToID( "_OutlineMix" );
     private static readonly int OutlineWidthId = Shader.PropertyToID( "_OutlineWidth" );
     private static readonly int OutlineWorldWidthId = Shader.PropertyToID( "_OutlineWorldWidth" );
@@ -68,6 +69,7 @@ namespace Coti.Client
     private static Texture _setMaskTex;
     private static float _setCircleGlow = float.NaN;
     private static float _setThreshold = float.NaN;
+    private static float _setHeatBrightness = float.NaN;
     private static float _setOutlineMix = float.NaN;
     private static float _setOutlineWidth = float.NaN;
     private static float _setOutlineWorldWidth = float.NaN;
@@ -364,6 +366,7 @@ namespace Coti.Client
 
       SetFloatIfChanged( ThresholdId, Mathf.Clamp01( image.HeatThreshold ), ref _setThreshold );
       SetFloatIfChanged( OutlineMixId, Mathf.Clamp01( image.OutlineMix ), ref _setOutlineMix );
+      SetFloatIfChanged( HeatBrightnessId, Mathf.Clamp( image.HeatBrightness, 0.25f, 2f ), ref _setHeatBrightness );
 
       // The magnified picture fills the lens, so a screen pixel is the lens's height in it, and the zoom lets a near
       // line thicken with the object.
@@ -464,6 +467,7 @@ namespace Coti.Client
       _setMaskTex = null;
       _setCircleGlow = float.NaN;
       _setThreshold = float.NaN;
+      _setHeatBrightness = float.NaN;
       _setOutlineMix = float.NaN;
       _setOutlineWidth = float.NaN;
       _setOutlineWorldWidth = float.NaN;

@@ -20,6 +20,9 @@ namespace Coti.Client
     public static new CotiConfig Config = CotiConfig.Fallback;
     public static bool IsHeadless;
 
+    /// <summary>Where the plugin and its loose files (sounds, textures, lamps.json) are.</summary>
+    internal static string PluginDirectory = "";
+
     private bool _loggedUpdateError;
     private bool _loggedHostTableError;
     private CotiF12Config _settings;
@@ -43,6 +46,7 @@ namespace Coti.Client
       CotiPowerToggle.Bind( _settings.PowerToggle, _settings.ModeToggle, _settings.ThermalMode );
 
       var pluginDirectory = Path.GetDirectoryName( Info.Location );
+      PluginDirectory = pluginDirectory;
       CotiDisplayText.Load( pluginDirectory );
       CotiCalibrationClick.Load( pluginDirectory );
 

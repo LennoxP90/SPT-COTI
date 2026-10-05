@@ -28,5 +28,15 @@ namespace Coti.Shared
       var fill = fillPercent / 100f;
       return 1f - ( fill < 0f ? 0f : fill > 1f ? 1f : fill );
     }
+
+    /// <summary>
+    /// Full mode's fill as saved, moved off the 3.2.0 default. 3.2.0 wrote 55 into every install, so a saved 55 is
+    /// the old default rather than a choice and becomes today's 45; any other value is a choice and stays. Applied
+    /// once per install.
+    /// </summary>
+    public static float MovedFill( float saved )
+    {
+      return saved == 55f ? 45f : saved;
+    }
   }
 }

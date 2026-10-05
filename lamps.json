@@ -1,0 +1,11 @@
+// The lamps COTI's thermal image shows hot. Each entry is a lamp type: the
+// lamp's object name without "(Clone)" or a copy number. A listed lamp, while lit, shows its glow hot and its housing
+// warm around it, its stand and mounts cold; every lamp not listed stays cold, lit or not. Read at the start of every
+// raid, so a change here applies from the next raid on.
+{
+  "heated": [
+    "Searchlight_01_B_source_on",
+    "Searchlight_02_source_on",
+    "Searchlight_03_source_on"
+  ]
+}

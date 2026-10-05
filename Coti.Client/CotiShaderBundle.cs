@@ -24,11 +24,15 @@ namespace Coti.Client
     private const string BundleFileName = "coti_shaders";
     private const string OverlayShaderName = "Coti/Overlay";
     private const string HeatOnlyShaderName = "Coti/HeatOnly";
+    private const string TerrainGridShaderName = "Coti/TerrainGrid";
+    private const string GlowBakeShaderName = "Coti/GlowBake";
 
     private static AssetBundle _bundle;
     private static Shader _overlay;
     private static Material _material;
     private static Shader _heatOnly;
+    private static Shader _terrainGrid;
+    private static Shader _glowBake;
     private static bool _attempted;
 
     private static string _loadedPath;
@@ -56,6 +60,28 @@ namespace Coti.Client
         if( !_attempted )
           Load();
         return _heatOnly;
+      }
+    }
+
+    /// <summary>The thermal camera's terrain, drawn from each terrain's heightmap, or null with a bundle that predates it.</summary>
+    internal static Shader TerrainGrid
+    {
+      get
+      {
+        if( !_attempted )
+          Load();
+        return _terrainGrid;
+      }
+    }
+
+    /// <summary>Lays a lamp's glowing parts out in texture space to find where its glow is, or null with a bundle that predates it.</summary>
+    internal static Shader GlowBake
+    {
+      get
+      {
+        if( !_attempted )
+          Load();
+        return _glowBake;
       }
     }
 
@@ -118,6 +144,20 @@ namespace Coti.Client
           if( shader == null )
             continue;
 
+          if( shader.name == GlowBakeShaderName )
+          {
+            _glowBake = shader;
+            Plugin.Log.LogInfo( $"[COTI] Loaded glow bake shader '{shader.name}' (isSupported={shader.isSupported})" );
+            continue;
+          }
+
+          if( shader.name == TerrainGridShaderName )
+          {
+            _terrainGrid = shader;
+            Plugin.Log.LogInfo( $"[COTI] Loaded terrain shader '{shader.name}' (isSupported={shader.isSupported})" );
+            continue;
+          }
+
           if( shader.name == HeatOnlyShaderName )
           {
             _heatOnly = shader;
@@ -175,6 +215,7 @@ namespace Coti.Client
         KeepLoaded( _material );
         KeepLoaded( _overlay );
         KeepLoaded( _heatOnly );
+        KeepLoaded( _glowBake );
 
         Plugin.Log.LogInfo(
             $"[COTI] Loaded shader bundle from {path}; '{OverlayShaderName}' ready" );

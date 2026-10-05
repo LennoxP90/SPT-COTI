@@ -184,6 +184,10 @@ namespace Coti.Client
       if( _go != null && _cam != null && _tv != null )
         return true;
 
+      // As CotiThermalCamera: a clone destroyed with its raid's scene leaves static state describing it. Start each
+      // clone from nothing.
+      Teardown();
+
       var prefab = CotiThermalRig.LoadPrefab();
       if( prefab == null )
       {

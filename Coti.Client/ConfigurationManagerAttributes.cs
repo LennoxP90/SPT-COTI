@@ -22,5 +22,10 @@ namespace Coti.Client
     /// Suppresses the Reset-to-default button, which means nothing for a row that is a button.
     /// </summary>
     public bool? HideDefaultButton;
+
+    /// <summary>
+    /// False keeps the entry out of the menu: bookkeeping the player has no reason to see or change.
+    /// </summary>
+    public bool? Browsable;
   }
 }
