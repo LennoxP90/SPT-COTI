@@ -75,6 +75,12 @@ namespace Coti.Shared
     {
       return mode == CotiGlassMode.Reflections ? "CotiGlassMirror" : "CotiGlass";
     }
+
+    /// <summary>Whether a RenderType is one COTI gives glass, in either mode.</summary>
+    public static bool IsGlassTag( string tag )
+    {
+      return tag == GlassTag( CotiGlassMode.Plain ) || tag == GlassTag( CotiGlassMode.Reflections );
+    }
   }
 
   /// <summary>

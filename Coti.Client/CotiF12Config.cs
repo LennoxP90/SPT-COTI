@@ -106,6 +106,10 @@ namespace Coti.Client
           "Glass blocks heat. Plain shows it blank. Reflections also mirrors the bodies in front of it, " +
           "you included, faintly face-on and strongly at a shallow angle, as real glass does to a thermal imager." ) );
 
+      var scopeGlass = _file.Bind( "Image", "Scope Glass Reflections", image.ScopeGlassReflections, new ConfigDescription(
+          "A magnified scope's front and rear glass mirror heat like other glass while Glass is Reflections. Off, scope " +
+          "glass stays Plain. Red dots and holographic sights are never glass." ) );
+
       var heatBrightness = _file.Bind( "Image", "Heat Brightness", image.HeatBrightness, new ConfigDescription(
           "A multiplier on how bright heat signatures draw. 1 is the default; lower dims the image, higher brightens it.",
           new AcceptableValueRange<float>( 0.25f, 2f ) ) );
@@ -211,6 +215,7 @@ namespace Coti.Client
         Current.Image.OutlineWidth = outlineWidth.Value;
         Current.Image.OutlineThicknessCm = outlineThickness.Value;
         Current.Image.Glass = glass.Value;
+        Current.Image.ScopeGlassReflections = scopeGlass.Value;
         Current.Image.HeatBrightness = heatBrightness.Value;
         Current.Image.RenderFlashlightHeat = flashlightHeat.Value;
         Current.Image.RenderSearchlightHeat = searchlightHeat.Value;

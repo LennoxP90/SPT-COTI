@@ -69,6 +69,12 @@ namespace Coti.Client
     public CotiGlassMode Glass { get; set; } = CotiGlassMode.Reflections;
 
     /// <summary>
+    /// Whether a magnified scope's own glass mirrors heat while Glass is Reflections. Off, scope glass stays Plain.
+    /// </summary>
+    [JsonProperty( "scopeGlassReflections" )]
+    public bool ScopeGlassReflections { get; set; } = true;
+
+    /// <summary>
     /// A multiplier on every heat signature's brightness, over the default the heat rule is tuned to. Below 1 dims the
     /// image, above brightens it.
     /// </summary>

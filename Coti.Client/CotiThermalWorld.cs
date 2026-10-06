@@ -23,8 +23,6 @@ namespace Coti.Client
     private const float LampSweepSeconds = 2f;
     private const float FallbackAirCelsius = 15f;
     private const float ReflectedBodyMetres = 30f;
-    private const int MaxCapsules = 160;
-    private const int CapsulesPerBody = 18;
 
     private static readonly int HeatTempId = Shader.PropertyToID( "_CotiHeatTemp" );
     private static readonly int BulbsId = Shader.PropertyToID( "_CotiBulbs" );
@@ -46,17 +44,21 @@ namespace Coti.Client
     private static readonly Vector4[] NoBulbs = new Vector4[CotiLampHeat.MaxBulbs];
     private static readonly Vector4[] WorldBoxes = new Vector4[CotiLampHeat.MaxBulbs];
     private static readonly Vector3[] WorldAxes = new Vector3[CotiLampHeat.MaxBulbs];
-    private static readonly int CapsuleAId = Shader.PropertyToID( "_CotiCapsuleA" );
-    private static readonly int CapsuleBId = Shader.PropertyToID( "_CotiCapsuleB" );
-    private static readonly int CapsuleCountId = Shader.PropertyToID( "_CotiCapsuleCount" );
+    private static readonly int CapsulesId = Shader.PropertyToID( "_CotiCapsules" );
+    private static readonly int BodiesId = Shader.PropertyToID( "_CotiBodies" );
+    private static readonly int BodyCountId = Shader.PropertyToID( "_CotiBodyCount" );
     private static readonly int AirId = Shader.PropertyToID( "_CotiAirCelsius" );
 
     private static readonly List<Material> Glass = new List<Material>();
     private static readonly HashSet<Material> MeshMaterials = new HashSet<Material>();
     private static readonly HashSet<Material> SolidMaterials = new HashSet<Material>();
     private static readonly MaterialPropertyBlock Block = new MaterialPropertyBlock();
-    private static readonly Vector4[] CapsuleA = new Vector4[MaxCapsules];
-    private static readonly Vector4[] CapsuleB = new Vector4[MaxCapsules];
+    private static readonly Vector4[] Capsules = new Vector4[CotiCapsuleBounds.MaxBodies * CotiCapsuleBounds.CapsulesPerBody * 2];
+    private static readonly Vector4[] Bodies = new Vector4[CotiCapsuleBounds.MaxBodies];
+    private static ComputeBuffer _capsuleBuffer, _bodyBuffer;
+    private static readonly CotiSensorPacer CapsulePacer = new CotiSensorPacer();
+    private static readonly Player[] Near = new Player[CotiCapsuleBounds.MaxBodies];
+    private static readonly float[] NearDistance = new float[CotiCapsuleBounds.MaxBodies];
     private static readonly Dictionary<Player, List<HotObject>> Skins = new Dictionary<Player, List<HotObject>>();
     private static readonly List<LampController> Lamps = new List<LampController>();
     // What each lamp was last written as: 0 off, 1 lit before its shape was found, 3 lit with it.
@@ -68,8 +70,9 @@ namespace Coti.Client
 
     private static GameWorld _world;
     private static CotiGlassMode _glassMode;
+    private static bool _scopeGlassReflections;
     private static int _frame = -1;
-    private static int _capsules;
+    private static int _bodies;
     private static float _nextSweep;
     private static float _nextBodySweep;
     private static float _nextLampSweep;
@@ -112,10 +115,10 @@ namespace Coti.Client
         TagGlass( glass );
         TagParticleOnly();
       }
-      else if( glass != _glassMode )
+      else if( glass != _glassMode || Plugin.Config.Image.ScopeGlassReflections != _scopeGlassReflections )
         TagGlass( glass );
 
-      UploadCapsules( world, glass == CotiGlassMode.Reflections, air );
+      UploadCapsules( world, glass == CotiGlassMode.Reflections && CotiState.Active, air );
 
       var now = Time.realtimeSinceStartup;
       if( now >= _nextBodySweep )
@@ -284,6 +287,8 @@ namespace Coti.Client
       foreach( var material in Glass )
         if( material != null )
           material.SetOverrideTag( "RenderType", tag );
+      _scopeGlassReflections = Plugin.Config.Image.ScopeGlassReflections;
+      CotiScopeGlassTagger.Retag( CotiScopeGlass.Mode( mode, _scopeGlassReflections ), Glass );
     }
 
     /// <summary>
@@ -707,73 +712,67 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// For glass reflections: every living body within reach as 18 capsules along its bones, with its temperature, for
-    /// the mirror sub-shader to cast its reflected rays against. Slim limbs, shoulders, neck, hands and feet, so the
-    /// reflection reads as a person rather than a rounded outline. Off, the count is zeroed and nothing is gathered.
+    /// For glass reflections: the nearest living bodies within reach (up to CotiCapsuleBounds.MaxBodies), each as
+    /// CotiBodyCapsules' capsules with its temperature and a bounding sphere, in two GPU buffers the mirror sub-shader
+    /// casts its reflected rays against. Off (Glass Plain, or no COTI rendering), the count is zeroed and nothing is
+    /// gathered.
     /// </summary>
     private static void UploadCapsules( GameWorld world, bool on, float air )
     {
+      EnsureCapsuleBuffers();
+      // At the sensor's rate, like the thermal camera that reads them: rebuilding on frames it does not render is waste.
+      if( on && _bodies > 0 && !CapsulePacer.Due( Time.realtimeSinceStartupAsDouble, Plugin.Config.ThermalCamera?.Hz ?? 0 ) )
+        return;
+      var bodies = on ? Nearest( world ) : 0;
+      for( var b = 0; b < bodies; b++ )
+        Bodies[b] = CotiBodyCapsules.Write( Near[b], Near[b].PlayerBones, CelsiusOf( Near[b], air ), Capsules, b * CotiCapsuleBounds.CapsulesPerBody );
+
+      if( bodies == 0 && _bodies == 0 )
+        return;
+      _bodies = bodies;
+      if( bodies > 0 )
+      {
+        _capsuleBuffer.SetData( Capsules, 0, 0, bodies * CotiCapsuleBounds.CapsulesPerBody * 2 );
+        _bodyBuffer.SetData( Bodies, 0, 0, bodies );
+      }
+      Shader.SetGlobalFloat( BodyCountId, bodies );
+    }
+
+    // The nearest living bodies within reach, closest first, into Near; an insertion sort over a fixed array, no garbage.
+    private static int Nearest( GameWorld world )
+    {
       var count = 0;
       var eye = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
-      if( on )
-        foreach( var player in world.AllAlivePlayersList )
+      foreach( var player in world.AllAlivePlayersList )
+      {
+        if( player == null || player.PlayerBones == null )
+          continue;
+        var d = ( player.Position - eye ).sqrMagnitude;
+        if( d > ReflectedBodyMetres * ReflectedBodyMetres )
+          continue;
+        if( count == CotiCapsuleBounds.MaxBodies && d >= NearDistance[count - 1] )
+          continue;
+        var i = count < CotiCapsuleBounds.MaxBodies ? count++ : count - 1;
+        for( ; i > 0 && NearDistance[i - 1] > d; i-- )
         {
-          if( count + CapsulesPerBody > MaxCapsules )
-            break;
-          var bones = player != null ? player.PlayerBones : null;
-          if( bones == null || ( player.Position - eye ).sqrMagnitude > ReflectedBodyMetres * ReflectedBodyMetres )
-            continue;
-          var celsius = CelsiusOf( player, air );
-          var up = Vector3.up;
-          var forward = player.Transform.forward;
-          var head = bones.Head.position;
-          var neck = bones.Neck.position;
-          var ribcage = bones.Ribcage.position;
-          var pelvis = bones.Pelvis.position;
-          var ground = player.Position.y;
-
-          Capsule( ref count, head + up * 0.02f, head + up * 0.09f, 0.095f, celsius );
-          Capsule( ref count, neck, head, 0.055f, celsius );
-          Capsule( ref count, neck - up * 0.05f, ribcage, 0.15f, celsius );
-          Capsule( ref count, ribcage, pelvis, 0.13f, celsius );
-          Capsule( ref count, bones.Upperarms[0].position, bones.Upperarms[1].position, 0.075f, celsius );
-          Capsule( ref count, bones.LeftThigh1.position, bones.RightThigh1.position, 0.1f, celsius );
-          Arm( ref count, bones.Upperarms[0].position, bones.Forearms[0].position, bones.LeftPalm.position, celsius );
-          Arm( ref count, bones.Upperarms[1].position, bones.Forearms[1].position, bones.RightPalm.position, celsius );
-          Leg( ref count, bones.LeftThigh1.position, bones.LeftThigh2.position, ground, forward, celsius );
-          Leg( ref count, bones.RightThigh1.position, bones.RightThigh2.position, ground, forward, celsius );
+          Near[i] = Near[i - 1];
+          NearDistance[i] = NearDistance[i - 1];
         }
+        Near[i] = player;
+        NearDistance[i] = d;
+      }
+      return count;
+    }
 
-      if( count == 0 && _capsules == 0 )
+    // Made once and bound globally for good: the mirror shader reads them whenever glass draws, Plain or not.
+    private static void EnsureCapsuleBuffers()
+    {
+      if( _capsuleBuffer != null )
         return;
-      _capsules = count;
-      Shader.SetGlobalVectorArray( CapsuleAId, CapsuleA );
-      Shader.SetGlobalVectorArray( CapsuleBId, CapsuleB );
-      Shader.SetGlobalFloat( CapsuleCountId, count );
-    }
-
-    // Upper arm, forearm, and the hand around the palm.
-    private static void Arm( ref int count, Vector3 shoulder, Vector3 elbow, Vector3 palm, float celsius )
-    {
-      Capsule( ref count, shoulder, elbow, 0.055f, celsius );
-      Capsule( ref count, elbow, palm, 0.045f, celsius );
-      Capsule( ref count, palm, palm + ( palm - elbow ).normalized * 0.08f, 0.04f, celsius );
-    }
-
-    // Thigh, calf to the ankle, and the foot ahead of it.
-    private static void Leg( ref int count, Vector3 hip, Vector3 knee, float ground, Vector3 forward, float celsius )
-    {
-      var ankle = new Vector3( knee.x, ground + 0.08f, knee.z );
-      Capsule( ref count, hip, knee, 0.075f, celsius );
-      Capsule( ref count, knee, ankle, 0.055f, celsius );
-      Capsule( ref count, ankle, ankle + forward * 0.18f - Vector3.up * 0.03f, 0.045f, celsius );
-    }
-
-    private static void Capsule( ref int count, Vector3 a, Vector3 b, float radius, float celsius )
-    {
-      CapsuleA[count] = new Vector4( a.x, a.y, a.z, celsius );
-      CapsuleB[count] = new Vector4( b.x, b.y, b.z, radius );
-      count++;
+      _capsuleBuffer = new ComputeBuffer( Capsules.Length, 16 );
+      _bodyBuffer = new ComputeBuffer( Bodies.Length, 16 );
+      Shader.SetGlobalBuffer( CapsulesId, _capsuleBuffer );
+      Shader.SetGlobalBuffer( BodiesId, _bodyBuffer );
     }
   }
 }

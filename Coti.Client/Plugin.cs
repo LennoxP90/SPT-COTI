@@ -72,6 +72,8 @@ namespace Coti.Client
       // Enabled unconditionally rather than only in raid: the device has to appear in the
       // inventory and on the character preview in the menu, which is where AttachMods runs most.
       TryEnable( nameof( CotiMountBonePatch ), () => new CotiMountBonePatch() );
+      TryEnable( nameof( CotiScopeIndexPatch ), () => new CotiScopeIndexPatch() );
+      TryEnable( nameof( CotiScopeGlassPatch ), () => new CotiScopeGlassPatch() );
       TryEnable( nameof( CotiAttachPatch ), () => new CotiAttachPatch() );
       TryEnable( nameof( CotiWorldViewPatch ), () => new CotiWorldViewPatch() );
       TryEnable( nameof( CotiWorldViewPatch.OnAttachMods ), () => new CotiWorldViewPatch.OnAttachMods() );

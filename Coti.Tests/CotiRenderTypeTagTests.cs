@@ -170,4 +170,16 @@ public class CotiWorldHeatTests
 
     [Fact]
     public void NoTemperatureIsZeroInTheBlock() => Assert.Equal( 0f, CotiWorldHeat.BlockValue( null ) );
+
+    [Theory]
+    [InlineData( "CotiGlass", true )]
+    [InlineData( "CotiGlassMirror", true )]
+    [InlineData( "Transparent", false )]
+    [InlineData( "CotiParticle", false )]
+    [InlineData( "", false )]
+    [InlineData( null, false )]
+    public void OnlyCotisOwnGlassTagsAreGlassTags( string tag, bool expected )
+    {
+        Assert.Equal( expected, CotiRenderTypeTag.IsGlassTag( tag ) );
+    }
 }
