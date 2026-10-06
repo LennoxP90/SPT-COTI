@@ -77,7 +77,7 @@ public class CotiSlotInjector : IOnLoad
     foreach( var ( hostId, resolved ) in snapshot.ByHostId )
     {
       var label = ResolveLabel( resolved, hostId );
-      var outcome = InjectInto( hostId, label );
+      var outcome = InjectInto( hostId, label, LayoutOf( resolved.Device ) );
 
       switch( outcome )
       {
@@ -88,7 +88,7 @@ public class CotiSlotInjector : IOnLoad
         case CotiInjectOutcome.AlreadyPresent:
           // At load time the device store just resolved this host, so an existing slot is
           // unexpected. The dynamic callers see this outcome routinely on every save.
-          logger.Warning( $"[COTI] Host {hostId} already has mod_coti - skipped" );
+          logger.Warning( $"[COTI] Host {hostId} already has its COTI slots - skipped" );
           break;
       }
     }
@@ -123,12 +123,22 @@ public class CotiSlotInjector : IOnLoad
   }
 
   /// <summary>
-  /// Mutates the live template table so <paramref name="hostId"/> can mount mod_coti, and reports
-  /// what happened - see <see cref="CotiInjectOutcome"/>. Every outcome except AlreadyPresent logs
-  /// here, because every caller wants the same line. AlreadyPresent is silent because the right
-  /// reaction to it differs by caller - see its call site in <see cref="LoadAsync"/>.
+  /// The layout whose slots a device's hosts get, or null for a v1 device (mod_coti only). Read
+  /// after CotiDeviceMerge, so a file whose layout or tubes it rejected is v1 here too.
   /// </summary>
-  public CotiInjectOutcome InjectInto( string hostId, string label )
+  public static CotiLayout? LayoutOf( CotiDeviceFile device )
+  {
+    return device.IsMultiTube && CotiLayouts.TryGet( device.Layout, out var layout ) ? layout : null;
+  }
+
+  /// <summary>
+  /// Mutates the live template table so <paramref name="hostId"/> has every COTI slot of
+  /// <paramref name="layout"/> (mod_coti alone when it is null), and reports what happened - see
+  /// <see cref="CotiInjectOutcome"/>. Every outcome except AlreadyPresent logs here, because every
+  /// caller wants the same line. AlreadyPresent (every slot already there) is silent because the
+  /// right reaction to it differs by caller - see its call site in <see cref="LoadAsync"/>.
+  /// </summary>
+  public CotiInjectOutcome InjectInto( string hostId, string label, CotiLayout? layout )
   {
     if( !MongoId.IsValidMongoId( hostId ) )
     {
@@ -152,7 +162,13 @@ public class CotiSlotInjector : IOnLoad
       return CotiInjectOutcome.NoSlotsCollection;
     }
 
-    if( host.Properties.Slots.Any( s => s.Name == CotiIds.ModSlotName ) )
+    // Appended, never stopped at mod_coti: a device upgraded and republished at runtime already
+    // has mod_coti and still needs the rest. EFT fills the first free slot that takes the item, so
+    // they go in the auto-pick order SlotNames returns.
+    var present = host.Properties.Slots.Select( s => s.Name ).ToHashSet();
+    var missing = CotiTubes.SlotNames( layout ).Where( name => !present.Contains( name ) ).ToList();
+
+    if( missing.Count == 0 )
       return CotiInjectOutcome.AlreadyPresent;
 
     // Atomic reference swap rather than an in-place add. The dynamic path can inject while
@@ -162,9 +178,21 @@ public class CotiSlotInjector : IOnLoad
     // enumerator holds either the old list or the new one, never a torn one. Do not replace
     // this with Slots.Add.
     var slots = host.Properties.Slots.ToList();
-    slots.Add( new Slot
+    slots.AddRange( missing.Select( name => NewSlot( name, hostId ) ) );
+
+    host.Properties.Slots = slots;
+
+    // Uses the device's display name: the template's ShortName is BSG's internal one and is
+    // Russian for some items (the PVS-14's is "ПНВ"). English lives in the locale files.
+    logger.Success( $"[COTI] {string.Join( ", ", missing )} added to {label} ({hostId})" );
+    return CotiInjectOutcome.Added;
+  }
+
+  private static Slot NewSlot( string name, string hostId )
+  {
+    return new Slot
     {
-      Name = CotiIds.ModSlotName,
+      Name = name,
       Id = new MongoId(),
       Parent = new MongoId( hostId ),
       Required = false,
@@ -176,14 +204,7 @@ public class CotiSlotInjector : IOnLoad
                       new SlotFilter { Filter = new HashSet<MongoId> { new MongoId(CotiItemFactory.CotiTplId) } }
                   }
       }
-    } );
-
-    host.Properties.Slots = slots;
-
-    // Uses the device's display name: the template's ShortName is BSG's internal one and is
-    // Russian for some items (the PVS-14's is "ПНВ"). English lives in the locale files.
-    logger.Success( $"[COTI] mod_coti added to {label} ({hostId})" );
-    return CotiInjectOutcome.Added;
+    };
   }
 
   /// <summary>

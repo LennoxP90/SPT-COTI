@@ -115,7 +115,8 @@ public class CotiHostDiscovery : IOnLoad
         continue;
       }
 
-      slotInjector.InjectInto( id, stub.DisplayName ?? deviceName );
+      // A stub is v1: discovery never writes tubes.
+      slotInjector.InjectInto( id, stub.DisplayName ?? deviceName, layout: null );
 
       var familyLabel = family ?? "(none declared)";
       var seedDescription = seed.SeededFrom != null

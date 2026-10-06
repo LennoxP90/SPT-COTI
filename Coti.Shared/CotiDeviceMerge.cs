@@ -164,6 +164,9 @@ namespace Coti.Shared
             byHostId[host.Id] = file.Path;
         }
 
+        // Last, so it only sees a file that is kept. It falls back towards today's one COTI and never skips the file.
+        CotiTubeValidation.Normalise( d, file.Path, result.Warnings );
+
         result.Devices.Add( d );
       }
 

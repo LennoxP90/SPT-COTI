@@ -6,10 +6,10 @@ using SPTarkov.Server.Core.Models.Spt.Mod;
 namespace Coti.Server;
 
 /// <summary>
-/// Names the slot, so an empty one reads "ECOTI" rather than "MOD_COTI". EFT labels a slot with
-/// Name.Localized().ToUpper(), which falls back to the raw key, and this slot is custom so it has no
-/// entry of its own. Registered for every installed language, since the fallback would show through
-/// on any locale left out.
+/// Names the COTI slots, so an empty one reads "ECOTI", "ECOTI L", "ECOTI OR" or "ECOTI OL" rather
+/// than "MOD_COTI_1". EFT labels a slot with Name.Localized().ToUpper(), which falls back to the raw
+/// key, and these slots are custom so they have no entry of their own. Registered for every
+/// installed language, since the fallback would show through on any locale left out.
 /// </summary>
 [Injectable( TypePriority = CotiLoadOrder.PostLoad + 30 )]
 public class CotiSlotLocale : IOnLoad
@@ -64,14 +64,17 @@ public class CotiSlotLocale : IOnLoad
         if( localeData is null )
           return localeData;
 
-        localeData[CotiIds.ModSlotName] = "ECOTI";
+        // The quad's slots are every COTI slot there is.
+        foreach( var slotName in CotiTubes.SlotNames( CotiLayouts.Quad ) )
+          localeData[slotName] = CotiTubes.SlotDisplayName( slotName );
+
         return localeData;
       } );
 
       added++;
     }
 
-    logger.Success( $"[COTI] Slot name registered in {added} locale(s)" );
+    logger.Success( $"[COTI] Slot names registered in {added} locale(s)" );
 
     return Task.CompletedTask;
   }

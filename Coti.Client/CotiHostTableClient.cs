@@ -138,6 +138,9 @@ namespace Coti.Client
       LastApplied = devices;
       _lastAppliedPatchedSlots = patchSlots;
 
+      // A pushed table can name other pod bones.
+      CotiPodWatch.Invalidate();
+
       var hostCount = 0;
       var patchedBefore = CotiSlotPatcher.TemplatesPatchedCount;
 
@@ -152,10 +155,11 @@ namespace Coti.Client
             continue;
 
           hostCount++;
-          config.NvgHosts[host!.Id!] = ToHostConfig( device );
+          var hostConfig = CotiNvgHostConfig.FromDevice( device );
+          config.NvgHosts[host!.Id!] = hostConfig;
 
           if( patchSlots )
-            CotiSlotPatcher.EnsureSlot( host.Id! );
+            CotiSlotPatcher.EnsureSlot( host.Id!, hostConfig.SlotNames );
         }
       }
 
@@ -167,7 +171,6 @@ namespace Coti.Client
 
 #if SPT41
       LogPoses( config );
-      CotiPoseTuner.OnHostTableReapplied();
 #endif
     }
 
@@ -184,16 +187,27 @@ namespace Coti.Client
         if( host == null )
           continue;
 
-        var pose = CotiMountTransform.Compute( host.ToMountBlock() );
+        // A multi-tube host draws neither the legacy mount nor the legacy mask, so log what it does use.
+        if( host.Layout != null )
+        {
+          foreach( var slot in host.SlotNames )
+            Plugin.Log?.LogInfo(
+                $"[COTI] pose {entry.Key} ({host.MaskName ?? "?"}) {slot} " +
+                PoseText( CotiMountTransform.Compute( host.MountForSlot( slot ) ) ) );
+          continue;
+        }
 
         Plugin.Log?.LogInfo(
             $"[COTI] pose {entry.Key} ({host.MaskName ?? "?"}) " +
-            $"pos=({pose.Position.X:F4}, {pose.Position.Y:F4}, {pose.Position.Z:F4}) " +
-            $"quat=({pose.Rotation.X:F5}, {pose.Rotation.Y:F5}, {pose.Rotation.Z:F5}, {pose.Rotation.W:F5}) " +
-            $"scale={pose.Scale:F4} " +
+            PoseText( CotiMountTransform.Compute( host.ToMountBlock() ) ) + " " +
             $"mask=({host.MaskCenterX:F4}, {host.MaskCenterY:F4}) r={host.MaskRadius:F4}" );
       }
     }
+
+    private static string PoseText( CotiPose pose ) =>
+        $"pos=({pose.Position.X:F4}, {pose.Position.Y:F4}, {pose.Position.Z:F4}) " +
+        $"quat=({pose.Rotation.X:F5}, {pose.Rotation.Y:F5}, {pose.Rotation.Z:F5}, {pose.Rotation.W:F5}) " +
+        $"scale={pose.Scale:F4}";
 #endif
 
     // ItemFactory cannot exist before /client/items is parsed, so the first Apply call cannot
@@ -205,33 +219,6 @@ namespace Coti.Client
 
       _itemFactoryRetryDone = true;
       Apply( LastApplied, Plugin.Config, _lastAppliedPatchedSlots );
-    }
-
-    // MaskName is the device's own name - a label for logs, not a mask selector.
-    public static CotiNvgHostConfig ToHostConfig( CotiDeviceFile device )
-    {
-      var mask = device.Mask ?? new CotiMaskBlock();
-      var mount = device.Mount ?? new CotiMountBlock();
-
-      return new CotiNvgHostConfig
-      {
-        MaskName = device.Device,
-        MaskCenterX = mask.CenterX,
-        MaskCenterY = mask.CenterY,
-        MaskRadius = mask.Radius,
-        MaskFeather = mask.Feather,
-        MountAnchorBone = mount.AnchorBone,
-        MountPositionX = mount.PositionX,
-        MountPositionY = mount.PositionY,
-        MountPositionZ = mount.PositionZ,
-        MountRotationX = mount.RotationX,
-        MountRotationY = mount.RotationY,
-        MountRotationZ = mount.RotationZ,
-        MountRollDegrees = mount.RollDegrees,
-        MountPitchDegrees = mount.PitchDegrees,
-        MountYawDegrees = mount.YawDegrees,
-        MountScale = mount.Scale,
-      };
     }
   }
 }

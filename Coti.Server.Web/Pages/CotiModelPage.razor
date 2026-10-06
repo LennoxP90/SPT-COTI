@@ -23,10 +23,11 @@
           <div>
             <MudText Typo="Typo.h5">Mount editor</MudText>
             <MudText Typo="Typo.body2" Class="mud-text-secondary">
-              Drag to orbit, scroll to zoom, click a cube face to look down that axis.
+              Click a COTI or a text to edit it. Drag to orbit, scroll to zoom, click a cube face to look down that axis.
             </MudText>
           </div>
-          <MudSelect T="string" Value="@CurrentDevice?.Key" ValueChanged="SelectDevice" Dense="true"
+          @* Keyed, so a switch cancelled in the confirm puts the picker back. *@
+          <MudSelect @key="@($"device{pickerKey}")" T="string" Value="@CurrentDevice?.Key" ValueChanged="SelectDevice" Dense="true"
                      Variant="Variant.Outlined" Style="min-width:250px" Label="Night vision device">
             @foreach (var d in deviceList)
             {
@@ -35,7 +36,7 @@
           </MudSelect>
           @if (CurrentDevice is { Hosts.Count: > 1 } current)
           {
-            <MudSelect T="string" Value="@hostId" ValueChanged="SelectHost" Dense="true"
+            <MudSelect @key="@($"variant{pickerKey}")" T="string" Value="@hostId" ValueChanged="SelectHost" Dense="true"
                        Variant="Variant.Outlined" Style="min-width:150px" Label="Variant">
               @foreach (var h in current.Hosts)
               {
@@ -49,21 +50,6 @@
                      Icon="@(addonMod is null ? Icons.Material.Filled.Verified
                                               : Icons.Material.Filled.Extension)">@sourceLabel</MudChip>
           </MudTooltip>
-        </MudStack>
-        <MudStack Row="true" Spacing="2">
-          @if (addonMod is not null)
-          {
-            @* The controller also sets Content-Disposition; naming it here does not depend on the
-               header surviving a proxy. *@
-            <MudButton StartIcon="@Icons.Material.Filled.Archive" Variant="Variant.Outlined"
-                       Color="Color.Secondary" Href="@($"/coti/addon/{addonMod}")"
-                       download="@CotiAddonPackager.FileNameFor(addonMod!)"
-                       Disabled="@dirty">Export addon</MudButton>
-          }
-          <MudButton StartIcon="@Icons.Material.Filled.Undo" Variant="Variant.Outlined"
-                     OnClick="Revert" Disabled="@(!dirty)">Revert</MudButton>
-          <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled"
-                     Color="Color.Primary" OnClick="Save" Disabled="@(!dirty)">Save and push</MudButton>
         </MudStack>
       </MudStack>
     </MudPaper>
@@ -92,16 +78,73 @@
     }
     else
     {
+      @* The viewer fills the viewport and the inspector below the device card; Blazor renders nothing inside either. *@
       <MudPaper Class="pa-3" Elevation="2">
-        <div @ref="mountRoot"></div>
+        <div class="coti-viewer">
+          <div @ref="mountRoot" class="coti-viewport"></div>
+          <div class="coti-remote">
+            @* The inspector with nothing selected: the device itself. *@
+            <div class="coti-sec coti-device" hidden="@selected">
+              <div class="coti-sec-h">Device</div>
+              @if (CurrentDeviceFile is not null)
+              {
+                @* The file's own layout, nothing inferred. A change here is held until Save and push writes it. A
+                   file without one shows Unknown, which is offered only until a type is picked. *@
+                <MudSelect T="string" Value="@type" ValueChanged="SelectType" Dense="true" Variant="Variant.Outlined"
+                           Label="Type" Class="mb-3">
+                  @foreach (var choice in CotiLayouts.All)
+                  {
+                    <MudSelectItem T="string" Value="@choice.Name">@choice.Name</MudSelectItem>
+                  }
+                  @if (type == NoLayout)
+                  {
+                    <MudSelectItem T="string" Value="@NoLayout">Unknown</MudSelectItem>
+                  }
+                </MudSelect>
+              }
+              <MudStack Spacing="2">
+                <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled" FullWidth="true"
+                           Color="Color.Primary" OnClick="Save" Disabled="@(!Dirty || type == NoLayout)">Save and push</MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.Undo" Variant="Variant.Outlined" FullWidth="true"
+                           OnClick="Revert" Disabled="@(!Dirty)">Revert</MudButton>
+                @if (addonMod is not null)
+                {
+                  @* The controller also sets Content-Disposition; naming it here does not depend on the
+                     header surviving a proxy. *@
+                  <MudButton StartIcon="@Icons.Material.Filled.Archive" Variant="Variant.Outlined" FullWidth="true"
+                             Color="Color.Secondary" Href="@($"/coti/addon/{addonMod}")"
+                             download="@CotiAddonPackager.FileNameFor(addonMod!)"
+                             Disabled="@Dirty">Export addon</MudButton>
+                }
+              </MudStack>
+              <div class="coti-readout">Click a COTI in the 3D view, or a text in the screen, to edit it.</div>
+            </div>
+            <div @ref="panelRoot"></div>
+          </div>
+        </div>
       </MudPaper>
     }
 
   </MudContainer>
 </MudMainContent>
 
+@* An in-page confirm rather than a browser dialog, which would block the page. *@
+<MudOverlay Visible="@(pendingHost is not null)" DarkBackground="true" ZIndex="2000">
+  <MudPaper Class="pa-4" Elevation="8" Style="max-width:440px">
+    <MudText Typo="Typo.h6">Discard unsaved changes?</MudText>
+    <MudText Typo="Typo.body2" Class="my-3">
+      @CurrentDevice?.Name has changes that are not saved. Switching discards them.
+    </MudText>
+    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+      <MudButton Variant="Variant.Outlined" OnClick="CancelSwitch">Cancel</MudButton>
+      <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DiscardAndSwitch">Discard</MudButton>
+    </MudStack>
+  </MudPaper>
+</MudOverlay>
+
 @code {
   private ElementReference mountRoot;
+  private ElementReference panelRoot;
   private IJSObjectReference? module;
   private DotNetObjectReference<CotiModelPage>? selfRef;
 
@@ -110,9 +153,16 @@
 
   private readonly List<DeviceEntry> deviceList = new();
   private readonly List<string> withoutMesh = new();
-  private CotiMaskBlock? maskOverride;
   private string? hostId;
+  /// <summary>The Type selector: a layout name, or NoLayout for a file without one.</summary>
+  private string type = NoLayout;
+  /// <summary>Unsaved mount or text edits, as the viewer reports them.</summary>
   private bool dirty;
+  /// <summary>A COTI or a text is selected in the viewer, so the inspector shows it rather than the device.</summary>
+  private bool selected;
+  /// <summary>A device switch waiting on the discard confirm.</summary>
+  private string? pendingHost;
+  private int pickerKey;
   private string? message;
   private Severity severity = Severity.Success;
 
@@ -155,6 +205,7 @@
     }
 
     hostId = deviceList.FirstOrDefault()?.Hosts.FirstOrDefault().Id;
+    type = TypeOf(CurrentDeviceFile);
   }
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -171,7 +222,7 @@
       module = await JS.InvokeAsync<IJSObjectReference>(
         "import", $"/coti-assets/js/interop.js?v={CotiAssetStamp.Current}");
       await module.InvokeVoidAsync(
-        "start", mountRoot, BuildHostTable(), hostId, selfRef, CotiAssetStamp.Current);
+        "start", mountRoot, panelRoot, BuildHostTable(), hostId, selfRef, CotiAssetStamp.Current);
     }
     catch (Exception ex)
     {
@@ -181,25 +232,34 @@
     }
   }
 
-  /// <summary>The viewer's overlay buttons land here; the pick is saved with the mount.</summary>
+  /// <summary>
+  /// The viewer's "Mirror from partner". The rule lives in CotiTubeMirror, so it exists and is tested once.
+  /// </summary>
   [JSInvokable]
-  public Task OnMask(string name)
+  public string Mirror(string sourceJson, string? targetAnchor)
   {
-    var preset = CotiMaskPresets.ByName(name);
-
-    if (preset is null)
-    {
-      return Task.CompletedTask;
-    }
-
-    maskOverride = preset;
-    dirty = true;
-    return InvokeAsync(StateHasChanged);
+    var source = JsonSerializer.Deserialize<CotiMountBlockDto>(sourceJson, JsonOpts)?.ToShared() ?? new CotiMountBlock();
+    return JsonSerializer.Serialize(CotiMountBlockDto.FromShared(CotiTubeMirror.Mirror(source, targetAnchor)));
   }
+
+  private const string NoLayout = "unknown";
+
+  /// <summary>The Type a device file has: its layout, or NoLayout without one.</summary>
+  private static string TypeOf(CotiDeviceFile? device) =>
+    device is null ? NoLayout : CotiViewerTubes.LayoutOf(device)?.Name ?? NoLayout;
+
+  private static CotiLayout? LayoutNamed(string name) => CotiLayouts.TryGet(name, out var layout) ? layout : null;
+
+  /// <summary>Unsaved mount or text edits, or a Type that differs from the file's.</summary>
+  private bool Dirty => dirty || type != TypeOf(CurrentDeviceFile);
 
   /// <summary>The device whose variant is on screen.</summary>
   private DeviceEntry? CurrentDevice =>
     deviceList.FirstOrDefault(d => d.Hosts.Any(h => h.Id == hostId));
+
+  /// <summary>The store's file for the variant on screen.</summary>
+  private CotiDeviceFile? CurrentDeviceFile =>
+    DeviceStore.Current.ResolvedDevices.FirstOrDefault(d => d.Hosts.Any(h => h?.Id == hostId));
 
   /// <summary>A variant's own name. Devices that never labelled their hosts get a position.</summary>
   private static string LabelFor(DeviceEntry entry, CotiHostRef host)
@@ -215,12 +275,13 @@
   }
 
   /// <summary>
-  /// Everything the viewer needs to pose a device: the mesh slug, the mount and mask blocks, and
-  /// the world transform of every bone a mount could anchor to.
+  /// Everything the viewer needs to pose a device: the mesh slug, the world transform of every bone a mount could
+  /// anchor to, and the device's view.
   /// </summary>
   private string BuildHostTable()
   {
     var table = new Dictionary<string, object>();
+    var text = CotiViewerTubes.LongestMessage();
 
     foreach (var device in DeviceStore.Current.ResolvedDevices)
     {
@@ -232,30 +293,39 @@
         }
 
         var (pivot, hasPivotMesh) = CotiHostMeshes.PivotFor(host.Id);
-        var hasStaticMesh = CotiHostMeshes.HasStaticMesh(host.Id);
-
-        table[host.Id] = new
-        {
-          slug,
-          pivot,
-          hasPivotMesh,
-          hasStaticMesh,
-          name = device.DisplayName ?? device.Device,
-          maskPreset = CotiMaskPresets.NameFor(device.Mask),
-          maskBlurb = CotiMaskPresets.NameFor(device.Mask) == CotiMaskPresets.Custom
-            ? CotiMaskPresets.CustomGuidance
-            : CotiMaskPresets.Guidance,
-          device = device.Device,
-          // The DTO carries the camelCase names the device files and the viewer both use.
-          mount = CotiMountBlockDto.FromShared(device.Mount),
-          mask = CotiMaskBlockDto.FromShared(device.Mask),
-          bones = CotiHostMeshes.BonesFor(host.Id),
-        };
+        var entry = ViewOf(device, text);
+        entry["slug"] = slug;
+        entry["pivot"] = pivot;
+        entry["hasPivotMesh"] = hasPivotMesh;
+        entry["hasStaticMesh"] = CotiHostMeshes.HasStaticMesh(host.Id);
+        entry["name"] = device.DisplayName ?? device.Device;
+        entry["device"] = device.Device;
+        entry["bones"] = CotiHostMeshes.BonesFor(host.Id);
+        table[host.Id] = entry;
       }
     }
 
     return JsonSerializer.Serialize(table);
   }
+
+  /// <summary>
+  /// What the viewer draws for a device, laid out by its own layout field: the legacy mount and mask, every posed
+  /// tube, the text blocks, the tabs and the screen preview. The Type selector sends this again for the overridden
+  /// device.
+  /// </summary>
+  private static Dictionary<string, object?> ViewOf(CotiDeviceFile device, CotiViewerTubes.TextImage? text) => new()
+  {
+    // The DTO carries the camelCase names the device files and the viewer both use.
+    ["mount"] = CotiMountBlockDto.FromShared(device.Mount),
+    ["mask"] = CotiMaskBlockDto.FromShared(device.Mask),
+    ["home"] = CotiViewerTubes.Home(device),
+    ["tubes"] = CotiViewerTubes.Mounts(device),
+    ["texts"] = CotiViewerTubes.Texts(device),
+    ["tabs"] = CotiViewerTubes.Tabs(device),
+    ["preview"] = CotiViewerTubes.Preview(device),
+    ["textImage"] = text?.Url,
+    ["textRule"] = CotiViewerTubes.TextRule(text),
+  };
 
   /// <summary>
   /// The mod the current host comes from, or null for a vanilla one.
@@ -273,11 +343,42 @@
     ? "Ships with Escape from Tarkov. Its pose ships inside COTI."
     : $"Added by {addonMod}. Its pose can be exported as an addon.";
 
-  private async Task SelectHost(string value)
+  /// <summary>Switching device with unsaved changes asks first.</summary>
+  private Task SelectHost(string value)
+  {
+    if (value == hostId)
+    {
+      return Task.CompletedTask;
+    }
+
+    if (Dirty)
+    {
+      pendingHost = value;
+      return Task.CompletedTask;
+    }
+
+    return ShowHost(value);
+  }
+
+  private void CancelSwitch()
+  {
+    pendingHost = null;
+    pickerKey++;
+  }
+
+  private Task DiscardAndSwitch()
+  {
+    var value = pendingHost!;
+    pendingHost = null;
+    return ShowHost(value);
+  }
+
+  private async Task ShowHost(string value)
   {
     hostId = value;
-    maskOverride = null;
+    type = TypeOf(CurrentDeviceFile);
     dirty = false;
+    selected = false;
     if (module is not null)
     {
       await module.InvokeVoidAsync("setHost", value);
@@ -291,15 +392,71 @@
     return InvokeAsync(StateHasChanged);
   }
 
-  private async Task Revert()
+  [JSInvokable]
+  public Task OnSelect(bool value)
   {
-    if (module is not null)
+    selected = value;
+    return InvokeAsync(StateHasChanged);
+  }
+
+  /// <summary>The viewer's mounts by tube label, as it holds them now.</summary>
+  private async Task<Dictionary<string, CotiMountBlock>?> ReadMounts()
+  {
+    var json = await module!.InvokeAsync<string>("getMounts");
+    return JsonSerializer.Deserialize<Dictionary<string, CotiMountBlockDto>>(json, JsonOpts)
+      ?.ToDictionary(m => m.Key, m => m.Value.ToShared());
+  }
+
+  /// <summary>The viewer's text blocks by tube label, null where the rule places the text.</summary>
+  private async Task<Dictionary<string, CotiTextBlock?>?> ReadTexts()
+  {
+    var json = await module!.InvokeAsync<string>("getTexts");
+    return JsonSerializer.Deserialize<Dictionary<string, CotiTextBlockDto?>>(json, JsonOpts)
+      ?.ToDictionary(t => t.Key, t => t.Value?.ToShared());
+  }
+
+  /// <summary>
+  /// Shows the device under another layout without saving it. A layout other than the file's own gets its home tube
+  /// and partner seeded when unposed, the home from the pose the editor holds for the current type's home and the
+  /// partner as its mirror, so picking a type for a file without a layout upgrades it. Going back to the file's own
+  /// layout seeds nothing, so its unposed tubes stay unposed and the page is clean again.
+  /// </summary>
+  private async Task SelectType(string value)
+  {
+    var file = CurrentDeviceFile;
+    var layout = LayoutNamed(value);
+
+    if (module is null || hostId is null || file is null || layout is null)
     {
-      await module.InvokeVoidAsync("revert");
+      return;
     }
 
-    maskOverride = null;
+    var mounts = await ReadMounts() ?? new Dictionary<string, CotiMountBlock>();
+
+    if (layout.Name != TypeOf(file))
+    {
+      var currentHome = LayoutNamed(type)?.Home;
+      var legacy = (currentHome is null ? null : mounts.GetValueOrDefault(currentHome))
+        ?? mounts.GetValueOrDefault(CotiViewerTubes.V1Tube)
+        ?? file.Mount;
+      CotiTubeUpgrade.Seed(layout, mounts, legacy);
+    }
+
+    type = layout.Name;
+    var view = CotiTubeUpgrade.WithLayout(file, layout, mounts);
+    await module.InvokeVoidAsync(
+      "setLayout", JsonSerializer.Serialize(ViewOf(view, CotiViewerTubes.LongestMessage())));
+  }
+
+  private async Task Revert()
+  {
+    type = TypeOf(CurrentDeviceFile);
     dirty = false;
+
+    if (module is not null && hostId is not null)
+    {
+      await module.InvokeVoidAsync("refreshHosts", BuildHostTable(), hostId);
+    }
   }
 
   private async Task Save()
@@ -309,33 +466,33 @@
       return;
     }
 
-    var json = await module.InvokeAsync<string>("getMount");
-    var edited = JsonSerializer.Deserialize<CotiMountBlockDto>(json, JsonOpts)?.ToShared();
+    var mounts = await ReadMounts();
+    var texts = await ReadTexts();
+    var found = CurrentDeviceFile;
 
-    if (edited is null)
-    {
-      message = "Could not read the edited mount.";
-      severity = Severity.Error;
-      return;
-    }
-
-    var device = DeviceStore.Current.ResolvedDevices
-      .FirstOrDefault(d => d.Hosts.Any(h => h?.Id == hostId));
-
-    if (device is null)
+    if (found is null)
     {
       message = "That device is no longer in the device store.";
       severity = Severity.Error;
       return;
     }
 
-    // Rounded through the same helper the in-game tuner uses.
-    device.Mount = CotiMountRounding.Round(edited);
+    var layout = LayoutNamed(type);
 
-    if (maskOverride is not null)
+    // A file without a layout is saved only once a type is picked.
+    if (mounts is null || texts is null || layout is null)
     {
-      device.Mask = maskOverride;
+      message = "Could not read the edited mount.";
+      severity = Severity.Error;
+      return;
     }
+
+    // Rounded to the precision the device files carry. Only the Type's tubes are written, the legacy pair is
+    // rewritten from its home tube, and each text block keeps only what differs from the rule.
+    var device = CotiTubeUpgrade.WithLayout(
+      found, layout, mounts.ToDictionary(m => m.Key, m => CotiMountRounding.Round(m.Value)),
+      layout.Tubes.ToDictionary(t => t.Label, t => CotiDisplayLayout.Trim(texts.GetValueOrDefault(t.Label), t.Label)));
+    var newSlots = type != TypeOf(found);
 
     // Saving makes this device a seed donor for its family, so its mask becomes the starting
     // point for every device discovered after it.
@@ -350,10 +507,14 @@
       return;
     }
 
-    await module.InvokeVoidAsync("markSaved");
-    maskOverride = null;
+    // The publish reloaded the store, so the table now matches the file, for every variant of the device.
+    await module.InvokeVoidAsync("refreshHosts", BuildHostTable(), hostId);
+    type = TypeOf(CurrentDeviceFile);
     dirty = false;
-    message = "Saved and pushed. A running client re-poses immediately; no restart.";
+    message = newSlots
+      ? $"Saved as {type} and pushed. Running games take the poses now, but Fika peers and the headless see new " +
+        "slots only after a relaunch, so relaunch them before fitting a COTI to a new tube."
+      : "Saved and pushed. A running client re-poses immediately; no restart.";
     severity = Severity.Success;
   }
 

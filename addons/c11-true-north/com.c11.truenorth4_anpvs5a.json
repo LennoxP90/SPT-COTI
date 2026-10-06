@@ -7,14 +7,13 @@
   "hosts": [
     {
       "id": "69e3d5a8dffbd50412ff1889",
-      "prefab": "anpvs5a.bundle",
-      "label": null
+      "prefab": "anpvs5a.bundle"
     }
   ],
   "mask": {
-    "centerX": 0.5361,
-    "centerY": 0.5,
-    "radius": 0.274,
+    "centerX": 0.5021,
+    "centerY": 0.5056,
+    "radius": 0.24311,
     "feather": 0.01
   },
   "mount": {
@@ -22,12 +21,54 @@
     "positionX": 0.0365,
     "positionY": -0.023,
     "positionZ": -0.057,
-    "rotationX": 0.0,
-    "rotationY": 0.0,
-    "rotationZ": 0.0,
-    "rollDegrees": 0.0,
-    "pitchDegrees": 0.0,
-    "yawDegrees": 34.0,
+    "rotationX": 0,
+    "rotationY": 0,
+    "rotationZ": 0,
+    "rollDegrees": 0,
+    "pitchDegrees": 0,
+    "yawDegrees": 0,
     "scale": 1.46
+  },
+  "layout": "pvs5a",
+  "tubes": {
+    "tube_1": {
+      "mount": {
+        "anchorBone": "anpvs5",
+        "positionX": -0.0375,
+        "positionY": -0.023,
+        "positionZ": -0.057,
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": 0,
+        "pitchDegrees": 0,
+        "yawDegrees": 0,
+        "scale": 1.46
+      },
+      "text": {
+        "align": "right",
+        "edge": -0.01,
+        "y": -0.01
+      }
+    },
+    "tube_2": {
+      "mount": {
+        "anchorBone": "anpvs5",
+        "positionX": 0.0365,
+        "positionY": -0.023,
+        "positionZ": -0.057,
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": 0,
+        "pitchDegrees": 0,
+        "yawDegrees": 0,
+        "scale": 1.46
+      },
+      "text": {
+        "align": "left",
+        "edge": 0.01
+      }
+    }
   }
 }

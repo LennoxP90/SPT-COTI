@@ -66,7 +66,7 @@ namespace Coti.Client.Dev
       ReportOpticAlignment( report );
 
       report.Append( $"\n  COTI thermal output: {( CotiThermalCamera.Output == null ? "(none)" : CotiThermalCamera.Output.width + "x" + CotiThermalCamera.Output.height )}" );
-      report.Append( $"\n  COTI active: {CotiState.Active}, mask: {( CotiState.Mask == null ? "(none)" : CotiState.Mask.width + "x" + CotiState.Mask.height )}" );
+      report.Append( $"\n  COTI active: {CotiState.Active}, open circles: {CotiState.OpenCount} of {CotiState.FilledCount} filled" );
 
       Plugin.Log.LogInfo( report.ToString() );
 #endif
@@ -365,11 +365,16 @@ namespace Coti.Client.Dev
 
       _loggedCullingMasks = true;
 
+#if SPT40
       // Reuses CotiTunerPreview.DescribeCullingMask, which compiles in Release as the in-raid check
       // for the preview camera's mask, so there is one copy of this layer-name walk.
       Plugin.Log.LogInfo( $"[COTI] culling mask prefab {prefabMask:X8} [{CotiTunerPreview.DescribeCullingMask( prefabMask )}]" );
       Plugin.Log.LogInfo( $"[COTI] culling mask main   {mainMask:X8} [{CotiTunerPreview.DescribeCullingMask( mainMask )}]" );
       Plugin.Log.LogInfo( $"[COTI] dropped by intersecting [{CotiTunerPreview.DescribeCullingMask( mainMask & ~prefabMask )}]" );
+#else
+      // The layer names come from the editor's preview camera, which is in the 4.0 build only.
+      Plugin.Log.LogInfo( $"[COTI] culling mask prefab {prefabMask:X8} main {mainMask:X8} dropped {mainMask & ~prefabMask:X8}" );
+#endif
 #endif
     }
 

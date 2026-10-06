@@ -279,5 +279,101 @@ namespace Coti.Client
         Scale = MountScale,
       };
     }
+
+    /// <summary>
+    /// The layout of a multi-tube device, or null on a v1 device, which has mod_coti alone, posed
+    /// from the Mount fields above.
+    /// </summary>
+    public CotiLayout? Layout { get; set; }
+
+    /// <summary>
+    /// Keyed by every label of the layout: the mount each tube uses (its own, or the legacy mount
+    /// when the file did not pose it, as CotiTubeValidation.MountFor decides) and its pod. Empty on
+    /// a v1 device.
+    /// </summary>
+    public Dictionary<string, CotiTube> Tubes { get; } = new Dictionary<string, CotiTube>();
+
+    /// <summary>Where a v1 device places its one circle's messages. Null keeps the rule.</summary>
+    public CotiTextBlock? Text { get; set; }
+
+    /// <summary>Where a tube's messages sit; a null label is a v1 device's one circle. No allocation, so per frame is fine.</summary>
+    public CotiTextPlacement TextPlacement( string? label )
+    {
+      if( label == null )
+        return CotiDisplayLayout.Resolve( Text, null );
+
+      return CotiDisplayLayout.Resolve( Tubes.TryGetValue( label, out var tube ) ? tube.Text : null, label );
+    }
+
+    /// <summary>The COTI slots this device has, in auto-pick order.</summary>
+    public IReadOnlyList<string> SlotNames => CotiTubes.SlotNames( Layout );
+
+    /// <summary>The tube behind a slot, or null on a v1 device and for a slot outside the layout.</summary>
+    public CotiTube? TubeForSlot( string slotName )
+    {
+      var label = CotiTubes.LabelOfSlot( slotName, Layout );
+      return label != null && Tubes.TryGetValue( label, out var tube ) ? tube : null;
+    }
+
+    /// <summary>
+    /// The pose of a slot's bone. A slot with no tube mounts at the Mount fields: the v1 behaviour,
+    /// and where a COTI left in a slot after its file went back to v1 ends up.
+    /// </summary>
+    public CotiMountBlock MountForSlot( string slotName )
+    {
+      return TubeForSlot( slotName )?.Mount ?? ToMountBlock();
+    }
+
+    /// <summary>
+    /// One device file flattened for the runtime. MaskName is the device's own name - a label for
+    /// logs, not a mask selector.
+    /// </summary>
+    public static CotiNvgHostConfig FromDevice( CotiDeviceFile device )
+    {
+      var mask = device.Mask ?? new CotiMaskBlock();
+      var mount = device.Mount ?? new CotiMountBlock();
+
+      var config = new CotiNvgHostConfig
+      {
+        MaskName = device.Device,
+        MaskCenterX = mask.CenterX,
+        MaskCenterY = mask.CenterY,
+        MaskRadius = mask.Radius,
+        MaskFeather = mask.Feather,
+        MountAnchorBone = mount.AnchorBone,
+        MountPositionX = mount.PositionX,
+        MountPositionY = mount.PositionY,
+        MountPositionZ = mount.PositionZ,
+        MountRotationX = mount.RotationX,
+        MountRotationY = mount.RotationY,
+        MountRotationZ = mount.RotationZ,
+        MountRollDegrees = mount.RollDegrees,
+        MountPitchDegrees = mount.PitchDegrees,
+        MountYawDegrees = mount.YawDegrees,
+        MountScale = mount.Scale,
+        Text = device.Text,
+      };
+
+      // Not validated again here: the server's table went through CotiDeviceMerge, and the embedded
+      // fallback is the shipped files, which CotiShippedDevicesTests validates.
+      if( !device.IsMultiTube || !CotiLayouts.TryGet( device.Layout, out var layout ) )
+        return config;
+
+      config.Layout = layout;
+
+      foreach( var tube in layout.Tubes )
+      {
+        var declared = device.Tubes != null && device.Tubes.TryGetValue( tube.Label, out var found ) ? found : null;
+
+        config.Tubes[tube.Label] = new CotiTube
+        {
+          Mount = CotiTubeValidation.MountFor( device, tube.Label ),
+          Pod = declared?.Pod,
+          Text = declared?.Text,
+        };
+      }
+
+      return config;
+    }
   }
 }

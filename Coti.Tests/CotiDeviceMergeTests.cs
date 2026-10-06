@@ -199,8 +199,8 @@ public class CotiDeviceMergeTests
     [Fact]
     public void ANonPositiveMaskRadiusSkipsTheFile()
     {
-        // MaskGenerator returns null on a non-positive radius, which reads as COTI being
-        // broken rather than as a bad file. Catch it at load, where it can be named.
+        // A non-positive radius draws no circle, which reads as COTI being broken rather
+        // than as a bad file. Catch it at load, where it can be named.
         var f = File("flat.json", "flat", "111");
         f.Device!.Mask.Radius = 0f;
         var r = CotiDeviceMerge.Merge(new[] { f });
@@ -263,5 +263,39 @@ public class CotiDeviceMergeTests
         // Pins the literal rather than the constant, so a change to the constant cannot quietly
         // change what the client and server agree the slot is called.
         Assert.Equal("mod_coti", CotiIds.ModSlotName);
+    }
+
+    [Fact]
+    public void AMultiTubeFileWithABrokenTubeStillLoadsAndTheWarningNamesTheFile()
+    {
+        // Merge validates the tubes of every file it keeps: the broken tube goes, the device and its layout stay.
+        var f = File("addons/c11/chimera.json", "chimera", "H1");
+        f.Device!.Layout = "quad";
+        f.Device.Tubes = new Dictionary<string, CotiTube>
+        {
+            ["tube_1"] = new CotiTube { Mount = new CotiMountBlock { AnchorBone = "axis_3", Scale = 1f } },
+            ["tube_9"] = new CotiTube { Mount = new CotiMountBlock { Scale = 1f } },
+        };
+
+        var r = CotiDeviceMerge.Merge(new[] { f });
+
+        var device = Assert.Single(r.Devices);
+        Assert.Equal("quad", device.Layout);
+        Assert.Equal(new[] { "tube_1" }, device.Tubes!.Keys.ToArray());
+        var warning = Assert.Single(r.Warnings);
+        Assert.StartsWith("addons/c11/chimera.json: tube \"tube_9\"", warning);
+    }
+
+    [Fact]
+    public void AV1FileMergesExactlyAsBefore()
+    {
+        var r = CotiDeviceMerge.Merge(new[] { File("vanilla_pvs14.json", "vanilla_pvs14", "H1") });
+
+        var device = Assert.Single(r.Devices);
+        Assert.Null(device.Layout);
+        Assert.Null(device.Tubes);
+        Assert.False(device.IsMultiTube);
+        Assert.Empty(r.Warnings);
+        Assert.Empty(r.Notes);
     }
 }

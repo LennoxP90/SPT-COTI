@@ -8,12 +8,6 @@ namespace Coti.Client
   public static class CotiSlotIcon
   {
     /// <summary>
-    /// Derived from CotiIds.ModSlotName: the game keys slot icons by slot name, which is also the
-    /// transform the mount patch creates. If the two drifted, the slot would silently show no icon.
-    /// </summary>
-    private const string CacheKey = "Slots/" + CotiIds.ModSlotName;
-
-    /// <summary>
     /// A 1x1 slot, matching ItemViewFactory.GetCellPixelSize(1,1) = 1 * 63 + 1. The COTI occupies
     /// exactly one cell, so this is a constant rather than something to derive.
     /// </summary>
@@ -58,7 +52,10 @@ namespace Coti.Client
         return;
       }
 
-      EftCompat.CacheSprite( CacheKey, _sprite );
+      // The game keys slot icons by "Slots/" plus the slot name, which is also the transform the
+      // mount patch creates. The quad's slots are every COTI slot there is.
+      foreach( var slotName in CotiTubes.SlotNames( CotiLayouts.Quad ) )
+        EftCompat.CacheSprite( "Slots/" + slotName, _sprite );
 
       Plugin.Log.LogInfo( $"[COTI] Slot icon installed ({SlotPixelSize}x{SlotPixelSize} from a {texture.width}px master)" );
     }

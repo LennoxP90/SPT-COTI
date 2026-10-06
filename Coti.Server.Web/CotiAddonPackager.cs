@@ -118,8 +118,9 @@ public static class CotiAddonPackager
     sb.AppendLine($"{InstallPath}/");
     sb.AppendLine("```");
     sb.AppendLine();
-    sb.AppendLine("Restart the server. Each supported device gains a `mod_coti` slot and the COTI");
-    sb.AppendLine("mounts with the pose in the file.");
+    sb.AppendLine("Restart the server. Each supported device gains a COTI slot per tube, and each");
+    sb.AppendLine("COTI mounts on its tube with the pose in the file. A device without `tubes`, and");
+    sb.AppendLine("any device on a COTI before 3.3.0, has one slot, `mod_coti`, on today's tube.");
     sb.AppendLine();
     sb.AppendLine("On SPT 4.0 the same files go in `user/mods/LennoxP90-COTI/nvghostcompat/`, with");
     sb.AppendLine("no `SPT_Runtime`, so copy them out rather than extracting over the install.");
@@ -135,11 +136,21 @@ public static class CotiAddonPackager
     sb.AppendLine("pose, so they worked but sat wrong. Installing this takes precedence: a measured");
     sb.AppendLine("pose always beats a discovered guess, and the log names the superseded stub.");
     sb.AppendLine();
+    if (devices.Any(d => d.IsMultiTube))
+    {
+      sb.AppendLine("## Going back to an older COTI");
+      sb.AppendLine();
+      sb.AppendLine("The extra tubes need COTI 3.3.0 or later. An older COTI reads these files as one");
+      sb.AppendLine("COTI on today's tube and has no slot for the others, so take every COTI off the");
+      sb.AppendLine("extra tubes before downgrading: EFT drops an item whose slot is gone.");
+      sb.AppendLine();
+    }
+
     sb.AppendLine("## Retuning a pose");
     sb.AppendLine();
-    sb.AppendLine("Use the mount editor in the server's web UI, or the **COTI Pose** button in game.");
-    sb.AppendLine("Either rewrites the file in place. `ADDONS.md` in the COTI source has the full");
-    sb.AppendLine("field reference.");
+    sb.AppendLine("Use the mount editor in the server's web UI (SIC, **ECOTI -> Mount editor**): one");
+    sb.AppendLine("tab per tube, each saved to the file in place. `ADDONS.md` in the COTI source has");
+    sb.AppendLine("the full field reference.");
     sb.AppendLine();
     sb.AppendLine("---");
     sb.AppendLine();

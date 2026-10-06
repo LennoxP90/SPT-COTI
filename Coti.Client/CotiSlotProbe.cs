@@ -5,15 +5,28 @@ using EFT.InventoryLogic;
 namespace Coti.Client
 {
   /// <summary>
-  /// Whether an item's mod_coti slot is filled. Keys on Slot.ID: the server writes Slot.Name,
+  /// Whether an item's COTI slots are filled. Keys on Slot.ID: the server writes Slot.Name,
   /// which serialises as _name and arrives on the client as ID.
   /// </summary>
   internal static class CotiSlotProbe
   {
-    /// <summary>Whether hostItem carries a mod_coti slot with something in it.</summary>
+    /// <summary>Whether any of hostItem's COTI slots has something in it.</summary>
     public static bool IsCotiAttached( Item hostItem )
     {
-      return HasFilledSlot( hostItem, CotiIds.ModSlotName );
+      return CotiInspectGateResolver.HasFilledCotiSlot( SlotSnapshots( hostItem ) );
+    }
+
+    /// <summary>The COTI slots on hostItem with something in them, as CotiTubeSet bits.</summary>
+    public static int FilledSlots( Item hostItem )
+    {
+      var slots = 0;
+      foreach( var slot in SlotSnapshots( hostItem ) )
+      {
+        if( slot.Filled )
+          slots |= CotiTubeSet.Bit( slot.Id );
+      }
+
+      return slots;
     }
 
     public static bool HasFilledSlot( Item hostItem, string slotId )

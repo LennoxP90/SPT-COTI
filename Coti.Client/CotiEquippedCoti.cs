@@ -3,7 +3,7 @@ using EFT.InventoryLogic;
 namespace Coti.Client
 {
   /// <summary>
-  /// Whether the equipped night vision device is carrying a COTI, held across frames and refreshed
+  /// Which COTI slots of the equipped night vision device hold a COTI, held across frames and refreshed
   /// by <see cref="Patches.CotiInventoryChangePatch"/>.
   ///
   /// Scoped to the per-frame path rather than folded into CotiSlotProbe: the pose editor probes
@@ -13,9 +13,10 @@ namespace Coti.Client
   internal static class CotiEquippedCoti
   {
     private static readonly CotiAttachCache<Item> Cache =
-        new CotiAttachCache<Item>( CotiSlotProbe.IsCotiAttached );
+        new CotiAttachCache<Item>( CotiSlotProbe.FilledSlots );
 
-    internal static bool IsAttached( Item hostItem )
+    /// <summary>The filled COTI slots, as CotiTubeSet bits.</summary>
+    internal static int FilledSlots( Item hostItem )
     {
       return Cache.Read( hostItem );
     }

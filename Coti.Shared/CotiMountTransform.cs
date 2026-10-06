@@ -107,7 +107,7 @@ namespace Coti.Shared
     /// <summary>
     /// Unity's Quaternion.Euler, which applies Z, then X, then Y.
     /// </summary>
-    private static CotiQuat Euler( float x, float y, float z )
+    internal static CotiQuat Euler( float x, float y, float z )
     {
       return Multiply(
           AngleAxis( y, 0f, 1f, 0f ),

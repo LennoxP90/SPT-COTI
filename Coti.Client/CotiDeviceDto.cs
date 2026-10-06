@@ -56,6 +56,16 @@ namespace Coti.Client
     [JsonProperty( "mount" )]
     public CotiMountBlockDto Mount { get; set; } = new CotiMountBlockDto();
 
+    // Omitted when null, so a v1 device keeps 3.2.0's shape on the publish route.
+    [JsonProperty( "layout", NullValueHandling = NullValueHandling.Ignore )]
+    public string? Layout { get; set; }
+
+    [JsonProperty( "tubes", NullValueHandling = NullValueHandling.Ignore )]
+    public Dictionary<string, CotiTubeDto?>? Tubes { get; set; }
+
+    [JsonProperty( "text", NullValueHandling = NullValueHandling.Ignore )]
+    public CotiTextBlockDto? Text { get; set; }
+
     public static CotiDeviceDto FromShared( CotiDeviceFile source )
     {
       var dto = new CotiDeviceDto
@@ -66,7 +76,10 @@ namespace Coti.Client
         Requires = source.Requires,
         Tuned = source.Tuned,
         Mask = CotiMaskBlockDto.FromShared( source.Mask ),
-        Mount = CotiMountBlockDto.FromShared( source.Mount ),
+        Mount = CotiMountBlockDto.FromShared( source.Mount ) ?? new CotiMountBlockDto(),
+        Layout = source.Layout,
+        Tubes = CotiTubeDto.FromShared( source.Tubes ),
+        Text = CotiTextBlockDto.FromShared( source.Text ),
       };
 
       foreach ( var host in source.Hosts )
@@ -91,6 +104,9 @@ namespace Coti.Client
         Tuned = Tuned,
         Mask = Mask?.ToShared() ?? new CotiMaskBlock(),
         Mount = Mount?.ToShared() ?? new CotiMountBlock(),
+        Layout = Layout,
+        Tubes = CotiTubeDto.ToShared( Tubes ),
+        Text = Text?.ToShared(),
       };
 
       if ( Hosts == null )
@@ -194,8 +210,11 @@ namespace Coti.Client
     [JsonProperty( "scale" )]
     public float Scale { get; set; } = 1f;
 
-    public static CotiMountBlockDto FromShared( CotiMountBlock source )
+    public static CotiMountBlockDto? FromShared( CotiMountBlock? source )
     {
+      if ( source == null )
+        return null;
+
       return new CotiMountBlockDto
       {
         AnchorBone = source.AnchorBone,
@@ -228,6 +247,103 @@ namespace Coti.Client
         YawDegrees = YawDegrees,
         Scale = Scale,
       };
+    }
+  }
+
+  public class CotiTubeDto
+  {
+    [JsonProperty( "mount" )]
+    public CotiMountBlockDto? Mount { get; set; }
+
+    [JsonProperty( "pod" )]
+    public CotiPodBlockDto? Pod { get; set; }
+
+    [JsonProperty( "text", NullValueHandling = NullValueHandling.Ignore )]
+    public CotiTextBlockDto? Text { get; set; }
+
+    public static Dictionary<string, CotiTubeDto?>? FromShared( Dictionary<string, CotiTube>? tubes )
+    {
+      if ( tubes == null )
+        return null;
+
+      var dtos = new Dictionary<string, CotiTubeDto?>();
+      foreach ( var kv in tubes )
+      {
+        dtos[kv.Key] = kv.Value == null ? null : new CotiTubeDto
+        {
+          Mount = CotiMountBlockDto.FromShared( kv.Value.Mount ),
+          Pod = kv.Value.Pod == null ? null : CotiPodBlockDto.FromShared( kv.Value.Pod ),
+          Text = CotiTextBlockDto.FromShared( kv.Value.Text ),
+        };
+      }
+
+      return dtos;
+    }
+
+    /// <summary>
+    /// A null tube or mount stays null, as on the server half: CotiTubeValidation drops it and names it.
+    /// </summary>
+    public static Dictionary<string, CotiTube>? ToShared( Dictionary<string, CotiTubeDto?>? tubes )
+    {
+      if ( tubes == null )
+        return null;
+
+      var shared = new Dictionary<string, CotiTube>();
+      foreach ( var kv in tubes )
+      {
+        shared[kv.Key] = kv.Value == null
+            ? null!
+            : new CotiTube { Mount = kv.Value.Mount?.ToShared()!, Pod = kv.Value.Pod?.ToShared(), Text = kv.Value.Text?.ToShared() };
+      }
+
+      return shared;
+    }
+  }
+
+  public class CotiPodBlockDto
+  {
+    [JsonProperty( "bone" )]
+    public string? Bone { get; set; }
+
+    [JsonProperty( "downX" )]
+    public float DownX { get; set; }
+
+    [JsonProperty( "downY" )]
+    public float DownY { get; set; }
+
+    [JsonProperty( "downZ" )]
+    public float DownZ { get; set; }
+
+    public static CotiPodBlockDto FromShared( CotiPodBlock source )
+    {
+      return new CotiPodBlockDto { Bone = source.Bone, DownX = source.DownX, DownY = source.DownY, DownZ = source.DownZ };
+    }
+
+    public CotiPodBlock ToShared()
+    {
+      return new CotiPodBlock { Bone = Bone, DownX = DownX, DownY = DownY, DownZ = DownZ };
+    }
+  }
+
+  public class CotiTextBlockDto
+  {
+    [JsonProperty( "align", NullValueHandling = NullValueHandling.Ignore )]
+    public string? Align { get; set; }
+
+    [JsonProperty( "edge", NullValueHandling = NullValueHandling.Ignore )]
+    public float? Edge { get; set; }
+
+    [JsonProperty( "y", NullValueHandling = NullValueHandling.Ignore )]
+    public float? Y { get; set; }
+
+    public static CotiTextBlockDto? FromShared( CotiTextBlock? source )
+    {
+      return source == null ? null : new CotiTextBlockDto { Align = source.Align, Edge = source.Edge, Y = source.Y };
+    }
+
+    public CotiTextBlock ToShared()
+    {
+      return new CotiTextBlock { Align = Align, Edge = Edge, Y = Y };
     }
   }
 }

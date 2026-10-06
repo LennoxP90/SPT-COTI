@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>Coti.Client</AssemblyName>
-    <Description>ECOTI client plugin - F12 config, runtime mask generation, headless no-op</Description>
+    <Description>ECOTI client plugin - F12 config, thermal circles, headless no-op</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -129,6 +129,26 @@
 
   <ItemGroup>
     <Compile Include="..\Coti.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- The in-game editor (pose tuner, mask panel, inspect button) is in the 4.0 build only; the web viewer at
+       /coti/model is the editor everywhere else. Removed here rather than #if'd inside the files, because Coti.Tests
+       links several of them and defines no SPT symbol. -->
+  <ItemGroup Condition="'$(SptTarget)' != '4.0'">
+    <Compile Remove="CotiTunerPanel.cs" />
+    <Compile Remove="CotiMaskPanel.cs" />
+    <Compile Remove="CotiMaskNudge.cs" />
+    <Compile Remove="CotiDpad.cs" />
+    <Compile Remove="CotiAnchorAdvisor.cs" />
+    <Compile Remove="CotiPoseTuner.cs" />
+    <Compile Remove="CotiTunerPreview.cs" />
+    <Compile Remove="CotiInspectButton.cs" />
+    <Compile Remove="CotiUiBlocker.cs" />
+    <Compile Remove="CotiGuiFill.cs" />
+    <Compile Remove="CotiOrbitMath.cs" />
+    <Compile Remove="CotiLayerMask.cs" />
+    <Compile Remove="CotiPublishReport.cs" />
+    <Compile Remove="Dev\CotiInspectButtonProbe.cs" />
   </ItemGroup>
 
   <ItemGroup>

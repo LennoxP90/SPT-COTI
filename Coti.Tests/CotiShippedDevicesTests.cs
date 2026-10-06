@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Coti.Shared;
 using Xunit;
 
 /// <summary>
@@ -117,64 +118,67 @@ public class CotiShippedDevicesTests
     /// pose is invisible until someone looks at that device in a raid, so this catches an
     /// accidental edit.
     /// </summary>
+    // The mask is the legacy pair's: the home tube's circle at 16:9 (pvs5a 0.5021/0.5056/0.24311, quad 0.5371/0.4992/
+    // 0.28506, dual 0.5353/0.4991/0.27362, mono 0.5006/0.4992/0.27359). The mounts are the home tubes', straightened in the
+    // viewer on 2026-10-06 to stop clipping.
     [Theory]
     [InlineData("com.c11.truenorth4_anpvs5a.json",
-        0.5361f, 0.5f, 0.274f, 0.01f,
+        0.5021f, 0.5056f, 0.24311f, 0.01f,
         "anpvs5",
         0.0365f, -0.023f, -0.057f,
         0f, 0f, 0f,
-        0f, 0f, 34f, 1.46f)]
+        0f, 0f, 0f, 1.46f)]
     [InlineData("com.c11.truenorth4_argus_chimera.json",
-        0.525f, 0.5f, 0.285f, 0.01f,
+        0.5371f, 0.4992f, 0.28506f, 0.01f,
         "axis_2",
-        0.007f, -0.0435f, -0.0525f,
+        0.007f, -0.0415f, -0.0525f,
         0f, 0f, 0f,
-        0f, 0f, 28f, 1.518f)]
+        0f, 0f, 0f, 1.518f)]
     [InlineData("com.c11.truenorth4_dtnvs.json",
-        0.5361f, 0.5f, 0.274f, 0.01f,
+        0.5353f, 0.4991f, 0.27362f, 0.01f,
         "axis_2",
         -0.0005f, -0.0435f, -0.038f,
         0f, 0f, 0f,
-        0f, 0f, 48f, 1.065f)]
+        0f, 0f, 0f, 1.065f)]
     [InlineData("com.wtt.cag_dtnvs.json",
-        0.5361f, 0.5f, 0.274f, 0.01f,
+        0.5353f, 0.4991f, 0.27362f, 0.01f,
         "",
         0.036f, -0.067f, 0.05f,
         -90f, 0f, 0f,
-        -43f, 0f, 0f, 1.24f)]
+        0f, 0f, 0f, 1.24f)]
     [InlineData("com.wtt.contentbackport_pvs31a.json",
-        0.5361f, 0.5f, 0.274f, 0.01f,
+        0.5353f, 0.4991f, 0.27362f, 0.01f,
         "",
         0.034f, -0.073f, 0.03f,
         -90f, 0f, 0f,
-        -43f, 0f, 0f, 1.32f)]
+        0f, 0f, 0f, 1.32f)]
     [InlineData("vanilla_gpnvg.json",
-        0.525f, 0.5f, 0.285f, 0.01f,
+        0.5371f, 0.4992f, 0.28506f, 0.01f,
         "axis",
         0.027f, -0.037f, -0.075f,
         -90f, 0f, 0f,
-        -26f, 90f, 2f, 1.46f)]
+        6f, 90f, 2f, 1.46f)]
     [InlineData("vanilla_n15.json",
-        0.5361f, 0.5f, 0.274f, 0.01f,
+        0.5353f, 0.4991f, 0.27362f, 0.01f,
         "",
         0.0305f, -0.0205f, 0.034f,
         -90f, 0f, 0f,
-        -42f, 0f, 0f, 1.2f)]
-    // Uses the single tube preset's mask, which the biocular matches.
+        0f, 0f, 0f, 1.2f)]
+    // The mono layout's circle: Borkel's PNV-10T mask is one hole, like the PVS-14's.
     [InlineData("vanilla_pnv10t.json",
-        0.5f, 0.5f, 0.273f, 0.01f,
+        0.5006f, 0.4992f, 0.27359f, 0.01f,
         "",
         0.001f, -0.035f, 0.075f,
         0f, 0f, 0f,
         12f, -90f, -11f, 1f)]
     [InlineData("vanilla_pnv57e.json",
-        0.5361f, 0.5f, 0.274f, 0.01f,
+        0.5353f, 0.4991f, 0.27362f, 0.01f,
         "axis",
         0.036f, -0.119f, -0.081f,
         0f, 0f, 0f,
-        0f, 0f, 40f, 1.32f)]
+        0f, 0f, 0f, 1.32f)]
     [InlineData("vanilla_pvs14.json",
-        0.5f, 0.5f, 0.273f, 0.01f,
+        0.5006f, 0.4992f, 0.27359f, 0.01f,
         "",
         0.015f, -0.024f, 0.039f,
         -90f, 0f, 0f,
@@ -254,6 +258,9 @@ public class CotiShippedDevicesTests
     [InlineData("com.c11.truenorth4_dtnvs.json", "com.c11.truenorth4")]
     [InlineData("com.wtt.cag_dtnvs.json", "com.wtt.cag")]
     [InlineData("com.wtt.contentbackport_pvs31a.json", "com.wtt.contentbackport")]
+    [InlineData("com.crackbone.artem-wtt_gpnvg18.json", "com.crackbone.artem-wtt")]
+    [InlineData("com.crackbone.artem-wtt_pvs31.json", "com.crackbone.artem-wtt")]
+    [InlineData("com.crackbone.artem-wtt_pvs31_wide.json", "com.crackbone.artem-wtt")]
     public void EachAddonDeclaresTheGuidItsHostModActuallyRegisters(string deviceFile, string guid)
     {
         // Pinned per device because these are copied by hand and cannot be derived. A guid no mod
@@ -292,5 +299,120 @@ public class CotiShippedDevicesTests
             var deviceName = device.GetProperty("device").GetString()!;
             Assert.EndsWith("." + deviceName + ".json", name, System.StringComparison.Ordinal);
         }
+    }
+
+    private static CotiDeviceFile Parse(JsonElement element)
+    {
+        return JsonSerializer.Deserialize<Coti.Server.CotiDeviceDto>(element.GetRawText())!.ToShared();
+    }
+
+    private static bool SameMount(CotiMountBlock a, CotiMountBlock b)
+    {
+        return (a.AnchorBone ?? "") == (b.AnchorBone ?? "")
+               && a.PositionX == b.PositionX && a.PositionY == b.PositionY && a.PositionZ == b.PositionZ
+               && a.RotationX == b.RotationX && a.RotationY == b.RotationY && a.RotationZ == b.RotationZ
+               && a.RollDegrees == b.RollDegrees && a.PitchDegrees == b.PitchDegrees && a.YawDegrees == b.YawDegrees
+               && a.Scale == b.Scale;
+    }
+
+    private static bool Near(float a, float b)
+    {
+        return Math.Abs(a - b) < 1e-6f;
+    }
+
+    [Fact]
+    public void EveryDeviceHasTubesThatValidateWithoutWarnings()
+    {
+        foreach (var (name, element) in ShippedDevices())
+        {
+            var device = Parse(element);
+            var warnings = new List<string>();
+            CotiTubeValidation.Normalise(device, name, warnings);
+
+            Assert.True(warnings.Count == 0, name + ": " + string.Join("; ", warnings));
+            Assert.True(device.IsMultiTube, name + " has no layout and tubes");
+        }
+    }
+
+    [Fact]
+    public void EveryTubeOfTheLayoutIsPosed()
+    {
+        // A tube missing from the file mounts at the legacy mount in game, on top of the home tube's COTI.
+        foreach (var (name, element) in ShippedDevices())
+        {
+            var device = Parse(element);
+            Assert.True(CotiLayouts.TryGet(device.Layout, out var layout), name + ": unknown layout \"" + device.Layout + "\"");
+            foreach (var tube in layout.Tubes)
+                Assert.True(device.Tubes!.ContainsKey(tube.Label), name + " does not pose " + tube.Label);
+        }
+    }
+
+    [Fact]
+    public void TheLegacyPairIsTheHomeTube()
+    {
+        // Every COTI before 3.3.0 reads only mask and mount, so they must be the home tube's: its mount, and its circle
+        // at 16:9 rounded as the model viewer writes it.
+        foreach (var (name, element) in ShippedDevices())
+        {
+            var device = Parse(element);
+            Assert.True(CotiLayouts.TryGet(device.Layout, out var layout), name + ": unknown layout \"" + device.Layout + "\"");
+            var circle = CotiCircles.LegacyMask(layout.Find(layout.Home)!);
+
+            Assert.True(Near(circle.CenterX, device.Mask.CenterX) && Near(circle.CenterY, device.Mask.CenterY)
+                        && Near(circle.Radius, device.Mask.Radius) && Near(circle.Feather, device.Mask.Feather),
+                $"{name}: mask {device.Mask.CenterX}/{device.Mask.CenterY}/{device.Mask.Radius}/{device.Mask.Feather} " +
+                $"is not the home tube's {circle.CenterX}/{circle.CenterY}/{circle.Radius}/{circle.Feather}");
+            Assert.True(SameMount(device.Tubes![layout.Home].Mount, device.Mount), name + ": mount is not the home tube's");
+        }
+    }
+
+    /// <summary>
+    /// C11 rotates each pod bone between deployed and stowed; the files hold the deployed rotation (C11's On quaternion:
+    /// -33 degrees about X on the Chimera, -90 on the DTNVS) and leave the bone to default to the tube's anchor.
+    /// </summary>
+    [Theory]
+    [InlineData("com.c11.truenorth4_argus_chimera.json", "tube_0", "axis_3", -33f)]
+    [InlineData("com.c11.truenorth4_argus_chimera.json", "tube_1", "axis_3", -33f)]
+    [InlineData("com.c11.truenorth4_argus_chimera.json", "tube_2", "axis_2", -33f)]
+    [InlineData("com.c11.truenorth4_argus_chimera.json", "tube_3", "axis_2", -33f)]
+    [InlineData("com.c11.truenorth4_dtnvs.json", "tube_1", "axis_1", -90f)]
+    [InlineData("com.c11.truenorth4_dtnvs.json", "tube_2", "axis_2", -90f)]
+    public void C11PodsAreDownAtTheirDeployedRotation(string deviceFile, string label, string podBone, float downX)
+    {
+        var device = Parse(ShippedDevices().Single(kv => kv.Key.EndsWith("." + deviceFile)).Value);
+        var tube = device.Tubes![label];
+
+        Assert.Equal(podBone, tube.Mount.AnchorBone);
+        Assert.NotNull(tube.Pod);
+        Assert.Null(tube.Pod!.Bone);
+        Assert.Equal(downX, tube.Pod.DownX);
+        Assert.Equal(0f, tube.Pod.DownY);
+        Assert.Equal(0f, tube.Pod.DownZ);
+    }
+
+    [Fact]
+    public void OnlyTheC11ChimeraAndDtnvsDeclarePods()
+    {
+        // Every other goggle flips as one unit, which the night vision's own on and off already covers.
+        foreach (var (name, element) in ShippedDevices())
+        {
+            var podded = Parse(element).Tubes!.Values.Any(t => t.Pod != null);
+            var c11 = name.EndsWith(".com.c11.truenorth4_argus_chimera.json") || name.EndsWith(".com.c11.truenorth4_dtnvs.json");
+            Assert.True(podded == c11, name + (podded ? " declares a pod" : " declares no pod"));
+        }
+    }
+
+    [Fact]
+    public void TheArtemGpnvgWearsTheVanillaGpnvgPoses()
+    {
+        // Artem's three GPNVG-18s are the vanilla mesh and axis bone with new textures, so their poses are the vanilla ones.
+        var devices = ShippedDevices();
+        var vanilla = Parse(devices.Single(kv => kv.Key.EndsWith(".vanilla_gpnvg.json")).Value);
+        var artem = Parse(devices.Single(kv => kv.Key.EndsWith(".com.crackbone.artem-wtt_gpnvg18.json")).Value);
+
+        Assert.Equal(vanilla.Layout, artem.Layout);
+        Assert.Equal(vanilla.Tubes!.Keys.OrderBy(k => k), artem.Tubes!.Keys.OrderBy(k => k));
+        foreach (var (label, tube) in vanilla.Tubes)
+            Assert.True(SameMount(tube.Mount, artem.Tubes[label].Mount), label + " differs from the vanilla GPNVG-18's");
     }
 }

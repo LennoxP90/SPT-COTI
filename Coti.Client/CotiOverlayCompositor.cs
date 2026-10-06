@@ -10,7 +10,6 @@ namespace Coti.Client
     private const CameraEvent InjectionPoint = CameraEvent.AfterEverything;
 
     private static readonly int MainTexId = Shader.PropertyToID( "_MainTex" );
-    private static readonly int MaskTexId = Shader.PropertyToID( "_MaskTex" );
     private static readonly int IntensityId = Shader.PropertyToID( "_Intensity" );
     private static readonly int ThresholdId = Shader.PropertyToID( "_Threshold" );
     private static readonly int OutlineMixId = Shader.PropertyToID( "_OutlineMix" );
@@ -23,6 +22,9 @@ namespace Coti.Client
     private static readonly int CoolColourId = Shader.PropertyToID( "_CoolColour" );
     private static readonly int CircleGlowId = Shader.PropertyToID( "_CircleGlow" );
     private static readonly int HeatBrightnessId = Shader.PropertyToID( "_HeatBrightness" );
+    private static readonly int CirclesId = Shader.PropertyToID( "_Circles" );
+    private static readonly int CircleCountId = Shader.PropertyToID( "_CircleCount" );
+    private static readonly int AspectId = Shader.PropertyToID( "_Aspect" );
 
     /// <summary>
     /// The message's brightness. 1 renders the letters at exactly HotColour, the tube's own
@@ -35,7 +37,13 @@ namespace Coti.Client
     private static Material _material;
 
     private static Texture _setMainTex;
-    private static Texture _setMaskTex;
+
+    // All four entries on every write: Unity fixes a material array's length at its first SetVectorArray.
+    private static readonly Vector4[] CircleValues = new Vector4[CotiState.MaxTubes];
+    private static readonly Vector4[] WrittenCircles = new Vector4[CotiState.MaxTubes];
+    private static bool _circlesSet;
+    private static float _setCircleCount = float.NaN;
+    private static float _setAspect = float.NaN;
     private static float _setThreshold = float.NaN;
     private static float _setOutlineMix = float.NaN;
     private static float _setOutlineWidth = float.NaN;
@@ -113,7 +121,7 @@ namespace Coti.Client
         var source = CurrentSource();
         var wanted = source != null
                      && CotiState.Host != null
-                     && CotiState.Mask != null
+                     && CotiState.OpenCount > 0
                      && CotiShaderBundle.OverlayMaterial != null;
 
         if( !wanted || camera == null )
@@ -207,7 +215,7 @@ namespace Coti.Client
       var image = Plugin.Config.Image;
 
       SetTextureIfChanged( MainTexId, source, ref _setMainTex );
-      SetTextureIfChanged( MaskTexId, CotiState.Mask, ref _setMaskTex );
+      SetCircles();
 
       ApplyPhosphorTint();
 
@@ -273,6 +281,31 @@ namespace Coti.Client
       _setThermalRect = value;
     }
 
+    /// <summary>
+    /// The open tubes' circles, the only places the shader lets anything through. Unused entries are zero; the shader
+    /// reads only the first _CircleCount.
+    /// </summary>
+    private static void SetCircles()
+    {
+      var changed = !_circlesSet;
+      for( var i = 0; i < CircleValues.Length; i++ )
+      {
+        var circle = i < CotiState.OpenCount ? CotiState.OpenCircles[i] : default( CotiCircle );
+        CircleValues[i] = new Vector4( circle.U, circle.V, circle.Radius, circle.Feather );
+        changed |= CircleValues[i] != WrittenCircles[i];
+      }
+
+      if( changed )
+      {
+        _material.SetVectorArray( CirclesId, CircleValues );
+        Array.Copy( CircleValues, WrittenCircles, CircleValues.Length );
+        _circlesSet = true;
+      }
+
+      SetFloatIfChanged( CircleCountId, CotiState.OpenCount, ref _setCircleCount );
+      SetFloatIfChanged( AspectId, CotiState.Aspect, ref _setAspect );
+    }
+
     private static void SetFloatIfChanged( int id, float value, ref float last )
     {
       if( last == value )
@@ -307,7 +340,9 @@ namespace Coti.Client
     private static void ForgetMaterialValues()
     {
       _setMainTex = null;
-      _setMaskTex = null;
+      _circlesSet = false;
+      _setCircleCount = float.NaN;
+      _setAspect = float.NaN;
       _setThreshold = float.NaN;
       _setHeatBrightness = float.NaN;
       _setOutlineMix = float.NaN;

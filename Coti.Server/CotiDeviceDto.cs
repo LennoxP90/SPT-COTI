@@ -65,6 +65,19 @@ public class CotiDeviceDto
   [JsonPropertyName( "mount" )]
   public CotiMountBlockDto Mount { get; set; } = new();
 
+  // Omitted when null, so a v1 device keeps 3.2.0's shape whatever options the writer uses.
+  [JsonPropertyName( "layout" )]
+  [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+  public string? Layout { get; set; }
+
+  [JsonPropertyName( "tubes" )]
+  [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+  public Dictionary<string, CotiTubeDto?>? Tubes { get; set; }
+
+  [JsonPropertyName( "text" )]
+  [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+  public CotiTextBlockDto? Text { get; set; }
+
   public static CotiDeviceDto FromShared( CotiDeviceFile source )
   {
     var dto = new CotiDeviceDto
@@ -76,6 +89,9 @@ public class CotiDeviceDto
       Tuned = source.Tuned,
       Mask = CotiMaskBlockDto.FromShared( source.Mask ),
       Mount = CotiMountBlockDto.FromShared( source.Mount ),
+      Layout = source.Layout,
+      Tubes = CotiTubeDto.FromShared( source.Tubes ),
+      Text = CotiTextBlockDto.FromShared( source.Text ),
     };
 
     foreach( var host in source.Hosts )
@@ -100,6 +116,9 @@ public class CotiDeviceDto
       Tuned = Tuned,
       Mask = Mask?.ToShared() ?? new CotiMaskBlock(),
       Mount = Mount?.ToShared() ?? new CotiMountBlock(),
+      Layout = Layout,
+      Tubes = CotiTubeDto.ToShared( Tubes ),
+      Text = Text?.ToShared(),
     };
 
     if( Hosts == null )
@@ -236,4 +255,108 @@ public class CotiMountBlockDto
     YawDegrees = YawDegrees,
     Scale = Scale,
   };
+}
+
+public class CotiTubeDto
+{
+  [JsonPropertyName( "mount" )]
+  public CotiMountBlockDto? Mount { get; set; }
+
+  [JsonPropertyName( "pod" )]
+  public CotiPodBlockDto? Pod { get; set; }
+
+  [JsonPropertyName( "text" )]
+  [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+  public CotiTextBlockDto? Text { get; set; }
+
+  public static Dictionary<string, CotiTubeDto?>? FromShared( Dictionary<string, CotiTube>? tubes )
+  {
+    if( tubes == null )
+      return null;
+
+    var dtos = new Dictionary<string, CotiTubeDto?>();
+    foreach( var kv in tubes )
+    {
+      dtos[kv.Key] = new CotiTubeDto
+      {
+        Mount = CotiMountBlockDto.FromShared( kv.Value.Mount ),
+        Pod = kv.Value.Pod == null ? null : CotiPodBlockDto.FromShared( kv.Value.Pod ),
+        Text = CotiTextBlockDto.FromShared( kv.Value.Text ),
+      };
+    }
+
+    return dtos;
+  }
+
+  /// <summary>
+  /// A null tube or mount stays null instead of becoming a default, which would seat the COTI at the anchor's origin:
+  /// CotiTubeValidation drops it and names it.
+  /// </summary>
+  public static Dictionary<string, CotiTube>? ToShared( Dictionary<string, CotiTubeDto?>? tubes )
+  {
+    if( tubes == null )
+      return null;
+
+    var shared = new Dictionary<string, CotiTube>();
+    foreach( var kv in tubes )
+    {
+      shared[kv.Key] = kv.Value == null
+          ? null!
+          : new CotiTube { Mount = kv.Value.Mount?.ToShared()!, Pod = kv.Value.Pod?.ToShared(), Text = kv.Value.Text?.ToShared() };
+    }
+
+    return shared;
+  }
+}
+
+public class CotiPodBlockDto
+{
+  [JsonPropertyName( "bone" )]
+  public string? Bone { get; set; }
+
+  [JsonPropertyName( "downX" )]
+  public float DownX { get; set; }
+
+  [JsonPropertyName( "downY" )]
+  public float DownY { get; set; }
+
+  [JsonPropertyName( "downZ" )]
+  public float DownZ { get; set; }
+
+  public static CotiPodBlockDto FromShared( CotiPodBlock source ) => new()
+  {
+    Bone = source.Bone,
+    DownX = source.DownX,
+    DownY = source.DownY,
+    DownZ = source.DownZ,
+  };
+
+  public CotiPodBlock ToShared() => new()
+  {
+    Bone = Bone,
+    DownX = DownX,
+    DownY = DownY,
+    DownZ = DownZ,
+  };
+}
+
+/// <summary>Each field is written only when set, so a file keeps only what differs from the rule.</summary>
+public class CotiTextBlockDto
+{
+  [JsonPropertyName( "align" )]
+  [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+  public string? Align { get; set; }
+
+  [JsonPropertyName( "edge" )]
+  [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+  public float? Edge { get; set; }
+
+  [JsonPropertyName( "y" )]
+  [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
+  public float? Y { get; set; }
+
+  public static CotiTextBlockDto? FromShared( CotiTextBlock? source ) =>
+    source == null ? null : new() { Align = source.Align, Edge = source.Edge, Y = source.Y };
+
+  public CotiTextBlock ToShared() => new() { Align = Align, Edge = Edge, Y = Y };
 }

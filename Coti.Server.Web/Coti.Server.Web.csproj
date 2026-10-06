@@ -61,6 +61,8 @@
 
   <ItemGroup>
     <CotiWebAsset Include="wwwroot\**\*" />
+    <!-- The display text images, for the mount editor's screen preview. The client ships its own copy. -->
+    <CotiTextImage Include="..\textures\*.png" />
   </ItemGroup>
 
   <Target Name="StageCotiServerWeb" AfterTargets="Build">
@@ -72,6 +74,8 @@
           DestinationFolder="$(OutDir)wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(CotiWebAsset)"
           DestinationFolder="$(CotiDist)\wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(CotiTextImage)" DestinationFolder="$(OutDir)wwwroot\textures" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(CotiTextImage)" DestinationFolder="$(CotiDist)\wwwroot\textures" SkipUnchangedFiles="true" />
     <Error Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\meshes\index.json')"
            Text="No mesh index. The mount editor needs Coti.Server.Web/wwwroot/meshes; regenerate with scripts/export-host-meshes.py." />
   </Target>

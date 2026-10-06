@@ -1,3 +1,4 @@
+using System.Linq;
 using Coti.Shared;
 using Xunit;
 
@@ -70,5 +71,90 @@ public class CotiSensorCropTests
     public void TheTargetKeepsTheFullFramesTexelDensity( int full, float fraction, int expected )
     {
         Assert.Equal( expected, CotiSensorCrop.Pixels( full, fraction ) );
+    }
+
+    [Fact]
+    public void NoBoxesHaveNoUnion()
+    {
+        Assert.False( CotiSensorCrop.Union( new CotiCropBox[0], out _ ) );
+    }
+
+    [Fact]
+    public void OneBoxIsItsOwnUnion()
+    {
+        Assert.True( CotiSensorCrop.Union( new[] { new CotiCropBox( 0.2f, 0.1f, 0.4f, 0.5f ) }, out var box ) );
+
+        Assert.Equal( 0.2f, box.X, 4 );
+        Assert.Equal( 0.1f, box.Y, 4 );
+        Assert.Equal( 0.4f, box.Width, 4 );
+        Assert.Equal( 0.5f, box.Height, 4 );
+    }
+
+    [Fact]
+    public void TheUnionSpansEveryBox()
+    {
+        var a = new CotiCropBox( 0.1f, 0.3f, 0.2f, 0.2f );
+        var b = new CotiCropBox( 0.5f, 0.2f, 0.3f, 0.1f );
+
+        Assert.True( CotiSensorCrop.Union( new[] { a, b }, out var box ) );
+
+        Assert.Equal( 0.1f, box.X, 4 );
+        Assert.Equal( 0.2f, box.Y, 4 );
+        Assert.Equal( 0.7f, box.Width, 4 );
+        Assert.Equal( 0.3f, box.Height, 4 );
+    }
+
+    [Fact]
+    public void TheUnionIsClampedToTheScreen()
+    {
+        var a = new CotiCropBox( -0.2f, 0.1f, 0.5f, 0.5f );
+        var b = new CotiCropBox( 0.8f, 0.6f, 0.5f, 0.6f );
+
+        Assert.True( CotiSensorCrop.Union( new[] { a, b }, out var box ) );
+
+        Assert.Equal( 0f, box.X, 4 );
+        Assert.Equal( 0.1f, box.Y, 4 );
+        Assert.Equal( 1f, box.Width, 4 );
+        Assert.Equal( 0.9f, box.Height, 4 );
+    }
+
+    // Spec section 1's cost figures at 16:9: the inner pair's box is about a fifth larger than one tube's.
+    [Fact]
+    public void TheQuadsInnerPairGrowsTheBoxByAFifth()
+    {
+        var left = QuadTubeBox( CotiTubes.Tube1 );
+        var right = QuadTubeBox( CotiTubes.Tube2 );
+
+        Assert.True( CotiSensorCrop.Union( new[] { left, right }, out var box ) );
+
+        Assert.Equal( left.X, box.X, 4 );
+        Assert.Equal( right.X + right.Width, box.X + box.Width, 4 );
+        Assert.Equal( right.Y, box.Y, 4 );
+        Assert.Equal( right.Height, box.Height, 4 );
+        Assert.InRange( box.Width * box.Height / ( right.Width * right.Height ), 1.20f, 1.23f );
+    }
+
+    // Any outer tube makes the box reach the screen's edge: 40% of the screen with the home tube, 62% with all four.
+    [Fact]
+    public void AnOuterQuadTubeReachesTheScreensEdge()
+    {
+        Assert.True( CotiSensorCrop.Union(
+            new[] { QuadTubeBox( CotiTubes.Tube2 ), QuadTubeBox( CotiTubes.Tube3 ) }, out var pair ) );
+        Assert.Equal( 1f, pair.X + pair.Width, 4 );
+        Assert.InRange( pair.Width * pair.Height, 0.39f, 0.40f );
+
+        var all = new[] { CotiTubes.Tube0, CotiTubes.Tube1, CotiTubes.Tube2, CotiTubes.Tube3 }.Select( QuadTubeBox ).ToArray();
+        Assert.True( CotiSensorCrop.Union( all, out var four ) );
+        Assert.Equal( 0f, four.X, 4 );
+        Assert.Equal( 1f, four.Width, 4 );
+        Assert.InRange( four.Width * four.Height, 0.61f, 0.63f );
+    }
+
+    private static CotiCropBox QuadTubeBox( string label )
+    {
+        const float aspect = 16f / 9f;
+        var circle = CotiCircles.FromLayout( CotiLayouts.Quad.Find( label )!, aspect );
+        Assert.True( CotiSensorCrop.TryBox( circle.U, circle.V, circle.Radius, circle.Feather, aspect, out var box ) );
+        return box;
     }
 }

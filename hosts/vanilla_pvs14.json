@@ -9,9 +9,9 @@
     }
   ],
   "mask": {
-    "centerX": 0.5,
-    "centerY": 0.5,
-    "radius": 0.273,
+    "centerX": 0.5006,
+    "centerY": 0.4992,
+    "radius": 0.27359,
     "feather": 0.01
   },
   "mount": {
@@ -19,12 +19,30 @@
     "positionX": 0.015,
     "positionY": -0.024,
     "positionZ": 0.039,
-    "rotationX": -90.0,
-    "rotationY": 0.0,
-    "rotationZ": 0.0,
-    "rollDegrees": 104.0,
-    "pitchDegrees": 0.0,
-    "yawDegrees": 0.0,
+    "rotationX": -90,
+    "rotationY": 0,
+    "rotationZ": 0,
+    "rollDegrees": 104,
+    "pitchDegrees": 0,
+    "yawDegrees": 0,
     "scale": 1.16
+  },
+  "layout": "mono",
+  "tubes": {
+    "tube_center": {
+      "mount": {
+        "anchorBone": "",
+        "positionX": 0.015,
+        "positionY": -0.024,
+        "positionZ": 0.039,
+        "rotationX": -90,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": 104,
+        "pitchDegrees": 0,
+        "yawDegrees": 0,
+        "scale": 1.16
+      }
+    }
   }
 }

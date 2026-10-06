@@ -1,5 +1,6 @@
 using Coti.Shared;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Coti.Client.Dev;
 using UnityEngine;
@@ -58,6 +59,9 @@ namespace Coti.Client
     private static float _projectedAspect = float.NaN;
     private static CotiCropBox _projectedBox;
 
+    /// <summary>Reused every frame by FilledBox.</summary>
+    private static readonly List<CotiCropBox> FilledBoxes = new List<CotiCropBox>( CotiState.MaxTubes );
+
     private static bool _tuned;
     private static int _tunedHz;
     private static bool _tunedPixelated;
@@ -88,8 +92,8 @@ namespace Coti.Client
     internal static RenderTexture Output => _rt;
 
     /// <summary>
-    /// Where <see cref="Output"/> sits on screen: the box around the COTI's circle that this camera renders, in the
-    /// mask's UV. Its rows over the box's height give the full frame's, for anything sized per screen.
+    /// Where <see cref="Output"/> sits on screen: the box around the filled tubes' circles that this camera renders,
+    /// in viewport UV. Its rows over the box's height give the full frame's, for anything sized per screen.
     /// </summary>
     internal static CotiCropBox Box { get; private set; } = CotiCropBox.Whole;
 
@@ -299,13 +303,10 @@ namespace Coti.Client
       Follow( main );
       MirrorSettings( main );
 
-      // Only the circle is ever shown, so only a box around it is rendered: a sixth of the pixels for the GPNVG, and a
-      // narrower view that culls everything outside it.
-      var host = CotiState.Host;
-      CotiCropBox box;
-      if( host == null
-          || !CotiSensorCrop.TryBox( host.MaskCenterX, host.MaskCenterY, host.MaskRadius, host.MaskFeather, main.aspect, out box ) )
-        box = CotiCropBox.Whole;
+      // Only the circles are ever shown, so only a box around them is rendered: a sixth of the pixels for one COTI on the
+      // GPNVG, and a narrower view that culls everything outside it. Every filled tube's circle, lit or not, so a pod
+      // flip never resizes the target.
+      var box = FilledBox( main.aspect );
       Box = box;
 
       EnsureRenderTexture( cfg, box );
@@ -353,6 +354,22 @@ namespace Coti.Client
       _projectedFov = main.fieldOfView;
       _projectedAspect = main.aspect;
       _projectedBox = box;
+    }
+
+    /// <summary>The box around every filled tube's circle; the whole screen when there is none.</summary>
+    private static CotiCropBox FilledBox( float aspect )
+    {
+      FilledBoxes.Clear();
+      for( var i = 0; i < CotiState.FilledCount; i++ )
+      {
+        var circle = CotiState.FilledCircles[i];
+        CotiCropBox one;
+        if( CotiSensorCrop.TryBox( circle.U, circle.V, circle.Radius, circle.Feather, aspect, out one ) )
+          FilledBoxes.Add( one );
+      }
+
+      CotiCropBox box;
+      return CotiSensorCrop.Union( FilledBoxes, out box ) ? box : CotiCropBox.Whole;
     }
 
     private static void Follow( Camera main )

@@ -284,7 +284,7 @@ namespace Coti.Client
       if( root == null )
         return;
 
-      var anchor = Patches.CotiMountBonePatch.ResolveAnchor( root, _host );
+      var anchor = Patches.CotiMountBonePatch.ResolveAnchor( root, _host.MountAnchorBone );
       if( anchor == null )
         return;
 
@@ -432,32 +432,25 @@ namespace Coti.Client
           ? ( anchorOverride.Length == 0 ? null : anchorOverride )
           : mount.AnchorBone;
 
-      return new CotiDeviceFile
+      var baked = saved.Copy();
+      baked.Mount = new CotiMountBlock
       {
-        Schema = saved.Schema,
-        Device = saved.Device,
-        DisplayName = saved.DisplayName,
-        Requires = saved.Requires,
-        Tuned = saved.Tuned,
-        Hosts = saved.Hosts,
-        Mask = saved.Mask,
-        Mount = new CotiMountBlock
-        {
-          AnchorBone = anchorBone,
-          PositionX = mount.PositionX + position.x,
-          PositionY = mount.PositionY + position.y,
-          PositionZ = mount.PositionZ + position.z,
-          RotationX = mount.RotationX,
-          RotationY = mount.RotationY,
-          RotationZ = mount.RotationZ,
-          RollDegrees = mount.RollDegrees + rotation.z,
-          PitchDegrees = mount.PitchDegrees + rotation.x,
-          YawDegrees = mount.YawDegrees + rotation.y,
-          // Not clamped to CotiMountPose's MinimumScale: this is what Publish would write, and the
-          // clamp only applies when rendering.
-          Scale = mount.Scale + scale,
-        }
+        AnchorBone = anchorBone,
+        PositionX = mount.PositionX + position.x,
+        PositionY = mount.PositionY + position.y,
+        PositionZ = mount.PositionZ + position.z,
+        RotationX = mount.RotationX,
+        RotationY = mount.RotationY,
+        RotationZ = mount.RotationZ,
+        RollDegrees = mount.RollDegrees + rotation.z,
+        PitchDegrees = mount.PitchDegrees + rotation.x,
+        YawDegrees = mount.YawDegrees + rotation.y,
+        // Not clamped to CotiMountPose's MinimumScale: this is what Publish would write, and the
+        // clamp only applies when rendering.
+        Scale = mount.Scale + scale,
       };
+
+      return baked;
     }
 
     // ---- Nudging -----------------------------------------------------------------------------
@@ -537,17 +530,9 @@ namespace Coti.Client
       if( hostId == null || saved == null || current == null )
         return;
 
-      var device = new CotiDeviceFile
-      {
-        Schema = saved.Schema,
-        Device = saved.Device,
-        DisplayName = saved.DisplayName,
-        Requires = saved.Requires,
-        Tuned = true,
-        Hosts = saved.Hosts,
-        Mask = saved.Mask,
-        Mount = current.Mount,
-      };
+      var device = saved.Copy();
+      device.Tuned = true;
+      device.Mount = current.Mount;
 
       if( !SendPublish( device, hostId, OpenHostName ) )
         return;
@@ -573,17 +558,9 @@ namespace Coti.Client
       if( saved?.Mount == null )
         return false;
 
-      var device = new CotiDeviceFile
-      {
-        Schema = saved.Schema,
-        Device = saved.Device,
-        DisplayName = saved.DisplayName,
-        Requires = saved.Requires,
-        Tuned = true,
-        Hosts = saved.Hosts,
-        Mask = mask,
-        Mount = saved.Mount,
-      };
+      var device = saved.Copy();
+      device.Tuned = true;
+      device.Mask = mask;
 
       return SendPublish( device, hostId, saved.DisplayName ?? saved.Device ?? hostId );
     }
@@ -697,6 +674,13 @@ namespace Coti.Client
       CotiNvgHostConfig refreshed;
       if( !Plugin.Config.NvgHosts.TryGetValue( _hostId, out refreshed ) || refreshed == null )
         return;
+
+      // The host went multi-tube: the tuner edits the legacy mount, which would undo the home tube's own pose.
+      if( refreshed.Layout != null )
+      {
+        _bone = null;
+        return;
+      }
 
       _host = refreshed;
 

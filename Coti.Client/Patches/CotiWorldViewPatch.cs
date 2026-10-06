@@ -16,8 +16,6 @@ namespace Coti.Client.Patches
   /// </summary>
   public class CotiWorldViewPatch : ModulePatch
   {
-    private const string CotiModSlotName = CotiIds.ModSlotName;
-
     protected override MethodBase GetTargetMethod()
     {
       return EftCompat.CreateItemAsyncMethod();
@@ -68,7 +66,7 @@ namespace Coti.Client.Patches
 
       foreach( var bone in view.GetComponentsInChildren<Transform>( includeInactive: true ) )
       {
-        if( bone.name != CotiModSlotName )
+        if( !CotiTubes.IsCotiSlot( bone.name ) )
           continue;
 
         for( var i = 0; i < bone.childCount; i++ )
@@ -139,7 +137,7 @@ namespace Coti.Client.Patches
       {
         foreach( var container in EftCompat.Containers( containerCollection ) )
         {
-          if( container is Slot slot && slot.ID == CotiModSlotName )
+          if( container is Slot slot && CotiTubes.IsCotiSlot( slot.ID ) )
             return true;
         }
 

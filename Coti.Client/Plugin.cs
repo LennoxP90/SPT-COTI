@@ -85,6 +85,8 @@ namespace Coti.Client
       // time it looks and does not retry.
       TryEnable( nameof( CotiSlotIcon ), CotiSlotIcon.Install );
 
+#if SPT40
+      // The in-game editor, 4.0 only: the web viewer at /coti/model is the editor everywhere else.
       // The pose editor's only entry point. See CotiInspectButton for the redraw lifecycle it
       // cooperates with.
       TryEnable( nameof( CotiInspectButton ), CotiInspectButton.Install );
@@ -99,6 +101,7 @@ namespace Coti.Client
       // [Conditional(COTI_DEV)], compiled out of Release. Verifies the accessors above resolve
       // against the assemblies this build loaded.
       CotiInspectButtonProbe.Run();
+#endif
 
       Log.LogInfo( "[COTI] Initialised" );
     }
@@ -134,14 +137,14 @@ namespace Coti.Client
       CotiThermalCamera.Teardown();
       CotiOpticThermalCamera.Teardown();
       CotiOpticOverlayCompositor.Teardown();
+#if SPT40
       CotiTunerPreview.Teardown();
+#endif
       CotiDisplayText.Teardown();
 
       // Unconditional Detach rather than Sync(): the config still reports the mode as enabled
       // here, so Sync would re-attach the buffer being torn down.
       CotiOverlayCompositor.Detach();
-
-      MaskGenerator.Release();
     }
 
     private void Update()
@@ -155,22 +158,25 @@ namespace Coti.Client
       // gets its own once-only log.
       ApplyPendingHostTable();
 
+#if SPT40
       // Ahead of the try/catch below: this restores game UI input, so an exception elsewhere in
       // the frame must not skip it.
       CotiUiBlocker.Tick();
+#endif
 
       try
       {
-        // First: everything below is raid-oriented and can throw in the menu, which is where the
-        // mount is tuned. CotiDevTools.Tick is compiled out of Release, call included;
-        // CotiPoseTuner.Tick handles the keyboard shortcut and always runs.
+        // First: everything below is raid-oriented and can throw in the menu. CotiDevTools.Tick is
+        // compiled out of Release, call included.
         CotiDevTools.Tick();
+#if SPT40
+        // The in-game editor. CotiPoseTuner.Tick handles the keyboard shortcut and always runs; the
+        // preview camera no-ops while CotiPoseTuner.IsOpen is false, so it costs nothing for a
+        // player who never opens the panel.
         CotiPoseTuner.Tick();
         CotiMaskPanel.Tick();
-
-        // The pose editor's preview camera. It no-ops while CotiPoseTuner.IsOpen is false, so it
-        // costs nothing for a player who never opens the panel.
         CotiTunerPreview.Tick();
+#endif
 
         // Before state resolution: the toggle feeds into activation.
         CotiPowerToggle.Tick();
@@ -230,9 +236,11 @@ namespace Coti.Client
       var hostNvgOn = tube != null
           ? tube.On
           : ( nvgComponent?.Togglable?.On ?? false );
-      var cotiAttached = CotiEquippedCoti.IsAttached( hostItem );
+      // Which slots hold a COTI comes from a cache the inventory patch invalidates; only the pods are read every frame.
+      var filled = CotiEquippedCoti.FilledSlots( hostItem );
+      var lit = CotiPodWatch.LitSlots( hostTemplateId, filled );
 
-      CotiState.Update( hostTemplateId, cotiAttached, hostNvgOn );
+      CotiState.Update( hostTemplateId, filled, lit, hostNvgOn );
 
       // Nothing further. The second-camera path owns thermal rendering, and nothing may switch
       // ThermalVision on for Camera.main: that raises the global _ThermalVisionOn across the
@@ -264,6 +272,7 @@ namespace Coti.Client
       }
     }
 
+#if SPT40
     /// <summary>
     /// The pose editor's panel. IMGUI only draws from OnGUI, which Unity calls several times a
     /// frame independently of Update. CotiTunerPanel.Draw does nothing unless the panel is open.
@@ -276,5 +285,6 @@ namespace Coti.Client
       CotiTunerPanel.Draw();
       CotiMaskPanel.Draw();
     }
+#endif
   }
 }

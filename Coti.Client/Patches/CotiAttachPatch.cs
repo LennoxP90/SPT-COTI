@@ -18,8 +18,6 @@ namespace Coti.Client.Patches
   /// </summary>
   public class CotiAttachPatch : ModulePatch
   {
-    private const string CotiModSlotName = CotiIds.ModSlotName;
-
     protected override MethodBase GetTargetMethod()
     {
       return EftCompat.InsertItemMethod();
@@ -37,7 +35,7 @@ namespace Coti.Client.Patches
         return;
 
       var bone = itemView.transform.parent;
-      if( bone == null || bone.name != CotiModSlotName )
+      if( bone == null || !CotiTubes.IsCotiSlot( bone.name ) )
         return;
 
       // Match the goggles' own visibility - see CotiDressMirror. The host already knows whether it

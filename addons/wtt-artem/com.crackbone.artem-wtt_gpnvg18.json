@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "device": "com.crackbone.artem-wtt_gpnvg18",
+  "displayName": "GPNVG-18 (Artem)",
+  "requires": "com.crackbone.artem-wtt",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "66326bfd46817c660d01512e",
+      "prefab": "artemgpnvgwhite.bundle",
+      "label": "White"
+    },
+    {
+      "id": "66326bfd46817c660d015148",
+      "prefab": "artemgpnvgod.bundle",
+      "label": "OD"
+    },
+    {
+      "id": "66326bfd46817c660d015146",
+      "prefab": "artemgpnvgblack.bundle",
+      "label": "Black"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5371,
+    "centerY": 0.4992,
+    "radius": 0.28506,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "axis",
+    "positionX": 0.027,
+    "positionY": -0.037,
+    "positionZ": -0.075,
+    "rotationX": -90,
+    "rotationY": 0,
+    "rotationZ": 0,
+    "rollDegrees": 6,
+    "pitchDegrees": 90,
+    "yawDegrees": 2,
+    "scale": 1.46
+  },
+  "layout": "quad",
+  "tubes": {
+    "tube_0": {
+      "mount": {
+        "anchorBone": "axis",
+        "positionX": -0.0881,
+        "positionY": -0.0209,
+        "positionZ": -0.0749,
+        "rotationX": -89,
+        "rotationY": -27,
+        "rotationZ": 0,
+        "rollDegrees": -43,
+        "pitchDegrees": 89.1,
+        "yawDegrees": -41.7,
+        "scale": 1.46
+      },
+      "text": {
+        "align": "center"
+      }
+    },
+    "tube_1": {
+      "mount": {
+        "anchorBone": "axis",
+        "positionX": -0.027,
+        "positionY": -0.037,
+        "positionZ": -0.075,
+        "rotationX": -90,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": -6,
+        "pitchDegrees": 90,
+        "yawDegrees": -2,
+        "scale": 1.46
+      },
+      "text": {
+        "align": "right",
+        "edge": 0.15
+      }
+    },
+    "tube_2": {
+      "mount": {
+        "anchorBone": "axis",
+        "positionX": 0.027,
+        "positionY": -0.037,
+        "positionZ": -0.075,
+        "rotationX": -90,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": 6,
+        "pitchDegrees": 90,
+        "yawDegrees": 2,
+        "scale": 1.46
+      },
+      "text": {
+        "align": "left",
+        "edge": 0.15
+      }
+    },
+    "tube_3": {
+      "mount": {
+        "anchorBone": "axis",
+        "positionX": 0.0881,
+        "positionY": -0.0209,
+        "positionZ": -0.0749,
+        "rotationX": -89,
+        "rotationY": 27,
+        "rotationZ": 0,
+        "rollDegrees": 43,
+        "pitchDegrees": 89.1,
+        "yawDegrees": 41.7,
+        "scale": 1.46
+      },
+      "text": {
+        "align": "center"
+      }
+    }
+  }
+}

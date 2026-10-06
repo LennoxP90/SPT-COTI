@@ -7,11 +7,11 @@ public class CotiAttachCacheTests
 {
     private sealed class Host
     {
-        public readonly bool Attached;
+        public readonly int Slots;
 
-        public Host( bool attached = true )
+        public Host( int slots = 1 )
         {
-            Attached = attached;
+            Slots = slots;
         }
 
         // Equal to every other Host: the cache keys on reference identity, and this makes an
@@ -28,7 +28,7 @@ public class CotiAttachCacheTests
         return new CotiAttachCache<Host>( host =>
         {
             counter[0]++;
-            return host != null && host.Attached;
+            return host == null ? 0 : host.Slots;
         } );
     }
 
@@ -38,7 +38,7 @@ public class CotiAttachCacheTests
         int[] calls;
         var cache = Cache( out calls );
 
-        Assert.True( cache.Read( new Host() ) );
+        Assert.Equal( 1, cache.Read( new Host() ) );
         Assert.Equal( 1, calls[0] );
     }
 
@@ -61,10 +61,22 @@ public class CotiAttachCacheTests
     {
         int[] calls;
         var cache = Cache( out calls );
-        var host = new Host( attached: true );
+        var host = new Host( 1 );
 
-        Assert.True( cache.Read( host ) );
-        Assert.True( cache.Read( host ) );
+        Assert.Equal( 1, cache.Read( host ) );
+        Assert.Equal( 1, cache.Read( host ) );
+    }
+
+    [Fact]
+    public void EverySlotBitSurvivesTheCache()
+    {
+        int[] calls;
+        var cache = Cache( out calls );
+        var host = new Host( 0b1011 );
+
+        Assert.Equal( 0b1011, cache.Read( host ) );
+        Assert.Equal( 0b1011, cache.Read( host ) );
+        Assert.Equal( 1, calls[0] );
     }
 
     [Fact]
@@ -116,8 +128,8 @@ public class CotiAttachCacheTests
         int[] calls;
         var cache = Cache( out calls );
 
-        Assert.False( cache.Read( null ) );
-        Assert.False( cache.Read( null ) );
+        Assert.Equal( 0, cache.Read( null ) );
+        Assert.Equal( 0, cache.Read( null ) );
 
         Assert.Equal( 1, calls[0] );
     }
@@ -129,7 +141,7 @@ public class CotiAttachCacheTests
         var cache = Cache( out calls );
 
         cache.Read( new Host() );
-        Assert.False( cache.Read( null ) );
+        Assert.Equal( 0, cache.Read( null ) );
 
         Assert.Equal( 2, calls[0] );
     }
@@ -147,14 +159,14 @@ public class CotiAttachCacheTests
     }
 
     [Fact]
-    public void AHostWithNothingAttachedReadsFalseAndStaysCached()
+    public void AHostWithNothingAttachedReadsZeroAndStaysCached()
     {
         int[] calls;
         var cache = Cache( out calls );
-        var host = new Host( attached: false );
+        var host = new Host( 0 );
 
-        Assert.False( cache.Read( host ) );
-        Assert.False( cache.Read( host ) );
+        Assert.Equal( 0, cache.Read( host ) );
+        Assert.Equal( 0, cache.Read( host ) );
 
         Assert.Equal( 1, calls[0] );
     }

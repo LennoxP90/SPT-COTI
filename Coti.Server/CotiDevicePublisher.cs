@@ -39,16 +39,24 @@ public class CotiDevicePublisher(
       return new CotiPublishResultDto { Ok = false, Error = writeError };
     }
 
-    // Every host the published device declares. InjectInto is idempotent and logs its own
-    // detail; the outcome is tracked here only to report the failing hosts back to the caller.
+    // Logged here, not by the Reload below: TryWrite saves the cleaned device, so the reload never
+    // sees what validation dropped.
+    foreach( var warning in merged.Warnings )
+      logger.Warning( $"[COTI] {publishedBy}'s publish of \"{device.Device}\": {warning}" );
+
+    // From the merge result: its validation decides whether this is a multi-tube device, and so
+    // which slots the hosts get.
+    var layout = CotiSlotInjector.LayoutOf( merged.Devices[0] );
     var unfitHosts = new List<string>();
 
+    // Every host the published device declares. InjectInto is idempotent and logs its own
+    // detail; the outcome is tracked here only to report the failing hosts back to the caller.
     foreach( var host in device.Hosts )
     {
       if( host?.Id == null )
         continue;
 
-      var outcome = slotInjector.InjectInto( host.Id, device.DisplayName ?? device.Device ?? host.Id );
+      var outcome = slotInjector.InjectInto( host.Id, device.DisplayName ?? device.Device ?? host.Id, layout );
 
       if( outcome == CotiInjectOutcome.InvalidId || outcome == CotiInjectOutcome.NoSlotsCollection )
         unfitHosts.Add( $"{host.Id}: {outcome}" );

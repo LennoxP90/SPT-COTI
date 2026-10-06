@@ -214,3 +214,67 @@ button.mini:active { background: #d9772a; border-color: #d9772a; color: #14181d;
 }
 
 .coti-views button:hover { background: #2c3644; }
+
+.coti-frame button:disabled { opacity: .45; cursor: default; }
+
+/* A tube with no pose of its own yet; in game it mounts at the legacy mount. */
+.coti-steps button.unposed { border-style: dashed; }
+
+/* The game-sized screen, over the top left corner of the 3D view. */
+.coti-screen {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  width: 340px;
+  font: 12px/1.4 system-ui, "Segoe UI", sans-serif;
+}
+
+.coti-screen.big { width: min(92%, 1280px); }
+
+.coti-screen canvas {
+  width: 100%;
+  height: auto;
+  border: 1px solid #262d36;
+  border-radius: 6px;
+  cursor: zoom-in;
+}
+
+.coti-screen.big canvas { cursor: zoom-out; }
+.coti-screen .coti-steps { margin-top: 5px; }
+
+/* Which tubes' COTIs are drawn, over the top right corner of the 3D view. */
+.coti-tubevis {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 2;
+  padding: 8px 11px 6px;
+  background: rgba(23, 28, 35, .9);
+  border: 1px solid #262d36;
+  border-radius: 6px;
+  font: 12px/1.4 system-ui, "Segoe UI", sans-serif;
+}
+
+.coti-tubevis .coti-sec-h { margin-bottom: 6px; }
+.coti-tubevis .coti-check { margin-bottom: 3px; }
+
+/* Pose controls of a file without a layout, until a type is picked. */
+.coti-edit button:disabled, .coti-select:disabled { opacity: .45; cursor: default; }
+
+/* The inspector shows only the selected item's sections; a hidden one stays hidden whatever its display. */
+.coti-remote [hidden] { display: none !important; }
+
+.coti-device .coti-readout { text-align: left; margin-top: 11px; }
+
+.coti-field {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.coti-edit input:disabled { opacity: .45; }
+
+.coti-screen .coti-steps button { padding: 4px 0; }

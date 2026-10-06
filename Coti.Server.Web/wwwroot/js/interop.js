@@ -12,14 +12,16 @@ function ensureStylesheet(version) {
   document.head.appendChild(link);
 }
 
-export async function start(root, hostsJson, hostId, dotNetRef, version) {
+export async function start(viewport, panel, hostsJson, hostId, dotNetRef, version) {
   // Versioned to defeat the browser cache.
   const { CotiViewer } = await import(`/coti-assets/js/cotiViewer.js?v=${version}`);
   ensureStylesheet(version);
   dotNet = dotNetRef;
-  viewer = new CotiViewer(root, JSON.parse(hostsJson),
-    dirty => dotNet?.invokeMethodAsync('OnDirty', dirty),
-    preset => dotNet?.invokeMethodAsync('OnMask', preset));
+  viewer = new CotiViewer(viewport, panel, JSON.parse(hostsJson), {
+    onDirty: dirty => dotNet?.invokeMethodAsync('OnDirty', dirty),
+    onSelect: selected => dotNet?.invokeMethodAsync('OnSelect', selected),
+    mirror: (mountJson, anchor) => dotNet.invokeMethodAsync('Mirror', mountJson, anchor),
+  });
   await viewer.setHost(hostId);
   // Debug handle.
   window.__coti = viewer;
@@ -29,13 +31,19 @@ export async function setHost(hostId) {
   if (viewer) await viewer.setHost(hostId);
 }
 
-export function getMount() {
-  return JSON.stringify(viewer ? viewer.getMount() : {});
+// The Type selector changed the layout in use; the device is not saved yet.
+export function setLayout(viewJson) { viewer?.setLayout(JSON.parse(viewJson)); }
+
+// After a save or a revert the table is sent again, so every variant of the device matches the server.
+export function refreshHosts(hostsJson, hostId) { viewer?.refreshHosts(JSON.parse(hostsJson), hostId); }
+
+export function getMounts() {
+  return JSON.stringify(viewer ? viewer.getMounts() : {});
 }
 
-export function revert() { viewer?.revert(); }
-
-export function markSaved() { viewer?.markSaved(); }
+export function getTexts() {
+  return JSON.stringify(viewer ? viewer.getTexts() : {});
+}
 
 export function stop() {
   viewer?.dispose?.();

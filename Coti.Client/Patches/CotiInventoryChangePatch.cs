@@ -27,6 +27,7 @@ namespace Coti.Client.Patches
       // the next frame after an inventory event, whereas a predicate that misses one leaves the
       // device inert with nothing in the log to say why.
       CotiEquippedCoti.Invalidate();
+      CotiPodWatch.Invalidate();
     }
   }
 }

@@ -303,6 +303,9 @@ namespace Coti.Client
       // The magnified heat is rendered full-frame; the copy may carry the 1x path's crop box from the shared material.
       _material.SetVector( Shader.PropertyToID( "_ThermalRect" ), new Vector4( 0f, 0f, 1f, 1f ) );
 
+      // And its circles: with none the shader reads this copy's white _MaskTex, so the lens alone bounds the heat.
+      _material.SetFloat( Shader.PropertyToID( "_CircleCount" ), 0f );
+
       // The lens samples the heat past its edges and clamps; a black frame keeps that from streaking an outline that
       // touches the edge out across the screen.
       _material.SetFloat( Shader.PropertyToID( "_BlackFrame" ), 1f );

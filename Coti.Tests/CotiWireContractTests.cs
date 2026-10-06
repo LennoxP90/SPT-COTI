@@ -227,4 +227,240 @@ public class CotiWireContractTests
         Assert.Equal(2f, got.Mount.YawDegrees);
         Assert.Equal(1.46f, got.Mount.Scale);
     }
+
+    private static CotiDeviceFile MultiTube()
+    {
+        var d = Sample();
+        d.Layout = "quad";
+        d.Tubes = new Dictionary<string, CotiTube>
+        {
+            ["tube_1"] = new CotiTube
+            {
+                Mount = new CotiMountBlock
+                {
+                    AnchorBone = "axis_3",
+                    PositionX = -0.007f, PositionY = -0.0435f, PositionZ = -0.0525f,
+                    RotationX = 1f, RotationY = 2f, RotationZ = 3f,
+                    RollDegrees = 4f, PitchDegrees = 5f, YawDegrees = -28f, Scale = 1.518f,
+                },
+                Pod = new CotiPodBlock { Bone = "axis_3", DownX = -33f, DownY = 1.5f, DownZ = -2.5f },
+                Text = new CotiTextBlock { Align = "left", Edge = 0.7f, Y = 0.05f },
+            },
+            ["tube_2"] = new CotiTube { Mount = new CotiMountBlock { AnchorBone = "axis_2", PositionX = 0.007f, Scale = 1.518f } },
+        };
+        return d;
+    }
+
+    private static void AssertSameTubes(CotiDeviceFile want, CotiDeviceFile got)
+    {
+        Assert.Equal(want.Layout, got.Layout);
+        Assert.Equal(want.Tubes!.Keys.OrderBy(k => k).ToArray(), got.Tubes!.Keys.OrderBy(k => k).ToArray());
+
+        foreach (var (label, tube) in want.Tubes)
+        {
+            var m = got.Tubes[label].Mount;
+            Assert.Equal(tube.Mount.AnchorBone, m.AnchorBone);
+            Assert.Equal(tube.Mount.PositionX, m.PositionX);
+            Assert.Equal(tube.Mount.PositionY, m.PositionY);
+            Assert.Equal(tube.Mount.PositionZ, m.PositionZ);
+            Assert.Equal(tube.Mount.RotationX, m.RotationX);
+            Assert.Equal(tube.Mount.RotationY, m.RotationY);
+            Assert.Equal(tube.Mount.RotationZ, m.RotationZ);
+            Assert.Equal(tube.Mount.RollDegrees, m.RollDegrees);
+            Assert.Equal(tube.Mount.PitchDegrees, m.PitchDegrees);
+            Assert.Equal(tube.Mount.YawDegrees, m.YawDegrees);
+            Assert.Equal(tube.Mount.Scale, m.Scale);
+
+            var pod = got.Tubes[label].Pod;
+            Assert.Equal(tube.Pod is null, pod is null);
+            Assert.Equal(tube.Pod?.Bone, pod?.Bone);
+            Assert.Equal(tube.Pod?.DownX, pod?.DownX);
+            Assert.Equal(tube.Pod?.DownY, pod?.DownY);
+            Assert.Equal(tube.Pod?.DownZ, pod?.DownZ);
+
+            var text = got.Tubes[label].Text;
+            Assert.Equal(tube.Text is null, text is null);
+            Assert.Equal(tube.Text?.Align, text?.Align);
+            Assert.Equal(tube.Text?.Edge, text?.Edge);
+            Assert.Equal(tube.Text?.Y, text?.Y);
+        }
+    }
+
+    [Fact]
+    public void TubesCrossFromServerToClientWithNothingLost()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new ServerTable { Devices = { ServerDto.FromShared(MultiTube()) } });
+
+        var got = Newtonsoft.Json.JsonConvert.DeserializeObject<ClientTable>(json)!.Devices.Single().ToShared();
+
+        AssertSameTubes(MultiTube(), got);
+    }
+
+    [Fact]
+    public void TubesCrossFromClientToServerWithNothingLost()
+    {
+        var json = Newtonsoft.Json.JsonConvert.SerializeObject(ClientDto.FromShared(MultiTube()));
+
+        var got = System.Text.Json.JsonSerializer.Deserialize<ServerDto>(json)!.ToShared();
+
+        AssertSameTubes(MultiTube(), got);
+    }
+
+    [Fact]
+    public void TheClientHalfKeepsANullTubeAndAnUnposedTubeNullForValidationToDrop()
+    {
+        // The 4.0 tuner publishes a copy of the last applied device, which may hold either.
+        var device = MultiTube();
+        device.Tubes!["tube_0"] = null!;
+        device.Tubes["tube_2"].Mount = null!;
+
+        var tubes = ClientDto.FromShared(device).Tubes!;
+
+        Assert.Null(tubes["tube_0"]);
+        Assert.Null(tubes["tube_2"]!.Mount);
+        Assert.Equal("axis_3", tubes["tube_1"]!.Mount!.AnchorBone);
+    }
+
+    [Fact]
+    public void AV1DeviceWritesNoLayoutOrTubesFromEitherHalf()
+    {
+        // A v1 device keeps 3.2.0's shape on the wire and in files, whatever options the writer uses.
+        var fromServer = System.Text.Json.JsonSerializer.Serialize(ServerDto.FromShared(Sample()));
+        var fromClient = Newtonsoft.Json.JsonConvert.SerializeObject(ClientDto.FromShared(Sample()));
+
+        foreach (var json in new[] { fromServer, fromClient })
+        {
+            Assert.DoesNotContain("\"layout\"", json);
+            Assert.DoesNotContain("\"tubes\"", json);
+            Assert.DoesNotContain("\"text\"", json);
+        }
+    }
+
+    [Fact]
+    public void ATubeWithoutATextBlockWritesNoTextKey()
+    {
+        var device = MultiTube();
+        device.Tubes!.Remove("tube_1");
+
+        var fromServer = System.Text.Json.JsonSerializer.Serialize(ServerDto.FromShared(device));
+        var fromClient = Newtonsoft.Json.JsonConvert.SerializeObject(ClientDto.FromShared(device));
+
+        foreach (var json in new[] { fromServer, fromClient })
+        {
+            Assert.Contains("\"tube_2\"", json);
+            Assert.DoesNotContain("\"text\"", json);
+        }
+    }
+
+    /// <summary>
+    /// A text block writes only the fields it sets, from either half, so a file keeps only what differs from the rule;
+    /// a v1 device's top-level block crosses both ways.
+    /// </summary>
+    [Fact]
+    public void ATextBlockWritesOnlyItsOwnFieldsAndCrossesBothWays()
+    {
+        var device = Sample();
+        device.Text = new CotiTextBlock { Y = -0.1f };
+
+        var fromServer = System.Text.Json.JsonSerializer.Serialize(ServerDto.FromShared(device));
+        var fromClient = Newtonsoft.Json.JsonConvert.SerializeObject(ClientDto.FromShared(device));
+
+        foreach (var json in new[] { fromServer, fromClient })
+        {
+            Assert.Contains("\"text\"", json);
+            Assert.Contains("\"y\"", json);
+            Assert.DoesNotContain("\"align\"", json);
+            Assert.DoesNotContain("\"edge\"", json);
+        }
+
+        var toClient = Newtonsoft.Json.JsonConvert.DeserializeObject<ClientDto>(fromServer)!.ToShared();
+        var toServer = System.Text.Json.JsonSerializer.Deserialize<ServerDto>(fromClient)!.ToShared();
+
+        foreach (var got in new[] { toClient, toServer })
+        {
+            Assert.Null(got.Text!.Align);
+            Assert.Null(got.Text.Edge);
+            Assert.Equal(-0.1f, got.Text.Y);
+        }
+    }
+
+    [Fact]
+    public void EveryTubeWireNameIsLowerCamelCase()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(ServerDto.FromShared(MultiTube()));
+
+        foreach (var name in new[] { "layout", "tubes", "tube_1", "tube_2", "mount", "pod", "bone", "downX", "downY", "downZ",
+                                     "text", "align", "edge", "y" })
+            Assert.Contains("\"" + name + "\"", json);
+    }
+
+    [Fact]
+    public void AHandAuthoredMultiTubeFileParsesInBothHalves()
+    {
+        const string json = """
+        {
+          "schema": 1,
+          "device": "com.c11.truenorth4_dtnvs",
+          "displayName": "DTNVS",
+          "tuned": true,
+          "hosts": [ { "id": "111" } ],
+          "mask": { "centerX": 0.5353, "centerY": 0.4991, "radius": 0.27362, "feather": 0.01 },
+          "mount": { "anchorBone": "axis_2", "scale": 1.065 },
+          "layout": "dual",
+          "tubes": {
+            "tube_1": {
+              "mount": { "anchorBone": "axis_1", "positionX": -0.0005, "scale": 1.065 },
+              "pod": { "downX": -90.0, "downY": 0.0, "downZ": 0.0 }
+            },
+            "tube_2": {
+              "mount": { "anchorBone": "axis_2", "positionX": 0.0005, "scale": 1.065 },
+              "pod": { "bone": "axis_2", "downX": -90.0, "downY": 0.0, "downZ": 0.0 },
+              "text": { "align": "right", "edge": 0.55, "y": 0.1 }
+            }
+          }
+        }
+        """;
+
+        var fromServer = System.Text.Json.JsonSerializer.Deserialize<ServerDto>(json)!.ToShared();
+        var fromClient = Newtonsoft.Json.JsonConvert.DeserializeObject<ClientDto>(json)!.ToShared();
+
+        foreach (var got in new[] { fromServer, fromClient })
+        {
+            Assert.Equal("dual", got.Layout);
+            Assert.Equal("axis_1", got.Tubes!["tube_1"].Mount.AnchorBone);
+            Assert.Equal(-0.0005f, got.Tubes["tube_1"].Mount.PositionX);
+            Assert.Null(got.Tubes["tube_1"].Pod!.Bone);
+            Assert.Equal(-90f, got.Tubes["tube_1"].Pod!.DownX);
+            Assert.Equal("axis_2", got.Tubes["tube_2"].Pod!.Bone);
+            Assert.Equal(1.065f, got.Tubes["tube_2"].Mount.Scale);
+            Assert.Null(got.Tubes["tube_1"].Text);
+            Assert.Equal("right", got.Tubes["tube_2"].Text!.Align);
+            Assert.Equal(0.55f, got.Tubes["tube_2"].Text!.Edge);
+            Assert.Equal(0.1f, got.Tubes["tube_2"].Text!.Y);
+        }
+    }
+
+    /// <summary>
+    /// A tube with no mount must not become a default mount at the anchor's origin. Both halves pass the null through
+    /// and the shared validation drops that tube with a warning, keeping the device.
+    /// </summary>
+    [Theory]
+    [InlineData("""{ "tube_1": null, "tube_2": { "mount": { "anchorBone": "axis_2" } } }""")]
+    [InlineData("""{ "tube_1": { "pod": { "downX": -90.0 } }, "tube_2": { "mount": { "anchorBone": "axis_2" } } }""")]
+    public void ATubeWithNoMountConvertsAndIsThenDroppedByValidation(string tubes)
+    {
+        var json = """{ "schema": 1, "device": "x", "displayName": "X", "hosts": [ { "id": "111" } ], "mask": { "radius": 0.27 }, "mount": {}, "layout": "dual", "tubes": """ + tubes + " }";
+
+        var fromServer = System.Text.Json.JsonSerializer.Deserialize<ServerDto>(json)!.ToShared();
+        var fromClient = Newtonsoft.Json.JsonConvert.DeserializeObject<ClientDto>(json)!.ToShared();
+
+        foreach (var device in new[] { fromServer, fromClient })
+        {
+            var merged = CotiDeviceMerge.Merge(new[] { new CotiParsedFile { Path = "<published>", Device = device } });
+
+            var kept = Assert.Single(merged.Devices);
+            Assert.Equal(new[] { "tube_2" }, kept.Tubes!.Keys.ToArray());
+            Assert.Contains(merged.Warnings, w => w.Contains("tube_1"));
+        }
+    }
 }

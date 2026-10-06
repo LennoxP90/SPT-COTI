@@ -9,9 +9,13 @@ namespace Coti.Client
   /// </summary>
   public static class CotiMountPose
   {
-    public static void Apply( Transform bone, CotiNvgHostConfig host )
+    /// <summary>One tube's mount, with no tuning. A null mount leaves the bone on its anchor.</summary>
+    public static void Apply( Transform bone, CotiMountBlock mount )
     {
-      Apply( bone, host, Vector3.zero, Vector3.zero, 0f );
+      if( bone == null )
+        return;
+
+      Set( bone, CotiMountTransform.Compute( mount ) );
     }
 
     public static void Apply( Transform bone, CotiNvgHostConfig host, Vector3 positionDelta, Vector3 rotationDelta, float scaleDelta )
@@ -19,12 +23,15 @@ namespace Coti.Client
       if( bone == null )
         return;
 
-      var pose = CotiMountTransform.Compute(
+      Set( bone, CotiMountTransform.Compute(
           host?.ToMountBlock(),
           new CotiVec3( positionDelta.x, positionDelta.y, positionDelta.z ),
           new CotiVec3( rotationDelta.x, rotationDelta.y, rotationDelta.z ),
-          scaleDelta );
+          scaleDelta ) );
+    }
 
+    private static void Set( Transform bone, CotiPose pose )
+    {
       bone.localPosition = new Vector3( pose.Position.X, pose.Position.Y, pose.Position.Z );
       bone.localRotation = new Quaternion( pose.Rotation.X, pose.Rotation.Y, pose.Rotation.Z, pose.Rotation.W );
       bone.localScale = new Vector3( pose.Scale, pose.Scale, pose.Scale );

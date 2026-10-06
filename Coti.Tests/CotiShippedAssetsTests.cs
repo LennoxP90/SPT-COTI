@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using Coti.Shared;
@@ -44,6 +45,22 @@ public class CotiShippedAssetsTests
         var bytes = File.ReadAllBytes( Path.Combine( RepoRoot(), "textures", file ) );
 
         Assert.Equal( new byte[] { 0x89, 0x50, 0x4E, 0x47 }, bytes.Take( 4 ).ToArray() );
+    }
+
+    // Cropped to their letters with a 2 px pad: each copy on screen is sized from the image's own texels,
+    // so a stray border would push the copies on neighbouring tubes into each other.
+    [Theory]
+    [InlineData( "coti_text_initializing.png", 530, 96 )]
+    [InlineData( "coti_text_power_off.png", 535, 86 )]
+    [InlineData( "coti_text_mode_outline.png", 337, 86 )]
+    [InlineData( "coti_text_mode_full.png", 176, 86 )]
+    public void MessageImagesAreCroppedToTheirLetters( string file, int width, int height )
+    {
+        var bytes = File.ReadAllBytes( Path.Combine( RepoRoot(), "textures", file ) );
+
+        // The IHDR chunk: width and height, big-endian, at bytes 16 and 20.
+        Assert.Equal( width, BinaryPrimitives.ReadInt32BigEndian( bytes.AsSpan( 16, 4 ) ) );
+        Assert.Equal( height, BinaryPrimitives.ReadInt32BigEndian( bytes.AsSpan( 20, 4 ) ) );
     }
 
     // Without a readable lamps.json no lamp shows heat at all.

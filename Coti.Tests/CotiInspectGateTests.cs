@@ -57,4 +57,30 @@ public class CotiInspectGateTests
 
         Assert.True( CotiInspectGateResolver.HasFilledSlot( slots, "mod_coti" ) );
     }
+
+    [Fact]
+    public void AFilledCotiSlotOtherThanModCotiCounts()
+    {
+        var slots = new[]
+        {
+            new CotiSlotSnapshot( "mod_coti", false ),
+            new CotiSlotSnapshot( "mod_coti_1", true ),
+        };
+
+        Assert.True( CotiInspectGateResolver.HasFilledCotiSlot( slots ) );
+    }
+
+    [Fact]
+    public void EmptyCotiSlotsAndFilledOtherSlotsDoNotCount()
+    {
+        var slots = new[]
+        {
+            new CotiSlotSnapshot( "mod_nvg", true ),
+            new CotiSlotSnapshot( "mod_coti", false ),
+            new CotiSlotSnapshot( "mod_coti_0", false ),
+            new CotiSlotSnapshot( "mod_coti_2", true ),
+        };
+
+        Assert.False( CotiInspectGateResolver.HasFilledCotiSlot( slots ) );
+    }
 }

@@ -44,7 +44,7 @@ namespace Coti.Client
     public const float MaxRadius = 1f;
 
     /// <summary>
-    /// Zero is allowed: MaskGeometry.ComputeCoverage treats a feather of zero as a hard-edged circle.
+    /// Zero is allowed: the overlay shader treats a feather of zero as a hard-edged circle.
     /// </summary>
     public const float MinFeather = 0f;
 

@@ -49,8 +49,8 @@ public class CotiMaskNudgeTests
     [Fact]
     public void FeatherCanReachExactlyZeroBecauseAHardEdgeIsLegitimate()
     {
-        // MaskGeometry.ComputeCoverage treats feather <= 0 as a hard cut, so unlike radius, zero
-        // is a valid value.
+        // The overlay shader treats feather <= 0 as a hard cut, so unlike radius, zero is a valid
+        // value.
         var mask = Gpnvg();
         for (var i = 0; i < 500; i++)
             mask = CotiMaskNudge.Nudge(mask, CotiMaskAxis.Feather, -1, fine: false);

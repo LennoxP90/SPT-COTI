@@ -275,4 +275,62 @@ public class CotiHostResolverTests
 
         Assert.True(r.ByHostId.ContainsKey("111"));
     }
+
+    private static CotiDeviceFile MultiTube()
+    {
+        var d = Device("chimera", null, new CotiHostRef { Id = "111", Prefab = "chimera.bundle" });
+        d.Layout = "quad";
+        d.Tubes = new Dictionary<string, CotiTube>
+        {
+            ["tube_1"] = new CotiTube
+            {
+                Mount = new CotiMountBlock { AnchorBone = "axis_3", PositionX = -0.007f, Scale = 1.518f },
+                Pod = new CotiPodBlock { Bone = "axis_3", DownX = -33f },
+                Text = new CotiTextBlock { Align = "left", Y = 0.1f },
+            },
+        };
+        return d;
+    }
+
+    [Fact]
+    public void ResolvedDevicesKeepTheLayoutAndTubes()
+    {
+        // GET /coti/hosts, the viewer's save and the addon export all read ResolvedDevices, so a field the wire copy
+        // drops is lost from all three.
+        var items = new FakeItems();
+        items.Items["111"] = ("chimera.bundle", "nv");
+
+        var r = CotiHostResolver.Resolve(Merged(MultiTube()), items, new HashSet<string>());
+
+        var wire = r.ResolvedDevices.Single();
+        Assert.Equal("quad", wire.Layout);
+        Assert.Single(wire.Tubes!);
+        var tube = wire.Tubes!["tube_1"];
+        Assert.Equal("axis_3", tube.Mount.AnchorBone);
+        Assert.Equal(-0.007f, tube.Mount.PositionX);
+        Assert.Equal(1.518f, tube.Mount.Scale);
+        Assert.Equal("axis_3", tube.Pod!.Bone);
+        Assert.Equal(-33f, tube.Pod.DownX);
+        Assert.Equal("left", tube.Text!.Align);
+        Assert.Equal(0.1f, tube.Text.Y);
+    }
+
+    [Fact]
+    public void TheWireCopySharesNoBlockWithTheAuthoredDevice()
+    {
+        // The viewer edits ResolvedDevices entries before saving; an edit must not leak into Devices.
+        var items = new FakeItems();
+        items.Items["111"] = ("chimera.bundle", "nv");
+        var device = MultiTube();
+
+        var wire = CotiHostResolver.Resolve(Merged(device), items, new HashSet<string>()).ResolvedDevices.Single();
+
+        Assert.NotSame(device.Mask, wire.Mask);
+        Assert.NotSame(device.Mount, wire.Mount);
+        Assert.NotSame(device.Tubes, wire.Tubes);
+        Assert.NotSame(device.Tubes!["tube_1"].Mount, wire.Tubes!["tube_1"].Mount);
+        Assert.NotSame(device.Tubes["tube_1"].Pod, wire.Tubes["tube_1"].Pod);
+        Assert.NotSame(device.Tubes["tube_1"].Text, wire.Tubes["tube_1"].Text);
+        Assert.Equal(device.Mask.Radius, wire.Mask.Radius);
+    }
 }

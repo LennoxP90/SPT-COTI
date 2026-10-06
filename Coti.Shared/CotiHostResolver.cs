@@ -207,17 +207,9 @@ namespace Coti.Shared
 
     private static CotiDeviceFile WithHosts( CotiDeviceFile device, List<CotiHostRef> hosts )
     {
-      return new CotiDeviceFile
-      {
-        Schema = device.Schema,
-        Device = device.Device,
-        DisplayName = device.DisplayName,
-        Requires = device.Requires,
-        Tuned = device.Tuned,
-        Hosts = hosts,
-        Mask = device.Mask,
-        Mount = device.Mount,
-      };
+      var copy = device.Copy();
+      copy.Hosts = hosts;
+      return copy;
     }
 
     /// <summary>

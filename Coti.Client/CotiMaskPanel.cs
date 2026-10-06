@@ -259,9 +259,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Writes the working values onto the live host config. MaskGenerator compares all four
-    /// against what it last built and rebuilds when any differs, so this is the whole of the live
-    /// preview - there is nothing to invalidate by hand.
+    /// Writes the working values onto the live host config. CotiState reads the circle from it
+    /// every frame, so this is the whole of the live preview - there is nothing to invalidate by hand.
     /// </summary>
     private static void ApplyLive()
     {

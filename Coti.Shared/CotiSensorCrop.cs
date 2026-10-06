@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 
 namespace Coti.Shared
 {
   /// <summary>
-  /// A box in viewport space: x across the width and y up from the bottom, both 0 to 1, as the circle mask uses.
+  /// A box in viewport space: x across the width and y up from the bottom, both 0 to 1, as CotiCircle's U and V are.
   /// </summary>
   public readonly struct CotiCropBox
   {
@@ -54,6 +55,34 @@ namespace Coti.Shared
         return false;
 
       box = new CotiCropBox( x0, y0, x1 - x0, y1 - y0 );
+      return true;
+    }
+
+    /// <summary>
+    /// The smallest box holding all of <paramref name="boxes"/>, clamped to the screen: every filled tube's circle is cut
+    /// from one render. False when there is none.
+    /// </summary>
+    public static bool Union( IReadOnlyList<CotiCropBox> boxes, out CotiCropBox box )
+    {
+      box = CotiCropBox.Whole;
+      if( boxes.Count == 0 )
+        return false;
+
+      var x0 = boxes[0].X;
+      var y0 = boxes[0].Y;
+      var x1 = boxes[0].X + boxes[0].Width;
+      var y1 = boxes[0].Y + boxes[0].Height;
+      for( var i = 1; i < boxes.Count; i++ )
+      {
+        x0 = Math.Min( x0, boxes[i].X );
+        y0 = Math.Min( y0, boxes[i].Y );
+        x1 = Math.Max( x1, boxes[i].X + boxes[i].Width );
+        y1 = Math.Max( y1, boxes[i].Y + boxes[i].Height );
+      }
+
+      x0 = Clamp01( x0 );
+      y0 = Clamp01( y0 );
+      box = new CotiCropBox( x0, y0, Clamp01( x1 ) - x0, Clamp01( y1 ) - y0 );
       return true;
     }
 

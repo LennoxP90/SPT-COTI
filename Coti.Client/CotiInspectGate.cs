@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Coti.Shared;
 
 namespace Coti.Client
 {
@@ -47,6 +48,18 @@ namespace Coti.Client
       {
         if( slot.Id == slotId )
           return slot.Filled;
+      }
+
+      return false;
+    }
+
+    /// <summary>Whether any COTI slot, on whichever tube, holds something.</summary>
+    public static bool HasFilledCotiSlot( IEnumerable<CotiSlotSnapshot> slots )
+    {
+      foreach( var slot in slots )
+      {
+        if( slot.Filled && CotiTubes.IsCotiSlot( slot.Id ) )
+          return true;
       }
 
       return false;

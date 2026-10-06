@@ -11,9 +11,9 @@
     }
   ],
   "mask": {
-    "centerX": 0.5,
-    "centerY": 0.5,
-    "radius": 0.273,
+    "centerX": 0.5006,
+    "centerY": 0.4992,
+    "radius": 0.27359,
     "feather": 0.01
   },
   "mount": {
@@ -28,5 +28,23 @@
     "pitchDegrees": -90,
     "yawDegrees": -11,
     "scale": 1
+  },
+  "layout": "mono",
+  "tubes": {
+    "tube_center": {
+      "mount": {
+        "anchorBone": "",
+        "positionX": 0.001,
+        "positionY": -0.035,
+        "positionZ": 0.075,
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": 12,
+        "pitchDegrees": -90,
+        "yawDegrees": -11,
+        "scale": 1
+      }
+    }
   }
 }

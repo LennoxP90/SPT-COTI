@@ -7,8 +7,9 @@ namespace Coti.Client
 {
   /// <summary>
   /// The device display's boot and shutdown messages, as a screen-aspect texture the overlay
-  /// compositor blends through the circle mask like the thermal. Redrawn only when the message,
-  /// the circle or the screen size changes.
+  /// compositor blends through the open circles like the thermal: one copy per open circle, placed
+  /// by CotiDisplayLayout where the device file's text block says. Redrawn only when the message, the
+  /// mode, the open circles, their text placement or the screen size changes.
   /// </summary>
   internal static class CotiDisplayText
   {
@@ -23,9 +24,10 @@ namespace Coti.Client
     private static bool _drawn;
     private static CotiDisplayMessage _drawnMessage;
     private static CotiThermalMode _drawnMode;
-    private static float _drawnCenterX;
-    private static float _drawnCenterY;
-    private static float _drawnRadius;
+    private static readonly CotiCircle[] _drawnCircles = new CotiCircle[CotiState.MaxTubes];
+    private static readonly string[] _drawnLabels = new string[CotiState.MaxTubes];
+    private static readonly CotiTextPlacement[] _drawnTexts = new CotiTextPlacement[CotiState.MaxTubes];
+    private static int _drawnCount;
 
     internal static RenderTexture Output =>
         CotiState.Showing == CotiShowing.Message ? _target : null;
@@ -41,15 +43,14 @@ namespace Coti.Client
 
     internal static void Tick()
     {
-      var host = CotiState.Host;
-      if( CotiState.Showing != CotiShowing.Message || host == null )
+      if( CotiState.Showing != CotiShowing.Message || CotiState.OpenCount == 0 )
         return;
 
       var width = Mathf.Max( 16, Screen.width );
       var height = Mathf.Max( 16, Screen.height );
 
-      if( EnsureTarget( width, height ) || !IsCurrent( CotiState.Message, host ) )
-        Draw( CotiState.Message, host );
+      if( EnsureTarget( width, height ) || !IsCurrent( CotiState.Message ) )
+        Draw( CotiState.Message );
     }
 
     internal static void Teardown()
@@ -64,14 +65,28 @@ namespace Coti.Client
       _drawn = false;
     }
 
-    private static bool IsCurrent( CotiDisplayMessage message, CotiNvgHostConfig host )
+    /// <summary>
+    /// The redraw key: the message, the mode, and each open circle's label, text placement and geometry.
+    /// The placement follows the device file, the geometry the device and the screen.
+    /// </summary>
+    private static bool IsCurrent( CotiDisplayMessage message )
     {
-      return _drawn
-             && _drawnMessage == message
-             && _drawnMode == CurrentMode
-             && _drawnCenterX == host.MaskCenterX
-             && _drawnCenterY == host.MaskCenterY
-             && _drawnRadius == host.MaskRadius;
+      if( !_drawn || _drawnMessage != message || _drawnMode != CurrentMode || _drawnCount != CotiState.OpenCount )
+        return false;
+
+      for( var i = 0; i < _drawnCount; i++ )
+      {
+        var drawn = _drawnCircles[i];
+        var open = CotiState.OpenCircles[i];
+        if( _drawnLabels[i] != CotiState.OpenLabels[i]
+            || !_drawnTexts[i].Equals( CotiState.OpenTexts[i] )
+            || drawn.U != open.U
+            || drawn.V != open.V
+            || drawn.Radius != open.Radius )
+          return false;
+      }
+
+      return true;
     }
 
     /// <summary>
@@ -96,46 +111,69 @@ namespace Coti.Client
       return true;
     }
 
-    private static void Draw( CotiDisplayMessage message, CotiNvgHostConfig host )
+    private static void Draw( CotiDisplayMessage message )
     {
-      Clear();
-      Remember( message, host );
+      Remember( message );
 
       var image = ImageFor( message );
 #if COTI_DEV
       var state = image != null ? image.width + "x" + image.height : ReferenceEquals( image, null ) ? "never loaded" : "destroyed";
       Plugin.Log.LogInfo( $"[COTI] message {message}: image {state}, " +
-                          $"target {_target.width}x{_target.height}, circle ({host.MaskCenterX:F3},{host.MaskCenterY:F3}) r={host.MaskRadius:F3}" );
+                          $"target {_target.width}x{_target.height}, {CotiState.OpenCount} open circle(s)" );
 #endif
-      if( image == null )
-        return; // Blank, or a missing file: the lit, empty display
 
-      float scaleX, scaleY, offsetX, offsetY;
-      if( !CotiDisplayLayout.TryBlitTransform(
-              host.MaskCenterX, host.MaskCenterY, host.MaskRadius,
-              (float)_target.width / _target.height, (float)image.width / image.height,
-              out scaleX, out scaleY, out offsetX, out offsetY ) )
-        return;
-
-      Graphics.Blit( image, _target, new Vector2( scaleX, scaleY ), new Vector2( offsetX, offsetY ) );
-    }
-
-    private static void Clear()
-    {
       var previous = RenderTexture.active;
       RenderTexture.active = _target;
       GL.Clear( false, true, Color.black );
+
+      // Blank, or a missing file: the lit, empty display
+      if( image != null )
+        DrawCopies( image );
+
       RenderTexture.active = previous;
     }
 
-    private static void Remember( CotiDisplayMessage message, CotiNvgHostConfig host )
+    /// <summary>
+    /// Each copy into its own rectangle, with the target active. Graphics.Blit writes every texel of
+    /// the target, so a second copy drawn that way would erase the first.
+    /// </summary>
+    private static void DrawCopies( Texture2D image )
+    {
+      var width = _target.width;
+      var height = _target.height;
+      var aspect = (float)width / height;
+
+      GL.PushMatrix();
+      // Top-left origin, the convention Graphics.DrawTexture's rectangles use.
+      GL.LoadPixelMatrix( 0f, width, height, 0f );
+
+      for( var i = 0; i < CotiState.OpenCount; i++ )
+      {
+        CotiTextRect rect;
+        if( !CotiDisplayLayout.TryRect( CotiState.OpenCircles[i], CotiState.OpenTexts[i], aspect,
+                image.width, image.height, out rect ) )
+          continue;
+
+        Graphics.DrawTexture(
+            new Rect( rect.X * width, ( 1f - rect.Y - rect.Height ) * height, rect.Width * width, rect.Height * height ),
+            image );
+      }
+
+      GL.PopMatrix();
+    }
+
+    private static void Remember( CotiDisplayMessage message )
     {
       _drawn = true;
       _drawnMessage = message;
       _drawnMode = CurrentMode;
-      _drawnCenterX = host.MaskCenterX;
-      _drawnCenterY = host.MaskCenterY;
-      _drawnRadius = host.MaskRadius;
+      _drawnCount = CotiState.OpenCount;
+      for( var i = 0; i < _drawnCount; i++ )
+      {
+        _drawnCircles[i] = CotiState.OpenCircles[i];
+        _drawnLabels[i] = CotiState.OpenLabels[i];
+        _drawnTexts[i] = CotiState.OpenTexts[i];
+      }
     }
 
     private static CotiThermalMode CurrentMode => Plugin.Config?.Image?.Mode ?? CotiThermalMode.Outline;

@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "device": "com.crackbone.artem-wtt_pvs31_wide",
+  "displayName": "PVS-31 Wide (Artem)",
+  "requires": "com.crackbone.artem-wtt",
+  "tuned": true,
+  "hosts": [
+    {
+      "id": "6754946b62f4db9c0404bd2b",
+      "prefab": "artem_pvs31_wide.bundle",
+      "label": "PVS-31 (Wide)"
+    }
+  ],
+  "mask": {
+    "centerX": 0.5353,
+    "centerY": 0.4991,
+    "radius": 0.27362,
+    "feather": 0.01
+  },
+  "mount": {
+    "anchorBone": "",
+    "positionX": 0.0615,
+    "positionY": -0.0168,
+    "positionZ": 0.013,
+    "rotationX": -90,
+    "rotationY": 0,
+    "rotationZ": 0,
+    "rollDegrees": 90,
+    "pitchDegrees": -0.6,
+    "yawDegrees": -0.2,
+    "scale": 1.2
+  },
+  "layout": "dual",
+  "tubes": {
+    "tube_1": {
+      "mount": {
+        "anchorBone": "",
+        "positionX": -0.0615,
+        "positionY": -0.0168,
+        "positionZ": 0.013,
+        "rotationX": -90,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": -90,
+        "pitchDegrees": -0.6,
+        "yawDegrees": 0.2,
+        "scale": 1.2
+      },
+      "text": {
+        "align": "right",
+        "edge": 0.15
+      }
+    },
+    "tube_2": {
+      "mount": {
+        "anchorBone": "",
+        "positionX": 0.0615,
+        "positionY": -0.0168,
+        "positionZ": 0.013,
+        "rotationX": -90,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "rollDegrees": 90,
+        "pitchDegrees": -0.6,
+        "yawDegrees": -0.2,
+        "scale": 1.2
+      },
+      "text": {
+        "align": "left",
+        "edge": 0.15
+      }
+    }
+  }
+}

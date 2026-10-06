@@ -42,7 +42,7 @@ namespace Coti.Client
           if( string.IsNullOrEmpty( host?.Id ) )
             continue;
 
-          Current.NvgHosts[host.Id] = CotiHostTableClient.ToHostConfig( device );
+          Current.NvgHosts[host.Id] = CotiNvgHostConfig.FromDevice( device );
         }
       }
 
@@ -305,6 +305,8 @@ namespace Coti.Client
       var verbose = _file.Bind( "Debug", "Verbose Logging", defaults.VerboseLogging,
           "Writes detailed diagnostics to the BepInEx log." );
 
+#if SPT40
+      // The in-game editor's entries, 4.0 only.
       var poseModifier = _file.Bind( "Debug", "Enable Pose Modifier", false, new ConfigDescription(
           "Arms the tuner's keyboard shortcut, which moves the ECOTI on the night vision device " +
           "while you have it open in the inventory. Off by default: it binds keys that are " +
@@ -331,6 +333,7 @@ namespace Coti.Client
               "re-nudge afterwards - scale first, then position. Hold Shift while tuning for a " +
               "quarter of this.",
               new AcceptableValueRange<float>( 0.001f, 0.5f ) ) );
+#endif
 
 #if COTI_DEV
       var dumpFrames = _file.Bind( "Debug", "Dump Frames", 0, new ConfigDescription(
@@ -347,6 +350,7 @@ namespace Coti.Client
           new AcceptableValueRange<int>( 0, 24 ) ) );
 #endif
 
+#if SPT40
       // An action rather than a setting, so the drawer replaces the usual editor with a button.
       // The bound value is never read: CotiMaskPanel owns whether it is open, because the window
       // has its own Close button and hotkey and has to be able to shut itself without this menu
@@ -377,16 +381,19 @@ namespace Coti.Client
           "silhouette. Turn it off if it visibly brightens the game's own inspect view - the " +
           "light has to share the inspect model's layers, so that is a possible side effect.",
           null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
+#endif
 
       _appliers.Add( () =>
       {
         Current.VerboseLogging = verbose.Value;
+#if SPT40
         Current.TunerPreviewLight = previewLight.Value;
         Current.EnablePoseModifier = poseModifier.Value;
         Current.TunerModifier = modifier.Value;
         Current.TunerStepMm = stepMm.Value;
         Current.TunerStepDegrees = stepDegrees.Value;
         Current.TunerStepScale = stepScale.Value;
+#endif
 #if COTI_DEV
         Current.ThermalCamera.DumpFrames = dumpFrames.Value;
         Current.ThermalCamera.LensProbe = lensProbe.Value;
