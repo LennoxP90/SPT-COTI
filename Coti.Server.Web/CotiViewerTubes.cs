@@ -84,7 +84,7 @@ public static class CotiViewerTubes
       {
         label = t.Label,
         name = CotiTubes.PanelName(t.Label, layout),
-        slot = CotiTubes.SlotDisplayName(CotiTubes.SlotName(t.Label, layout)),
+        slot = CotiTubes.SlotDisplayName(CotiTubes.SlotName(t.Label, layout), layout),
         partner = partner is not null && layout.Find(partner) is not null ? partner : null,
         // The pod bone defaults to the tube's anchor bone.
         pod = pod is null

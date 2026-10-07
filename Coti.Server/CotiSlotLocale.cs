@@ -66,7 +66,7 @@ public class CotiSlotLocale : IOnLoad
 
         // The quad's slots are every COTI slot there is.
         foreach( var slotName in CotiTubes.SlotNames( CotiLayouts.Quad ) )
-          localeData[slotName] = CotiTubes.SlotDisplayName( slotName );
+          localeData[slotName] = CotiTubes.SlotDisplayName( slotName, null );
 
         return localeData;
       } );

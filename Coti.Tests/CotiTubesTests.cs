@@ -76,19 +76,37 @@ public class CotiTubesTests
     }
 
     [Theory]
-    [InlineData( "mod_coti", "ECOTI" )]
-    [InlineData( "mod_coti_1", "ECOTI L" )]
-    [InlineData( "mod_coti_3", "ECOTI OR" )]
-    [InlineData( "mod_coti_0", "ECOTI OL" )]
-    public void EverySlotHasItsInGameName( string slot, string name )
+    [InlineData( "quad", "mod_coti", "ECOTI R" )]
+    [InlineData( "dual", "mod_coti", "ECOTI R" )]
+    [InlineData( "pvs5a", "mod_coti", "ECOTI R" )]
+    [InlineData( "mono", "mod_coti", "ECOTI" )]
+    [InlineData( null, "mod_coti", "ECOTI" )]
+    [InlineData( "quad", "mod_coti_1", "ECOTI L" )]
+    [InlineData( "dual", "mod_coti_1", "ECOTI L" )]
+    [InlineData( "pvs5a", "mod_coti_1", "ECOTI L" )]
+    [InlineData( "quad", "mod_coti_3", "ECOTI OR" )]
+    [InlineData( "quad", "mod_coti_0", "ECOTI OL" )]
+    public void EverySlotHasItsInGameName( string? layout, string slot, string name )
     {
-        Assert.Equal( name, CotiTubes.SlotDisplayName( slot ) );
+        Assert.Equal( name, CotiTubes.SlotDisplayName( slot, Layout( layout ) ) );
     }
 
     [Fact]
     public void ANonCotiSlotHasNoInGameName()
     {
-        Assert.Throws<ArgumentException>( () => CotiTubes.SlotDisplayName( "mod_scope" ) );
+        Assert.Throws<ArgumentException>( () => CotiTubes.SlotDisplayName( "mod_scope", CotiLayouts.Quad ) );
+    }
+
+    [Theory]
+    [InlineData( "quad", new[] { "ECOTI OL", "ECOTI L", "ECOTI R", "ECOTI OR" } )]
+    [InlineData( "dual", new[] { "ECOTI L", "ECOTI R" } )]
+    [InlineData( "pvs5a", new[] { "ECOTI L", "ECOTI R" } )]
+    [InlineData( "mono", new[] { "ECOTI" } )]
+    public void SlotsReadLeftToRightByDisplayRank( string layout, string[] expected )
+    {
+        var shown = CotiTubes.SlotNames( Layout( layout ) ).OrderBy( CotiTubes.DisplayRank )
+            .Select( slot => CotiTubes.SlotDisplayName( slot, Layout( layout ) ) );
+        Assert.Equal( expected, shown );
     }
 
     [Theory]

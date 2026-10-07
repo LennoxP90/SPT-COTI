@@ -8,7 +8,8 @@ namespace Coti.Shared
   /// <summary>
   /// Tube labels, tube_0 to tube_3 left to right (tube_center on a mono), and the COTI slot each one gets. The home tube
   /// keeps mod_coti, the single-tube slot, so every COTI already fitted in a profile stays where it is. Its
-  /// label stays "ECOTI" because a slot's locale key is global per slot name and the mono's only tube shares it.
+  /// locale label is "ECOTI", because a slot's locale key is global per slot name and the mono's only tube shares it;
+  /// the client relabels it "ECOTI R" on hosts whose home is tube_2.
   /// </summary>
   public static class CotiTubes
   {
@@ -78,14 +79,34 @@ namespace Coti.Shared
       return slotName == CotiIds.ModSlotName || slotName == Slot0 || slotName == Slot1 || slotName == Slot3;
     }
 
-    public static string SlotDisplayName( string slotName )
+    /// <summary>
+    /// A slot's label: "ECOTI" and where its tube sits (OL, L, R, OR), or plain "ECOTI" for a home slot that is the only tube's
+    /// (mono, or a v1 device with a null layout).
+    /// </summary>
+    public static string SlotDisplayName( string slotName, CotiLayout? layout )
     {
       switch( slotName )
       {
-        case CotiIds.ModSlotName: return "ECOTI";
+        case CotiIds.ModSlotName: return layout?.Home == Tube2 ? "ECOTI R" : "ECOTI";
         case Slot1: return "ECOTI L";
         case Slot3: return "ECOTI OR";
         case Slot0: return "ECOTI OL";
+        default: throw new ArgumentException( $"\"{slotName}\" is not a COTI slot", nameof( slotName ) );
+      }
+    }
+
+    /// <summary>
+    /// A COTI slot's place left to right on the device, for display only. The template keeps the auto-pick order,
+    /// because EFT fills the first free slot in template order and a single COTI must land on home.
+    /// </summary>
+    public static int DisplayRank( string slotName )
+    {
+      switch( slotName )
+      {
+        case Slot0: return 0;
+        case Slot1: return 1;
+        case CotiIds.ModSlotName: return 2;
+        case Slot3: return 3;
         default: throw new ArgumentException( $"\"{slotName}\" is not a COTI slot", nameof( slotName ) );
       }
     }

@@ -88,6 +88,10 @@
       <HintPath>$(SptManaged)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(SptManaged)\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(SptManaged)\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>

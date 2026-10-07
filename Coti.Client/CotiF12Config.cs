@@ -184,13 +184,13 @@ namespace Coti.Client
 
       var hz = _file.Bind( "Image", "Sensor Refresh (Hz)", Current.ThermalCamera.Hz, new ConfigDescription(
           "The sensor's simulated refresh. The thermal image updates at this rate and holds in " +
-          "between, as a real low-refresh core does, and the frames between cost nothing. 0 updates every frame.",
+          "between, as a real low-refresh core does, and the frames between cost nothing. 0 updates every frame. " +
+          "Potential FPS improvement: keep it at 60 or lower, since 0 renders the thermal on every frame.",
           new AcceptableValueRange<int>( 0, 240 ) ) );
 
       var range = _file.Bind( "Image", "Thermal Range (m)", Current.ThermalCamera.RangeMetres, new ConfigDescription(
           "How far the thermal draws at 1x. Through a magnified scope this is multiplied by the zoom, since a target " +
-          "that far through the scope looks as near. 0 draws as far as your eyes do (Overall Visibility). Shorter " +
-          "is cheaper.",
+          "that far through the scope looks as near. 0 draws as far as your eyes do (Overall Visibility).",
           new AcceptableValueRange<float>( 0f, 3000f ), new ConfigurationManagerAttributes { IsAdvanced = true } ) );
 
       var magnify = _file.Bind( "Image", "Magnify With Optic", defaults.MagnifyWithOptic,

@@ -75,6 +75,8 @@ namespace Coti.Client
       TryEnable( nameof( CotiScopeIndexPatch ), () => new CotiScopeIndexPatch() );
       TryEnable( nameof( CotiScopeGlassPatch ), () => new CotiScopeGlassPatch() );
       TryEnable( nameof( CotiAttachPatch ), () => new CotiAttachPatch() );
+      TryEnable( nameof( CotiSlotLabelPatch ), () => new CotiSlotLabelPatch() );
+      TryEnable( nameof( CotiSlotOrderPatch ), () => new CotiSlotOrderPatch() );
       TryEnable( nameof( CotiWorldViewPatch ), () => new CotiWorldViewPatch() );
       TryEnable( nameof( CotiHotObjectAwakePatch ), () => new CotiHotObjectAwakePatch() );
       TryEnable( nameof( CotiDeviceAwakePatch ), () => new CotiDeviceAwakePatch() );

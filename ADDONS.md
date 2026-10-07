@@ -102,11 +102,11 @@ one COTI slot, one circle from `mask`, one mount.
 The **home tube** is the one COTI has always mounted on. It keeps the old `mod_coti` slot, so a COTI
 already fitted in a profile stays where it is. Every other tube gets a slot of its own. Slots are
 added in this order, which is the order a COTI dropped on the goggles, rather than on a slot, fills
-them:
+them. The inspect window still shows them left to right as the tubes sit (ECOTI OL, ECOTI L, ECOTI R, ECOTI OR):
 
 | Tube | Slot | In game |
 |---|---|---|
-| home | `mod_coti` | ECOTI |
+| home | `mod_coti` | ECOTI R (ECOTI on a mono or a v1 device) |
 | `tube_1` | `mod_coti_1` | ECOTI L |
 | `tube_3` | `mod_coti_3` | ECOTI OR |
 | `tube_0` | `mod_coti_0` | ECOTI OL |
