@@ -12,8 +12,8 @@ namespace Coti.Client
   {
     /// <summary>
     /// Protects an asset from Resources.UnloadUnusedAssets, which the game runs mid-raid (spawning a bot is enough).
-    /// On the il2cpp line a plugin field is not an engine reference, so the overlay material was destroyed under the
-    /// compositor and the circle stopped drawing.
+    /// On the il2cpp line a plugin field is not an engine reference, so without this the overlay material is destroyed
+    /// under the compositor and the circle stops drawing.
     /// </summary>
     internal static void KeepLoaded( UnityEngine.Object asset )
     {
@@ -137,6 +137,7 @@ namespace Coti.Client
         }
 
         var materials = _bundle.LoadAllAssets<Material>();
+        var verbose = Plugin.Config != null && Plugin.Config.VerboseLogging;
         // By shader name: the bundle carries one material per shader, in no guaranteed order.
         for( var i = 0; i < materials.Length; i++ )
         {
@@ -147,21 +148,24 @@ namespace Coti.Client
           if( shader.name == GlowBakeShaderName )
           {
             _glowBake = shader;
-            Plugin.Log.LogInfo( $"[COTI] Loaded glow bake shader '{shader.name}' (isSupported={shader.isSupported})" );
+            if( verbose )
+              Plugin.Log.LogInfo( $"[COTI] Loaded glow bake shader '{shader.name}' (isSupported={shader.isSupported})" );
             continue;
           }
 
           if( shader.name == TerrainGridShaderName )
           {
             _terrainGrid = shader;
-            Plugin.Log.LogInfo( $"[COTI] Loaded terrain shader '{shader.name}' (isSupported={shader.isSupported})" );
+            if( verbose )
+              Plugin.Log.LogInfo( $"[COTI] Loaded terrain shader '{shader.name}' (isSupported={shader.isSupported})" );
             continue;
           }
 
           if( shader.name == HeatOnlyShaderName )
           {
             _heatOnly = shader;
-            Plugin.Log.LogInfo( $"[COTI] Loaded replacement shader '{shader.name}' (isSupported={shader.isSupported})" );
+            if( verbose )
+              Plugin.Log.LogInfo( $"[COTI] Loaded replacement shader '{shader.name}' (isSupported={shader.isSupported})" );
             continue;
           }
 
@@ -171,9 +175,12 @@ namespace Coti.Client
           _material = materials[i];
           _overlay = shader;
 
-          Plugin.Log.LogInfo(
-              $"[COTI] Loaded material '{_material.name}' with shader '{_overlay.name}' " +
-              $"(isSupported={_overlay.isSupported}, passes={_material.passCount})" );
+          if( verbose )
+          {
+            Plugin.Log.LogInfo(
+                $"[COTI] Loaded material '{_material.name}' with shader '{_overlay.name}' " +
+                $"(isSupported={_overlay.isSupported}, passes={_material.passCount})" );
+          }
         }
 
         var shaders = _overlay != null ? new Shader[0] : _bundle.LoadAllAssets<Shader>();

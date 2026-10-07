@@ -65,7 +65,7 @@ public class CotiDeviceDto
   [JsonPropertyName( "mount" )]
   public CotiMountBlockDto Mount { get; set; } = new();
 
-  // Omitted when null, so a v1 device keeps 3.2.0's shape whatever options the writer uses.
+  // Omitted when null, so a v1 device file carries no layout key whatever options the writer uses.
   [JsonPropertyName( "layout" )]
   [JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )]
   public string? Layout { get; set; }

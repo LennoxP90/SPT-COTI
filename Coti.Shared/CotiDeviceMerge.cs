@@ -122,9 +122,8 @@ namespace Coti.Shared
 
         foreach( var host in d.Hosts )
         {
-          // A null entry in "hosts" (hand-edited "hosts": [null]) must skip itself, not take
-          // the whole file down - the null-conditional covers a null host and a null host.Id
-          // in one check.
+          // A null entry in "hosts" (hand-edited "hosts": [null]) skips itself rather than taking
+          // the whole file down.
           if( host?.Id is null )
             continue;
 
@@ -164,7 +163,7 @@ namespace Coti.Shared
             byHostId[host.Id] = file.Path;
         }
 
-        // Last, so it only sees a file that is kept. It falls back towards today's one COTI and never skips the file.
+        // Last, so it only sees a file that is kept. It falls back towards a single COTI and never skips the file.
         CotiTubeValidation.Normalise( d, file.Path, result.Warnings );
 
         result.Devices.Add( d );

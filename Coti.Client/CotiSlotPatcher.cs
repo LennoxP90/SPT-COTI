@@ -51,12 +51,12 @@ namespace Coti.Client
     public static int TemplatesPatchedCount => _templatesPatched;
 
     /// <summary>
-    /// Ensures hostTemplateId's item template, and every already-constructed instance of it in the
-    /// local player's profile, carries every slot in slotNames (CotiNvgHostConfig.SlotNames, in
-    /// auto-pick order). Idempotent: a host that already carries them costs one Any() scan per slot
-    /// and instance. Returns false when hostTemplateId does not resolve to a CompoundItem template
-    /// on this client (an optional host mod the player has not installed, which is normal) and when
-    /// ItemFactoryReady is still false. The caller, CotiHostTableClient, decides whether to retry.
+    /// Ensures hostTemplateId's item template, and every already-built instance of it in the local player's profile,
+    /// carries every slot in slotNames (CotiNvgHostConfig.SlotNames, in auto-pick order). A template that already carries
+    /// them costs one scan per slot and no inventory walk: every instance is built from its template's Slots, so none can
+    /// be missing a slot the template had. Returns false when hostTemplateId does not resolve to a CompoundItem template
+    /// on this client (an optional host mod the player has not installed, which is normal) and when ItemFactoryReady is
+    /// still false. The caller, CotiHostTableClient, decides whether to retry.
     /// </summary>
     public static bool EnsureSlot( string hostTemplateId, IReadOnlyList<string> slotNames )
     {
@@ -65,15 +65,18 @@ namespace Coti.Client
         return false;
 
       var missing = slotNames.Where( name => !HasSlot( template.Slots, name ) ).ToList();
+      if( missing.Count == 0 )
+        return true;
 
-      if( missing.Count > 0 )
-      {
-        template.Slots = template.Slots.Concat( missing.Select( name => BuildSlot( name ) ) ).ToArray();
-        System.Threading.Interlocked.Increment( ref _templatesPatched );
+      template.Slots = template.Slots.Concat( missing.Select( BuildSlot ) ).ToArray();
+      System.Threading.Interlocked.Increment( ref _templatesPatched );
+      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
         Plugin.Log?.LogInfo( $"[COTI] {string.Join( ", ", missing )} added to client template {hostTemplateId}" );
-      }
 
       PatchExistingInstances( hostTemplateId, template, slotNames );
+
+      // The worn goggles may be one of the instances that just gained slots.
+      CotiEquippedCoti.Invalidate();
       return true;
     }
 

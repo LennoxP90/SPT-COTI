@@ -97,7 +97,8 @@ namespace Coti.Client
       _suspended = system;
       _suspended.enabled = false;
 
-      Plugin.Log.LogInfo( "[COTI] Cursor over a COTI window - game UI input suspended." );
+      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+        Plugin.Log.LogInfo( "[COTI] Cursor over a COTI window - game UI input suspended." );
     }
 
     private static void Restore()
@@ -112,7 +113,8 @@ namespace Coti.Client
       if( system != null )
         system.enabled = true;
 
-      Plugin.Log.LogInfo( "[COTI] Game UI input restored." );
+      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+        Plugin.Log.LogInfo( "[COTI] Game UI input restored." );
     }
   }
 }

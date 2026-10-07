@@ -25,6 +25,7 @@ namespace Coti.Client.Patches
           return;
 
         CotiState.ResetPerRaidLogging();
+        CotiThermalWorld.OnGameStarted();
       } );
     }
   }

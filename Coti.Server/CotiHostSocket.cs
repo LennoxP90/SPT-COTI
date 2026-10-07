@@ -68,7 +68,7 @@ public class CotiHostSocket( ISptLogger<CotiHostSocket> logger ) : IWebSocketCon
       _ = SendAsync( id, socket, payload );
     }
 
-    logger.Success( $"[COTI] host change pushed to {sockets.Count} client(s)" );
+    logger.Debug( $"[COTI] host change pushed to {sockets.Count} client(s)" );
   }
 
   private async Task SendAsync( string id, WebSocket socket, ArraySegment<byte> payload )

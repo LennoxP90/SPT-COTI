@@ -36,12 +36,29 @@ namespace Coti.Client
     internal static void Tick()
     {
       var optic = Read();
-      ThermalSightAimed = optic.Present && optic.IsThermal;
-      var main = Camera.main;
-      MagnifiedSightAimed = optic.Present && !optic.IsThermal && main != null
+      var present = optic.Present;
+      var thermal = optic.IsThermal;
+      ThermalSightAimed = thermal;
+      var main = CotiFrame.Main;
+      MagnifiedSightAimed = present && !thermal && main != null
                             && Plugin.Config?.MagnifyWithOptic == true && !CotiOpticThermalCamera.Broken
                             && CotiOpticFusion.ShouldMagnify( configEnabled: true, cotiActive: true,
                                    main.fieldOfView, optic.FieldOfView );
+    }
+
+    private static Camera _thermalVisionCamera;
+    private static ThermalVision _thermalVision;
+
+    /// <summary>The optic camera's ThermalVision, looked up again only when EFT hands over a different camera.</summary>
+    internal static ThermalVision ThermalVisionOf( Camera camera )
+    {
+      if( !ReferenceEquals( camera, _thermalVisionCamera ) || _thermalVision == null )
+      {
+        _thermalVisionCamera = camera;
+        _thermalVision = camera.GetComponent<ThermalVision>();
+      }
+
+      return _thermalVision;
     }
 
     /// <summary>
@@ -107,7 +124,7 @@ namespace Coti.Client
         if( !Present )
           return false;
 
-        var thermal = _camera.GetComponent<ThermalVision>();
+        var thermal = CotiOpticCamera.ThermalVisionOf( _camera );
         return thermal != null && thermal.enabled && thermal.On;
       }
     }

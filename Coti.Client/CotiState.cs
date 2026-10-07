@@ -63,7 +63,7 @@ namespace Coti.Client
 
     public static int FilledCount;
 
-    /// <summary>Camera.main's aspect, which this frame's circles were placed at.</summary>
+    /// <summary>The main camera's aspect, which this frame's circles were placed at.</summary>
     public static float Aspect = 16f / 9f;
 
     /// <summary>
@@ -152,7 +152,7 @@ namespace Coti.Client
       LogHostResolvedOnce( hostTemplateId, maskLabel, host );
 
       // The circles are placed for the eye camera's aspect, the one the overlay draws them at.
-      var camera = Camera.main;
+      var camera = CotiFrame.Main;
       if( camera == null )
       {
         Active = false;

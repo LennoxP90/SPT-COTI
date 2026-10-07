@@ -4,8 +4,8 @@ namespace Coti.Shared
 {
   /// <summary>
   /// Per-layer cull distances for a thermal camera. EFT sets the eye's far clip to 10 km and culls every layer at the
-  /// player's Overall Visibility (400 to 3000 m) through <c>Camera.layerCullDistances</c>; a thermal camera that only
-  /// copied the far clip drew out to 10 km. These are the eye's own distances, capped at the thermal's range when one
+  /// player's Overall Visibility (400 to 3000 m) through <c>Camera.layerCullDistances</c>, so a thermal camera that only
+  /// copies the far clip draws out to 10 km. These are the eye's own distances, capped at the thermal's range when one
   /// is set. Unity reads 0 as "the far clip plane", which is kept unless a range caps it.
   /// </summary>
   public static class CotiCullRange
@@ -16,6 +16,13 @@ namespace Coti.Shared
         return Array.Empty<float>();
 
       var result = new float[eye.Length];
+      Distances( eye, farClip, range, result );
+      return result;
+    }
+
+    /// <summary>The same into <paramref name="result"/>, at least as long as <paramref name="eye"/>, without allocating.</summary>
+    public static void Distances( float[] eye, float farClip, float range, float[] result )
+    {
       for( var i = 0; i < eye.Length; i++ )
       {
         var distance = eye[i];
@@ -26,7 +33,6 @@ namespace Coti.Shared
         }
         result[i] = distance;
       }
-      return result;
     }
   }
 }

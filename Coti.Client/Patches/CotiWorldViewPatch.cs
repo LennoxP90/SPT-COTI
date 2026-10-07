@@ -1,4 +1,5 @@
 using Coti.Shared;
+using System;
 using System.Reflection;
 using System.Threading.Tasks;
 using EFT;
@@ -11,11 +12,14 @@ namespace Coti.Client.Patches
 {
   /// <summary>
   /// Rebinds the shader and starts the visibility mirror for item views built for the world.
-  /// CotiAttachReportPatch does the same off ContainerCollectionView.SlotView, which is inventory UI
+  /// CotiAttachPatch does the same off ContainerCollectionView.SlotView, which is inventory UI
   /// only and never runs in raid.
   /// </summary>
   public class CotiWorldViewPatch : ModulePatch
   {
+    private const string Site = "CotiWorldViewPatch";
+    private static readonly MongoID CotiTemplate = new MongoID( CotiIds.TplId );
+
     protected override MethodBase GetTargetMethod()
     {
       return EftCompat.CreateItemAsyncMethod();
@@ -29,19 +33,54 @@ namespace Coti.Client.Patches
     [PatchPostfix]
     private static void Postfix( Item item, ref Task<GameObject> __result )
     {
+      if( __result == null || !CarriesCoti( item, Site ) )
+        return;
+
       var replacement = __result;
-      CotiPatchGuard.Run( "CotiWorldViewPatch", () => replacement = WrapResult( item, replacement ) );
+      var viewIsDevice = item.TemplateId == CotiTemplate;
+      CotiPatchGuard.Run( Site, () => replacement = DressWhenReady( replacement, viewIsDevice ) );
       __result = replacement;
     }
 
-    private static Task<GameObject> WrapResult( Item item, Task<GameObject> result )
+    /// <summary>
+    /// Whether the item is a COTI or holds one through its slots, the only place a COTI is drawn: grid contents are
+    /// never part of a view or an icon. Allocation-free, and it runs outside the guard so an item without a COTI costs
+    /// nothing more. A fault is reported through the guard and answers false, which leaves the game's result alone.
+    /// </summary>
+    internal static bool CarriesCoti( Item item, string site )
     {
-      if( item == null || result == null )
-        return result;
-      if( !ContainsCoti( item ) )
-        return result;
+      try
+      {
+        return Carries( item );
+      }
+      catch( Exception ex )
+      {
+        ReportPrefilterFault( site, ex );
+        return false;
+      }
+    }
 
-      return DressWhenReady( result, item.TemplateId == CotiIds.TplId );
+    private static bool Carries( Item item )
+    {
+      if( item == null )
+        return false;
+      if( item.TemplateId == CotiTemplate )
+        return true;
+
+      var slots = ( item as CompoundItem )?.Slots;
+      for( var i = 0; slots != null && i < slots.Length; i++ )
+      {
+        if( slots[i] != null && Carries( slots[i].ContainedItem ) )
+          return true;
+      }
+
+      return false;
+    }
+
+    /// <summary>Logs a prefilter fault once per site, the way a guarded body's fault is logged.</summary>
+    private static void ReportPrefilterFault( string site, Exception ex )
+    {
+      CotiPatchGuard.Run( site, () => throw new InvalidOperationException( site + " prefilter failed", ex ) );
     }
 
     private static async Task<GameObject> DressWhenReady( Task<GameObject> inner, bool viewIsDevice )
@@ -79,17 +118,6 @@ namespace Coti.Client.Patches
       }
     }
 
-    private static bool ContainsCoti( Item item )
-    {
-      foreach( var child in item.GetAllItems() )
-      {
-        if( child != null && child.TemplateId == CotiIds.TplId )
-          return true;
-      }
-
-      return false;
-    }
-
     /// <summary>
     /// Re-equipping goggles reattaches to the pooled view instead of building a new one, so
     /// CreateItemAsync never runs. CotiMountBonePatch prefixes this same method to create the bone;
@@ -97,6 +125,8 @@ namespace Coti.Client.Patches
     /// </summary>
     public class OnAttachMods : ModulePatch
     {
+      private const string Site = "CotiWorldViewPatch.Mods";
+
       protected override MethodBase GetTargetMethod()
       {
         return EftCompat.AttachModsMethod();
@@ -105,22 +135,18 @@ namespace Coti.Client.Patches
       [PatchPostfix]
       private static void Postfix( object containerCollection, object collectionView, ref Task __result )
       {
+        if( __result == null || collectionView == null || !HasCotiSlot( containerCollection ) )
+          return;
+
         var replacement = __result;
-        CotiPatchGuard.Run( "CotiWorldViewPatch.Mods",
-            () => replacement = WrapResult( containerCollection, collectionView, replacement ) );
+        CotiPatchGuard.Run( Site, () => replacement = WrapResult( collectionView, replacement ) );
         __result = replacement;
       }
 
-      private static Task WrapResult( object containerCollection, object collectionView, Task result )
+      private static Task WrapResult( object collectionView, Task result )
       {
-        if( containerCollection == null || collectionView == null || result == null )
-          return result;
-
         var gameObject = EftCompat.ViewGameObject( collectionView );
-        if( gameObject == null || !HasCotiSlot( containerCollection ) )
-          return result;
-
-        return DressWhenReady( result, gameObject );
+        return gameObject == null ? result : DressWhenReady( result, gameObject );
       }
 
       private static async Task DressWhenReady( Task inner, GameObject view )
@@ -133,15 +159,25 @@ namespace Coti.Client.Patches
         Dress( view, viewIsDevice: false );
       }
 
+      /// <summary>Every COTI slot is one of the item's Slots: the patcher and the server injector add them nowhere else.</summary>
       private static bool HasCotiSlot( object containerCollection )
       {
-        foreach( var container in EftCompat.Containers( containerCollection ) )
+        try
         {
-          if( container is Slot slot && CotiTubes.IsCotiSlot( slot.ID ) )
-            return true;
-        }
+          var slots = ( containerCollection as CompoundItem )?.Slots;
+          for( var i = 0; slots != null && i < slots.Length; i++ )
+          {
+            if( slots[i] != null && CotiTubes.IsCotiSlot( slots[i].ID ) )
+              return true;
+          }
 
-        return false;
+          return false;
+        }
+        catch( Exception ex )
+        {
+          ReportPrefilterFault( Site, ex );
+          return false;
+        }
       }
     }
   }

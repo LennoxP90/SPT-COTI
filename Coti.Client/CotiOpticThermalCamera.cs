@@ -131,22 +131,20 @@ namespace Coti.Client
       {
         Optic = default( CotiOpticView );
 
-        if( !CotiState.Active || CotiOpticCamera.ThermalSightAimed )
+        if( !CotiCameraDuty.Magnified( CotiState.Active, CotiOpticCamera.ThermalSightAimed, CotiOpticCamera.MagnifiedSightAimed ) )
         {
           Idle();
+          if( _go == null && CotiThermalRig.ClaimWarmUp() )
+            EnsureCamera();
           return;
         }
 
-        var main = Camera.main;
+        var main = CotiFrame.Main;
         if( main == null )
           return; // not in raid yet - retry next frame
 
         var optic = CotiOpticCamera.Read();
-
-        // Decided by field-of-view ratio rather than sight type: red dots and irons already line
-        // up, because the main camera's own field of view narrows on aiming.
-        if( !CotiOpticFusion.ShouldMagnify(
-                configEnabled: true, cotiActive: true, main.fieldOfView, optic.FieldOfView ) )
+        if( !optic.Present )
         {
           Idle();
           return;
@@ -155,18 +153,23 @@ namespace Coti.Client
         if( !EnsureCamera() )
           return;
 
-        Configure( main, optic, cfg );
+        if( Pacer.Due( Time.realtimeSinceStartupAsDouble, cfg.Hz ) )
+        {
+          Configure( main, optic, cfg );
+          if( !ActivateIfReady() )
+            return;
+          _cam.enabled = true;
+        }
+        else
+        {
+          // The held picture is still composited into the lens, which the game redraws every frame.
+          _cam.enabled = false;
+          if( !_go.activeSelf )
+            return;
+          KeepWorldPace();
+        }
 
-        // Gate: no activation and no render until a target is proven bound.
-        if( !ActivateIfReady() )
-          return;
-
-        // At the sensor's refresh rate rather than every frame, as the real device runs; the last picture stands
-        // between, and the skipped frames save the scene pass. CotiCameraConfig.Hz, 60 by default; 0 is every frame.
-        _cam.enabled = Pacer.Due( Time.realtimeSinceStartupAsDouble, cfg.Hz );
-
-        // Only once the camera is rendering into a bound target, or the compositor would blit a
-        // texture nothing has written.
+        // Only once the camera has rendered into a bound target, or the compositor would blit a texture nothing has written.
         Optic = optic;
 
 #if COTI_DEV
@@ -177,6 +180,16 @@ namespace Coti.Client
       {
         MarkBroken( "per-frame update", ex );
       }
+    }
+
+    /// <summary>
+    /// The world's sweeps and lamp bakes run every frame, so they land off the frames that carry the scene pass. Never before
+    /// the clone's first ApplyRenderMode, which strips its command buffers and would take the terrain's with it.
+    /// </summary>
+    private static void KeepWorldPace()
+    {
+      if( _replacing )
+        CotiThermalWorld.Update( _cam );
     }
 
     private static bool EnsureCamera()
@@ -225,12 +238,12 @@ namespace Coti.Client
       Camera.onPreCull -= MatchOpticBeforeCulling;
       Camera.onPreCull += MatchOpticBeforeCulling;
 
-      if( !_loggedCreated )
+      if( !_loggedCreated && Plugin.Config != null && Plugin.Config.VerboseLogging )
       {
         _loggedCreated = true;
         Plugin.Log.LogInfo(
             $"[COTI] Magnified thermal camera created from \"{CotiThermalRig.PrefabName}\" prefab " +
-            $"(inactive); components remaining: {CotiThermalRig.DescribeComponents( _go )}" );
+            $"(inactive) in scene '{_go.scene.name}'; components remaining: {CotiThermalRig.DescribeComponents( _go )}" );
       }
 
       return true;
@@ -244,10 +257,7 @@ namespace Coti.Client
     {
       var source = optic.Camera;
 
-      // Initial placement only, so the prewarm render has somewhere sane to stand. The pose that
-      // matters is copied again from Camera.onPreCull - see MatchOpticBeforeCulling.
-      var sourceTransform = source.transform;
-      _go.transform.SetPositionAndRotation( sourceTransform.position, sourceTransform.rotation );
+      // Posed by MatchOpticBeforeCulling, just before each render.
       _go.transform.localScale = Vector3.one;
 
       MirrorSettings( main, source );
@@ -412,7 +422,7 @@ namespace Coti.Client
 
       ReleaseRenderTexture();
 
-      var format = _cam.allowHDR ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.ARGB32;
+      var format = CotiThermalRig.TargetFormat;
 
       _rt = new RenderTexture( width, height, 24, format, RenderTextureReadWrite.Default )
       {
@@ -427,7 +437,8 @@ namespace Coti.Client
       _rtHeight = height;
       _cam.targetTexture = _rt;
 
-      Plugin.Log.LogInfo( $"[COTI] Magnified thermal target {width}x{height} ({format})" );
+      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+        Plugin.Log.LogInfo( $"[COTI] Magnified thermal target {width}x{height} ({format})" );
     }
 
     /// <summary>
@@ -459,19 +470,9 @@ namespace Coti.Client
 
       if( !_go.activeSelf )
       {
+        // No Render() of our own: activation only happens on a frame the pacer made due, so the camera renders this frame
+        // in Unity's own loop, before the composite.
         _go.SetActive( true );
-
-        // BSG's own IE_PreWarm does this, to move first-use cost off the frame the device is
-        // raised on. Strictly after the target is bound.
-        try
-        {
-          _cam.Render();
-        }
-        catch( Exception ex )
-        {
-          MarkBroken( "prewarm render", ex );
-          return false;
-        }
 
         if( Plugin.Config != null && Plugin.Config.VerboseLogging )
         {
@@ -517,7 +518,7 @@ namespace Coti.Client
       Plugin.Log.LogInfo(
           $"[COTI] magnified dump -> {mine} " +
           $"fov={_cam.fieldOfView:F2} opticFov={optic.FieldOfView:F2} " +
-          $"magnification={CotiOpticFusion.Magnification( Camera.main == null ? 0f : Camera.main.fieldOfView, optic.FieldOfView ):F2}x " +
+          $"magnification={CotiOpticFusion.Magnification( CotiFrame.Main == null ? 0f : CotiFrame.Main.fieldOfView, optic.FieldOfView ):F2}x " +
           $"renderingPath={_cam.actualRenderingPath} " +
           $"camEnabled={_cam.enabled} tvEnabled={_tv.enabled} tvOn={_tv.On} " +
           $"cbBeforeAlpha={beforeAlpha} cbAfterAlpha={afterAlpha}" );
@@ -667,6 +668,7 @@ namespace Coti.Client
       Cull.Reset();
       _mirroredAspect = float.NaN;
       _tuned = false;
+      Pacer.Reset();
 
       ReleaseRenderTexture();
     }

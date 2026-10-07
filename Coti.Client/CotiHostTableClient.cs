@@ -170,14 +170,14 @@ namespace Coti.Client
               "(offline fallback, not the server's table)" );
 
 #if SPT41
-      LogPoses( config );
+      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+        LogPoses( config );
 #endif
     }
 
 #if SPT41
     /// <summary>
-    /// The pose each host resolves to, logged from the menu. Runs on every apply, so a pushed
-    /// table shows its new numbers here.
+    /// The pose each host resolves to, logged on every apply so a pushed table shows its new numbers.
     /// </summary>
     private static void LogPoses( CotiConfig config )
     {

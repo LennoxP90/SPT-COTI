@@ -55,7 +55,8 @@ namespace Coti.Client
       var skipped = SkipReason( setting );
       if( skipped != null )
       {
-        LogVerbose( $"[COTI] Calibration click skipped: {skipped}" );
+        if( Plugin.Config?.VerboseLogging ?? false )
+          Plugin.Log.LogInfo( $"[COTI] Calibration click skipped: {skipped}" );
         return;
       }
 
@@ -65,9 +66,12 @@ namespace Coti.Client
       audio.PlayNonspatial( _clip, BetterAudio.AudioSourceGroupType.Character, 0f,
           CotiClickVolume.ForPlayNonspatial( setting ), audio.ClientPlayerMovementMixer );
 
-      LogVerbose( $"[COTI] Calibration click played at {setting:F2} " +
-                  $"({_clip.length * 1000f:F0} ms{( rebuilt ? ", clip rebuilt" : "" )}, " +
-                  $"mixer {( audio.ClientPlayerMovementMixer == null ? "none" : audio.ClientPlayerMovementMixer.name )})" );
+      if( Plugin.Config?.VerboseLogging ?? false )
+      {
+        Plugin.Log.LogInfo( $"[COTI] Calibration click played at {setting:F2} " +
+                            $"({_clip.length * 1000f:F0} ms{( rebuilt ? ", clip rebuilt" : "" )}, " +
+                            $"mixer {( audio.ClientPlayerMovementMixer == null ? "none" : audio.ClientPlayerMovementMixer.name )})" );
+      }
     }
 
     /// <summary>
@@ -95,12 +99,6 @@ namespace Coti.Client
       if( !MonoBehaviourSingleton<BetterAudio>.Instantiated )
         return "the game's audio is not up";
       return null;
-    }
-
-    private static void LogVerbose( string line )
-    {
-      if( Plugin.Config?.VerboseLogging ?? false )
-        Plugin.Log.LogInfo( line );
     }
   }
 }

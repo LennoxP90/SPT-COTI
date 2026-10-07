@@ -137,69 +137,93 @@ public class CotiDeviceStore : IOnLoad
   public Task OnLoadAsync( CancellationToken cancellationToken ) { Reload(); return Task.CompletedTask; }
 #endif
 
+  private readonly object reloadGate = new();
+
   /// <summary>
   /// Re-reads the folder, merges and resolves. Safe to call repeatedly; TryWrite calls it after
   /// each write.
   /// </summary>
   public void Reload()
   {
-    var parsedFiles = ReadParsedFiles();
+    // Concurrent publishes each reload after their own write; serialising the reloads means the
+    // last snapshot published always includes every write that finished before it.
+    lock( reloadGate )
+    {
+      var parsedFiles = ReadParsedFiles();
 
-    // Built before the merge because the merge needs it: a device whose requires is
-    // unmet must be dropped before it claims a host, or the stub that could cover that host is
-    // warned off as a duplicate of a file that then gets dropped anyway. See Merge's own note.
-    var items = new CotiTemplateItemView( templateTable );
-    var loadedGuids = new HashSet<string>(
-        loadedMods.Select( m => m.ModMetadata.ModGuid ), StringComparer.OrdinalIgnoreCase );
+      // Built before the merge because the merge needs it: a device whose requires is
+      // unmet must be dropped before it claims a host, or the stub that could cover that host is
+      // warned off as a duplicate of a file that then gets dropped anyway. See Merge's own note.
+      var items = new CotiTemplateItemView( templateTable );
+      var loadedGuids = new HashSet<string>(
+          loadedMods.Select( m => m.ModMetadata.ModGuid ), StringComparer.OrdinalIgnoreCase );
 
-    var merged = CotiDeviceMerge.Merge( parsedFiles, loadedGuids );
+      var merged = CotiDeviceMerge.Merge( parsedFiles, loadedGuids );
 
-    foreach( var warning in merged.Warnings )
-      logger.Warning( $"[COTI] {warning}" );
+      foreach( var warning in merged.Warnings )
+        logger.Warning( $"[COTI] {warning}" );
 
-    // Info rather than Debug. A merge note means a device declared a "requires" guid the server
-    // has not loaded: either the host mod is not installed, which is fine, or the guid is wrong,
-    // a common addon-author mistake that only the log reports. It is one line per device file.
-    // The resolve notes stay at Debug because an absent host id is per item and can run to dozens
-    // on a healthy install.
-    foreach( var note in merged.Notes )
-      logger.Info( $"[COTI] {note}" );
+      // One line per device file at Debug, plus a count at Info: a merge note can be a wrong
+      // "requires" guid, which only the log reports, so the count says where to look.
+      foreach( var note in merged.Notes )
+        logger.Debug( $"[COTI] {note}" );
 
-    var resolved = CotiHostResolver.Resolve( merged, items, loadedGuids );
+      if( merged.Notes.Count > 0 )
+      {
+        logger.Info(
+            $"[COTI] {merged.Notes.Count} device file(s) skipped for a required mod that is not loaded, " +
+            "or superseded by a tuned device - see the Debug log for which" );
+      }
 
-    // Warnings are something a human should act on; Notes are the normal case - an absent host
-    // from an optional mod happens on every healthy install, and logging it as a warning would
-    // make a healthy install look broken.
-    foreach( var warning in resolved.Warnings )
-      logger.Warning( $"[COTI] {warning}" );
+      var resolved = CotiHostResolver.Resolve( merged, items, loadedGuids );
 
-    foreach( var note in resolved.Notes )
-      logger.Debug( $"[COTI] {note}" );
+      // Warnings are something a human should act on; Notes are the normal case - an absent host
+      // from an optional mod happens on every healthy install, and logging it as a warning would
+      // make a healthy install look broken.
+      foreach( var warning in resolved.Warnings )
+        logger.Warning( $"[COTI] {warning}" );
 
-    // Applies the same Requires gate Resolve does: a device gated out by a missing mod never had
-    // any hosts eligible to resolve, so it must not inflate either number.
-    var declaredHostCount = merged.Devices
-        .Where( d => string.IsNullOrWhiteSpace( d.Requires )
-            || loadedGuids.Contains( d.Requires, StringComparer.OrdinalIgnoreCase ) )
-        .Sum( d => d.Hosts?.Count( h => h?.Id != null ) ?? 0 );
+      foreach( var note in resolved.Notes )
+        logger.Debug( $"[COTI] {note}" );
 
-    // One assignment, after everything is built, so readers never see a partial reload. See
-    // CotiDeviceSnapshot.
-    Volatile.Write( ref snapshot, new CotiDeviceSnapshot(
-        resolved.ByHostId, resolved.Devices, resolved.ResolvedDevices,
-        declaredHostCount, declaredHostCount - resolved.ByHostId.Count ) );
+      // Applies the same Requires gate Resolve does: a device gated out by a missing mod never had
+      // any hosts eligible to resolve, so it must not inflate either number.
+      var declaredHostCount = merged.Devices
+          .Where( d => string.IsNullOrWhiteSpace( d.Requires )
+              || loadedGuids.Contains( d.Requires, StringComparer.OrdinalIgnoreCase ) )
+          .Sum( d => d.Hosts?.Count( h => h?.Id != null ) ?? 0 );
 
-    logger.Success(
-        $"[COTI] Device store: {resolved.Devices.Count} device(s) resolved, covering " +
-        $"{resolved.ByHostId.Count} host(s), from {FolderPath}" );
+      // One assignment, after everything is built, so readers never see a partial reload. See
+      // CotiDeviceSnapshot.
+      Volatile.Write( ref snapshot, new CotiDeviceSnapshot(
+          resolved.ByHostId, resolved.Devices, resolved.ResolvedDevices,
+          declaredHostCount, declaredHostCount - resolved.ByHostId.Count ) );
+
+      logger.Success(
+          $"[COTI] Device store: {resolved.Devices.Count} device(s) resolved, covering " +
+          $"{resolved.ByHostId.Count} host(s), from {FolderPath}" );
+    }
+  }
+
+  /// <summary>
+  /// Writes the file and reloads. See TryWriteFile for how the write is made safe.
+  /// </summary>
+  public bool TryWrite( CotiDeviceFile device, out string error )
+  {
+    if( !TryWriteFile( device, out error ) )
+      return false;
+
+    Reload();
+    return true;
   }
 
   /// <summary>
   /// Writes to a temp file then moves it over the target, and copies any existing file to
   /// "&lt;device&gt;.json.bak" first. A half-written device file fails to parse and is skipped on
-  /// the next load, losing the tuned pose, so the write never happens in place.
+  /// the next load, losing the tuned pose, so the write never happens in place. Does not reload:
+  /// a caller writing several files reloads once afterwards.
   /// </summary>
-  public bool TryWrite( CotiDeviceFile device, out string error )
+  public bool TryWriteFile( CotiDeviceFile device, out string error )
   {
     error = string.Empty;
 
@@ -239,8 +263,23 @@ public class CotiDeviceStore : IOnLoad
       return false;
     }
 
-    Reload();
     return true;
+  }
+
+  /// <summary>
+  /// Names of the device files a write could land on: every *.json at any depth outside parked
+  /// "_" and "." folders. Discovery reserves these so a new stub never overwrites one.
+  /// </summary>
+  public IEnumerable<string> DeviceFileNames() =>
+      DeviceFiles().Select( Path.GetFileNameWithoutExtension );
+
+  private IEnumerable<string> DeviceFiles()
+  {
+    if( !Directory.Exists( FolderPath ) )
+      return Enumerable.Empty<string>();
+
+    return Directory.GetFiles( FolderPath, "*.json", SearchOption.AllDirectories )
+        .Where( path => !IsInWorkingFolder( path ) );
   }
 
   private List<CotiParsedFile> ReadParsedFiles()
@@ -302,21 +341,10 @@ public class CotiDeviceStore : IOnLoad
   /// </summary>
   private string? FindExistingPath( string device )
   {
-    if( !Directory.Exists( FolderPath ) )
-      return null;
-
     var wanted = $"{device}.json";
 
-    foreach( var path in Directory.GetFiles( FolderPath, "*.json", SearchOption.AllDirectories ) )
-    {
-      if( IsInWorkingFolder( path ) )
-        continue;
-
-      if( string.Equals( Path.GetFileName( path ), wanted, StringComparison.OrdinalIgnoreCase ) )
-        return path;
-    }
-
-    return null;
+    return DeviceFiles().FirstOrDefault(
+        path => string.Equals( Path.GetFileName( path ), wanted, StringComparison.OrdinalIgnoreCase ) );
   }
 
   private static CotiParsedFile ParseFile( string path )

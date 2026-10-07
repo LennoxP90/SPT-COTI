@@ -59,7 +59,7 @@ namespace Coti.Shared
 
     /// <summary>
     /// mount becomes a copy of the home tube's (left as it is when the home tube is not posed) and mask the home
-    /// circle at 16:9, so a COTI before 3.3.0 seats one COTI on today's tube.
+    /// circle at 16:9, so a COTI before 3.3.0 seats one COTI on the home tube.
     /// </summary>
     public static void WriteLegacyPair( CotiDeviceFile device, CotiLayout layout )
     {

@@ -57,7 +57,7 @@ namespace Coti.Client
     private static float _defaultCircleGlow = float.NaN;
     private static Color? _setHotColour;
     private static Color? _setCoolColour;
-    private static Texture _builtSource;
+    private static Texture _recordedSource;
 
     private static bool _broken;
     private static bool _loggedAttached;
@@ -97,21 +97,9 @@ namespace Coti.Client
           return;
         }
 
-        var camera = Camera.main;
+        var camera = CotiFrame.Main;
 
-        // While the magnified composite is drawing, the 1x overlay stands down entirely. Cutting a
-        // hole for the lens can only approximate the tilted disc, and its rim reads as a second
-        // circle inside the scope.
-        //
-        // Both conditions, because they fail independently: standing down for a composite that is
-        // not running would leave no thermal at all.
-        // Through a thermal sight COTI stands down: the sight's own picture is the thermal.
-        // Behind a magnified sight the heat is the magnified path's even in the frames before it draws: when a mode
-        // change's message ends it takes a frame or two to come back, and in those the 1x heat and the circle's glow
-        // flashed over the scope. The message itself still draws here.
-        if( CotiOpticCamera.ThermalSightAimed
-            || ( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached )
-            || ( CotiOpticCamera.MagnifiedSightAimed && CotiState.Showing == CotiShowing.Thermal ) )
+        if( SightOwnsTheView() )
         {
           Detach();
           return;
@@ -130,9 +118,6 @@ namespace Coti.Client
           return;
         }
 
-        if( _attachedTo != camera )
-          Detach();
-
         EnsureBuffer( camera, source );
 
         ApplyMaterialValues( source );
@@ -144,6 +129,24 @@ namespace Coti.Client
         Plugin.Log.LogError(
             $"[COTI] Overlay composite disabled - switch the overlay off and on to retry: {ex}" );
       }
+    }
+
+    /// <summary>
+    /// Whether an aimed sight owns the picture, so the 1x overlay stands down entirely.
+    ///
+    /// A thermal sight's own picture is the thermal. Behind a magnified sight the heat is the magnified composite's,
+    /// both while it draws and in the frame or two it takes to come back after a mode change's message, so the 1x heat
+    /// and the circle's glow never show over the scope; a message still draws here. Cutting a hole for the lens
+    /// instead could only approximate the tilted disc, and its rim would read as a second circle inside the scope.
+    ///
+    /// The composite's check needs both Magnifying and Attached: they fail independently, and standing down for a
+    /// composite that is not running would leave no thermal at all.
+    /// </summary>
+    private static bool SightOwnsTheView()
+    {
+      return CotiOpticCamera.ThermalSightAimed
+             || ( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached )
+             || ( CotiOpticCamera.MagnifiedSightAimed && CotiState.Showing == CotiShowing.Thermal );
     }
 
     /// <summary>
@@ -166,40 +169,44 @@ namespace Coti.Client
       }
     }
 
-    private static void EnsureBuffer( Camera camera, Texture thermal )
+    private static void EnsureBuffer( Camera camera, Texture source )
     {
-      if( _commandBuffer != null
-          && _attachedTo == camera
-          && ReferenceEquals( _builtSource, thermal ) )
+      // The material from the bundle, not one built from the shader: a material built from a shader whose programs were
+      // stripped renders nothing while reporting isSupported=true. Its values outlive a detach, so the cache is dropped
+      // only for a different material.
+      var material = CotiShaderBundle.OverlayMaterial;
+      if( !ReferenceEquals( _material, material ) )
       {
-        return;
+        _material = material;
+        _recordedSource = null;
+        ForgetMaterialValues();
       }
 
+      if( _commandBuffer == null )
+        _commandBuffer = new CommandBuffer { name = "COTI overlay" };
+
+      // The whole composite: the shader blends additively, so the frame is only written to. Re-recorded in place, even
+      // while attached, since the camera reads the buffer when it renders.
+      if( !ReferenceEquals( _recordedSource, source ) )
+      {
+        _commandBuffer.Clear();
+        _commandBuffer.Blit( source, BuiltinRenderTextureType.CameraTarget, _material, 0 );
+        _recordedSource = source;
+      }
+
+      if( _attachedTo == camera )
+        return;
+
       Detach();
-
-      // The material from the bundle, not one constructed from the shader. A material built from
-      // a shader whose compiled programs were stripped at build time renders nothing while
-      // reporting isSupported=true.
-      _material = CotiShaderBundle.OverlayMaterial;
-      ForgetMaterialValues();
-
-      _commandBuffer = new CommandBuffer { name = "COTI overlay" };
-
-      // The entire composite. The shader blends additively, so the destination is only written
-      // to and needs no temporary target or frame copy.
-      _commandBuffer.Blit( thermal, BuiltinRenderTextureType.CameraTarget, _material, 0 );
-
       camera.AddCommandBuffer( InjectionPoint, _commandBuffer );
-
       _attachedTo = camera;
-      _builtSource = thermal;
 
       if( !_loggedAttached )
       {
         _loggedAttached = true;
         Plugin.Log.LogInfo(
             $"[COTI] Overlay attached at {InjectionPoint} using additive blit " +
-            $"(thermal {thermal.width}x{thermal.height}, no frame read-back)" );
+            $"(thermal {source.width}x{source.height}, no frame read-back)" );
       }
     }
 
@@ -219,8 +226,8 @@ namespace Coti.Client
 
       ApplyPhosphorTint();
 
-      // The circle's faint glow is the display being lit. Behind a magnified sight it lit a disc over the scope for as
-      // long as a message showed (a mode change), so there the message is its text alone.
+      // The circle's faint glow is the display being lit. Behind a magnified sight it would light a disc over the scope,
+      // so there a message is its text alone.
       if( float.IsNaN( _defaultCircleGlow ) )
         _defaultCircleGlow = _material.GetFloat( CircleGlowId );
       var textOnly = CotiState.Showing == CotiShowing.Message && CotiOpticCamera.MagnifiedSightAimed;
@@ -334,8 +341,7 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Drops what this compositor believes the material already holds. Called wherever _material is
-    /// reassigned or the buffer detached, since the values are the material's and not ours.
+    /// Drops what this compositor believes the material holds. Called when _material becomes a different object.
     /// </summary>
     private static void ForgetMaterialValues()
     {
@@ -445,7 +451,7 @@ namespace Coti.Client
     /// </summary>
     private static BSG.CameraEffects.NightVision ResolveNightVision()
     {
-      var camera = Camera.main;
+      var camera = CotiFrame.Main;
       if( camera == null )
         return null;
 
@@ -496,9 +502,12 @@ namespace Coti.Client
       return target;
     }
 
+    // ponytail: the buffer lives for the session; Plugin.OnDestroy only calls Detach, so the buffer is freed at process
+    // exit. Add a Release there if the plugin ever unloads mid-session.
     internal static void Detach()
     {
-      if( _commandBuffer != null && _attachedTo != null )
+      // Unity's null: a destroyed camera has no buffer list left to remove from.
+      if( _attachedTo != null )
       {
         try
         {
@@ -506,15 +515,10 @@ namespace Coti.Client
         }
         catch( Exception ex )
         {
-          // A destroyed camera can throw here; the buffer is being dropped regardless.
           Plugin.Log.LogWarning( $"[COTI] Removing overlay command buffer failed: {ex.Message}" );
         }
       }
-
-      _commandBuffer?.Release();
-      _commandBuffer = null;
       _attachedTo = null;
-      _builtSource = null;
     }
   }
 }

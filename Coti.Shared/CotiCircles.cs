@@ -30,7 +30,7 @@ namespace Coti.Shared
       return new CotiCircle( 0.5f + tube.Dx / aspect, 0.5f + tube.Dy, tube.Radius, CotiLayouts.Feather );
     }
 
-    /// <summary>A v1 device's mask block, straight through, as 3.2.0 built its mask.</summary>
+    /// <summary>A v1 device's mask block, straight through, as 3.2.0 builds its mask.</summary>
     public static CotiCircle FromMask( CotiMaskBlock mask )
     {
       return new CotiCircle( mask.CenterX, mask.CenterY, mask.Radius, mask.Feather );

@@ -10,7 +10,7 @@ namespace Coti.Server.Web.Meshes;
 /// Writes reader output as the glTF the viewer loads, in the viewer's own space and on an
 /// identity node, so nothing has to cancel anything later.
 ///
-/// The shipped meshes came out of Blender and carry its two halves instead: vertices a quarter
+/// The shipped meshes are Blender exports and carry its two halves instead: vertices a quarter
 /// turn out with a node rotation that undoes it. Both render the same. CotiMeshCheck measures
 /// where a vertex lands, so it holds either to one standard.
 /// </summary>

@@ -5,8 +5,7 @@ using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 // SPTarkov.Server.Core.Models.Eft.Common.Tables also declares a type named "Path" (a lockpicking
-// path record), which collides with System.IO.Path once both usings are in scope. See
-// CotiDeviceStore.cs.
+// path record), which collides with System.IO.Path once both usings are in scope.
 using Path = System.IO.Path;
 
 namespace Coti.Server;
@@ -70,63 +69,52 @@ public class CotiHostDiscovery : IOnLoad
     }
 
     var items = new CotiTemplateItemView( templateTable );
+    // Stubs are written without reloading, so this stays the pre-discovery table. Exact: each id is
+    // visited once, and stubs are untuned so they never seed another stub's mask.
+    var snapshot = deviceStore.Current;
+    var classified = new Dictionary<string, bool>();
+    var namesInUse = DeviceNamesInUse( snapshot );
     var discovered = 0;
 
-    foreach( var id in items.AllIds().ToList() )
+    try
     {
-      // Re-read per candidate: TryWrite below reloads the store, so each iteration has to see the
-      // stub the previous one wrote.
-      var snapshot = deviceStore.Current;
-
-      if( snapshot.ByHostId.ContainsKey( id ) )
-        continue;
-
-      if( !CotiNvgClassifier.IsNightVision( items, id ) )
-        continue;
-
-      if( !templateTable.Items.TryGetValue( new MongoId( id ), out var hostItem ) )
-        continue;
-
-      var family = hostItem.Properties?.Mask;
-      var deviceName = ResolveUniqueDeviceName( SlugFromName( hostItem.Name, id ) );
-
-      var seed = CotiMaskFamilies.SeedFor( family, snapshot.Devices, FamilyOf );
-
-      var stub = new CotiDeviceFile
+      foreach( var ( key, hostItem ) in templateTable.Items )
       {
-        Schema = CotiDeviceFile.CurrentSchema,
-        Device = deviceName,
-        DisplayName = hostItem.Name ?? deviceName,
-        Tuned = false,
-        Hosts = new List<CotiHostRef>
+        var id = (string) key;
+
+        if( snapshot.ByHostId.ContainsKey( id ) || !CotiNvgClassifier.IsNightVision( items, id, classified ) )
+          continue;
+
+        var family = hostItem.Properties?.Mask;
+        var deviceName = UniqueName( SlugFromName( hostItem.Name, id ), namesInUse );
+        var seed = CotiMaskFamilies.SeedFor( family, snapshot.Devices, FamilyOf );
+
+        var stub = NewStub( id, deviceName, hostItem, seed.Mask );
+
+        if( !deviceStore.TryWriteFile( stub, out var writeError ) )
         {
-          new CotiHostRef { Id = id, Prefab = hostItem.Properties?.Prefab?.Path },
-        },
-        Mask = seed.Mask,
-        // Empty: CurveRotator lives on the instantiated prefab, which the server never loads, so
-        // the anchor bone cannot be seeded here. The client discovers it when it first mounts on
-        // this host and offers it in the pose editor; Publish commits it.
-        Mount = new CotiMountBlock { AnchorBone = string.Empty },
-      };
+          logger.Warning( $"[COTI] Auto-discovery could not write a stub for {id}: {writeError}" );
+          continue;
+        }
 
-      if( !deviceStore.TryWrite( stub, out var writeError ) )
-      {
-        logger.Warning( $"[COTI] Auto-discovery could not write a stub for {id}: {writeError}" );
-        continue;
+        namesInUse.Add( deviceName );
+        discovered++;
+
+        // A stub is v1: discovery never writes tubes.
+        slotInjector.InjectInto( id, stub.DisplayName ?? deviceName, layout: null );
+
+        logger.Debug(
+            $"[COTI] Discovered {deviceName} ({id}), family {family ?? "(none declared)"} - " +
+            ( seed.SeededFrom != null
+                ? $"seeded from tuned device \"{seed.SeededFrom.Device}\""
+                : "no tuned device in this family - using the fallback circle" ) );
       }
-
-      // A stub is v1: discovery never writes tubes.
-      slotInjector.InjectInto( id, stub.DisplayName ?? deviceName, layout: null );
-
-      var familyLabel = family ?? "(none declared)";
-      var seedDescription = seed.SeededFrom != null
-          ? $"seeded from tuned device \"{seed.SeededFrom.Device}\""
-          : "no tuned device in this family - using the fallback circle";
-
-      logger.Success(
-          $"[COTI] Discovered {deviceName} ({id}), family {familyLabel} - {seedDescription}" );
-
-      discovered++;
+    }
+    finally
+    {
+      // Even if a later host throws, the stubs already on disk must reach the store.
+      if( discovered > 0 )
+        deviceStore.Reload();
     }
 
     if( discovered > 0 )
@@ -135,6 +123,28 @@ public class CotiHostDiscovery : IOnLoad
       logger.Debug( "[COTI] Auto-discovery: no new night vision hosts found." );
 
     return Task.CompletedTask;
+  }
+
+  /// <summary>
+  /// An untuned v1 device for one host. The anchor bone is left empty: CurveRotator lives on the
+  /// instantiated prefab, which the server never loads, so the client discovers it when it first
+  /// mounts on this host and offers it in the pose editor, and Publish commits it.
+  /// </summary>
+  private static CotiDeviceFile NewStub( string id, string deviceName, TemplateItem hostItem, CotiMaskBlock mask )
+  {
+    return new CotiDeviceFile
+    {
+      Schema = CotiDeviceFile.CurrentSchema,
+      Device = deviceName,
+      DisplayName = hostItem.Name ?? deviceName,
+      Tuned = false,
+      Hosts = new List<CotiHostRef>
+      {
+        new CotiHostRef { Id = id, Prefab = hostItem.Properties?.Prefab?.Path },
+      },
+      Mask = mask,
+      Mount = new CotiMountBlock { AnchorBone = string.Empty },
+    };
   }
 
   /// <summary>
@@ -158,7 +168,7 @@ public class CotiHostDiscovery : IOnLoad
   /// <summary>
   /// The item's own _name is already a filesystem-safe slug for every real NVG in the database
   /// (nvg_alfa_pnv-10t, nvg_57em, nvg_l3_gpnvg-18_anvis, ...). This guards against a modded
-  /// item's name that is not, so a discovery never fails TryWrite's filename check.
+  /// item's name that is not, so a discovery never fails TryWriteFile's filename check.
   /// </summary>
   private static string SlugFromName( string? name, string fallbackId )
   {
@@ -174,32 +184,29 @@ public class CotiHostDiscovery : IOnLoad
   }
 
   /// <summary>
-  /// Checked against both the resolved store and the raw folder. A device file whose hosts all
-  /// failed to resolve (an uninstalled mod's host, say) is not in Devices but its file is still in
-  /// FolderPath, and writing over it would destroy that device file.
+  /// Every name a new stub must not take: resolved devices, and every device file TryWriteFile could
+  /// land on, at any depth. Without the files, a name matching an unresolved addon file in a
+  /// subfolder would overwrite it.
   /// </summary>
-  private bool DeviceNameInUse( string name )
+  private HashSet<string> DeviceNamesInUse( CotiDeviceSnapshot snapshot )
   {
-    if( deviceStore.Current.Devices.Any( d => string.Equals( d.Device, name, StringComparison.OrdinalIgnoreCase ) ) )
-      return true;
+    var names = new HashSet<string>( deviceStore.DeviceFileNames(), StringComparer.OrdinalIgnoreCase );
 
-    return File.Exists( Path.Combine( deviceStore.FolderPath, $"{name}.json" ) );
+    foreach( var device in snapshot.Devices )
+    {
+      if( !string.IsNullOrEmpty( device.Device ) )
+        names.Add( device.Device );
+    }
+
+    return names;
   }
 
-  private string ResolveUniqueDeviceName( string baseName )
+  private static string UniqueName( string baseName, HashSet<string> inUse )
   {
-    if( !DeviceNameInUse( baseName ) )
-      return baseName;
+    var candidate = baseName;
 
-    var suffix = 2;
-    string candidate;
-
-    do
-    {
+    for( var suffix = 2; inUse.Contains( candidate ); suffix++ )
       candidate = $"{baseName}_{suffix}";
-      suffix++;
-    }
-    while( DeviceNameInUse( candidate ) );
 
     return candidate;
   }

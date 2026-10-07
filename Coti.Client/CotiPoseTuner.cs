@@ -290,7 +290,6 @@ namespace Coti.Client
 
       _bone.transform.SetParent( anchor, worldPositionStays: false );
 
-      // The pose is relative to the anchor, so it is re-applied against the new parent.
       CotiMountPose.Apply( _bone, _host, Delta( Positions, _hostId ), Delta( Rotations, _hostId ),
           ScaleDelta( _hostId ) );
     }
@@ -691,7 +690,8 @@ namespace Coti.Client
       CotiMountPose.Apply( _bone, _host, Delta( Positions, _hostId ), Delta( Rotations, _hostId ),
           ScaleDelta( _hostId ) );
 
-      Plugin.Log?.LogInfo( $"[COTI] re-posed {_hostName} from the pushed host table" );
+      if( Plugin.Config.VerboseLogging )
+        Plugin.Log?.LogInfo( $"[COTI] re-posed {_hostName} from the pushed host table" );
     }
 #endif
 
@@ -714,7 +714,7 @@ namespace Coti.Client
       if( bone == null || hostId == null )
         return;
 
-      if( hostId != _hostId )
+      if( hostId != _hostId && Plugin.Config != null && Plugin.Config.VerboseLogging )
       {
         Plugin.Log.LogInfo(
             $"[COTI TUNE] now tuning {hostName} ({hostId}) - open the COTI Pose button on its " +
@@ -740,40 +740,47 @@ namespace Coti.Client
       CotiMountPose.Apply( bone, host, Delta( Positions, hostId ), Delta( Rotations, hostId ), ScaleDelta( hostId ) );
 
 #if SPT41
-      // Where the device lands, in host-root space. The pose log above is the local transform.
-      if( hostRoot != null )
-      {
-        var world = hostRoot.InverseTransformPoint( bone.position );
-        var spin = UnityEngine.Quaternion.Inverse( hostRoot.rotation ) * bone.rotation;
-        var size = bone.lossyScale;
-
-        Plugin.Log?.LogInfo(
-            $"[COTI] mounted {hostName} anchor '{( string.IsNullOrEmpty( host?.MountAnchorBone ) ? "(root)" : host.MountAnchorBone )}' " +
-            $"-> device origin ({world.x:F4}, {world.y:F4}, {world.z:F4}) in host-root space" );
-
-        // Orientation, in host-root space, so it compares directly with the editor.
-        Plugin.Log?.LogInfo(
-            $"[COTI] device rotation quat ({spin.x:F5}, {spin.y:F5}, {spin.z:F5}, {spin.w:F5}) " +
-            $"euler ({spin.eulerAngles.x:F2}, {spin.eulerAngles.y:F2}, {spin.eulerAngles.z:F2}) " +
-            $"lossyScale ({size.x:F4}, {size.y:F4}, {size.z:F4})" );
-
-        // The anchor's own pose. The web editor draws the host at its prefab bind pose.
-        var anchor = bone.parent;
-        if( anchor != null )
-        {
-          var local = anchor.localRotation.eulerAngles;
-          Plugin.Log?.LogInfo(
-              $"[COTI] anchor '{anchor.name}' local euler ({local.x:F2}, {local.y:F2}, {local.z:F2}), " +
-              $"world euler ({anchor.rotation.eulerAngles.x:F2}, {anchor.rotation.eulerAngles.y:F2}, " +
-              $"{anchor.rotation.eulerAngles.z:F2})" );
-        }
-      }
+      if( hostRoot != null && Plugin.Config != null && Plugin.Config.VerboseLogging )
+        LogMountedPose( bone, host, hostName, hostRoot );
 #endif
     }
 
+#if SPT41
     /// <summary>
-    /// Logs the host's transform names, geometry and flip axis once per host - the mesh does not
-    /// change between mounts.
+    /// Where the device lands and how it is turned, in host-root space, so it compares directly
+    /// with the editor. The anchor's own pose is included because the web editor draws the host at
+    /// its prefab bind pose.
+    /// </summary>
+    private static void LogMountedPose( Transform bone, CotiNvgHostConfig host, string hostName, Transform hostRoot )
+    {
+      var world = hostRoot.InverseTransformPoint( bone.position );
+      var spin = UnityEngine.Quaternion.Inverse( hostRoot.rotation ) * bone.rotation;
+      var size = bone.lossyScale;
+
+      Plugin.Log?.LogInfo(
+          $"[COTI] mounted {hostName} anchor '{( string.IsNullOrEmpty( host?.MountAnchorBone ) ? "(root)" : host.MountAnchorBone )}' " +
+          $"-> device origin ({world.x:F4}, {world.y:F4}, {world.z:F4}) in host-root space" );
+
+      Plugin.Log?.LogInfo(
+          $"[COTI] device rotation quat ({spin.x:F5}, {spin.y:F5}, {spin.z:F5}, {spin.w:F5}) " +
+          $"euler ({spin.eulerAngles.x:F2}, {spin.eulerAngles.y:F2}, {spin.eulerAngles.z:F2}) " +
+          $"lossyScale ({size.x:F4}, {size.y:F4}, {size.z:F4})" );
+
+      var anchor = bone.parent;
+      if( anchor != null )
+      {
+        var local = anchor.localRotation.eulerAngles;
+        Plugin.Log?.LogInfo(
+            $"[COTI] anchor '{anchor.name}' local euler ({local.x:F2}, {local.y:F2}, {local.z:F2}), " +
+            $"world euler ({anchor.rotation.eulerAngles.x:F2}, {anchor.rotation.eulerAngles.y:F2}, " +
+            $"{anchor.rotation.eulerAngles.z:F2})" );
+      }
+    }
+#endif
+
+    /// <summary>
+    /// Records the host's transform names and flip-axis suggestion once per host - the mesh does not
+    /// change between mounts. With verbose logging on, also logs them and the geometry once per host.
     /// </summary>
     public static void ReportHostBones( string templateId, Transform root )
     {
@@ -788,8 +795,8 @@ namespace Coti.Client
         SuggestedBoneByHost[templateId] = ResolveSuggestedBone( root );
       }
 
-      // AttachMods runs on every item view, so the verbose report is logged once per host.
-      if( !LoggedHosts.Add( templateId ) )
+      // AttachMods runs on every item view, so the report is logged once per host.
+      if( Plugin.Config == null || !Plugin.Config.VerboseLogging || !LoggedHosts.Add( templateId ) )
         return;
 
       var report = new StringBuilder();
@@ -933,6 +940,15 @@ namespace Coti.Client
 
       CotiMountPose.Apply( _bone, _host, Positions[_hostId], Rotations[_hostId], Scales[_hostId] );
 
+      if( Plugin.Config.VerboseLogging )
+        LogTunedPose();
+    }
+
+    /// <summary>
+    /// The pose as device-file JSON fields, ready to paste.
+    /// </summary>
+    private static void LogTunedPose()
+    {
       var rotation = Rotations[_hostId];
       var position = _bone.localPosition;
 
@@ -1003,7 +1019,8 @@ namespace Coti.Client
         Rotations.Remove( hostId );
         Scales.Remove( hostId );
 
-        Plugin.Log.LogInfo( $"[COTI TUNE] {hostId} config changed - tuning deltas reset to match" );
+        if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+          Plugin.Log.LogInfo( $"[COTI TUNE] {hostId} config changed - tuning deltas reset to match" );
       }
 
       SeenConfig[hostId] = current;

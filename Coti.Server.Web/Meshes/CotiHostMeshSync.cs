@@ -58,11 +58,13 @@ public sealed class CotiHostMeshSync(
         Directory.CreateDirectory(folder);
 
         var sources = ReadSources(folder);
+        var previous = ReadIndex(folder);
+        var shipped = ReadIndex(Path.Combine(CotiHostMeshes.MeshRootPath(), CotiHostMeshes.ShippedFolder));
         var index = new Dictionary<string, CotiHostMeshes.MeshEntry>();
         var kept = new Dictionary<string, Source>();
         int converted = 0, unchanged = 0, failed = 0;
 
-        foreach (var (hostId, anchorBone) in HostsNeedingMesh())
+        foreach (var (hostId, anchorBone) in HostsNeedingMesh(shipped))
         {
             var bundle = BundleFor(hostId);
             if (bundle is null)
@@ -83,7 +85,7 @@ public sealed class CotiHostMeshSync(
             if (sources.TryGetValue(hostId, out var was)
                 && was.Path == source.Path && was.Size == source.Size && was.Ticks == source.Ticks
                 && was.Version == source.Version
-                && ReadEntry(folder, hostId) is { } cached
+                && previous.TryGetValue(hostId, out var cached)
                 && FilesPresent(folder, cached))
             {
                 index[hostId] = cached;
@@ -93,7 +95,7 @@ public sealed class CotiHostMeshSync(
             }
 
             // logged before the work so a wedge names the host that caused it
-            logger.Info($"[COTI] mesh: converting '{hostId}' from {Path.GetFileName(bundle)}");
+            logger.Debug($"[COTI] mesh: converting '{hostId}' from {Path.GetFileName(bundle)}");
 
             try
             {
@@ -125,14 +127,15 @@ public sealed class CotiHostMeshSync(
     }
 
     /// <summary>Resolved hosts that have no shipped mesh, with the flip bone their device names.</summary>
-    private IEnumerable<(string HostId, string? AnchorBone)> HostsNeedingMesh()
+    private IEnumerable<(string HostId, string? AnchorBone)> HostsNeedingMesh(
+        Dictionary<string, CotiHostMeshes.MeshEntry> shipped)
     {
         var seen = new HashSet<string>();
         foreach (var device in deviceStore.Current.ResolvedDevices)
         {
             foreach (var host in device.Hosts)
             {
-                if (host?.Id is null || !seen.Add(host.Id) || CotiHostMeshes.HasShippedMesh(host.Id))
+                if (host?.Id is null || !seen.Add(host.Id) || shipped.ContainsKey(host.Id))
                 {
                     continue;
                 }
@@ -200,12 +203,6 @@ public sealed class CotiHostMeshSync(
         return CotiHostMeshBuilder.FilesFor(entry).All(f => File.Exists(Path.Combine(folder, f)));
     }
 
-    private static CotiHostMeshes.MeshEntry? ReadEntry(string folder, string hostId)
-    {
-        var index = ReadIndex(folder);
-        return index.TryGetValue(hostId, out var entry) ? entry : null;
-    }
-
     private static Dictionary<string, CotiHostMeshes.MeshEntry> ReadIndex(string folder)
     {
         var path = Path.Combine(folder, "index.json");
@@ -219,8 +216,9 @@ public sealed class CotiHostMeshSync(
             return JsonSerializer.Deserialize<Dictionary<string, CotiHostMeshes.MeshEntry>>(
                 File.ReadAllText(path)) ?? new Dictionary<string, CotiHostMeshes.MeshEntry>();
         }
-        catch (JsonException)
+        catch (Exception)
         {
+            // Unreadable means empty: shipped hosts get converted, cached hosts get rebuilt.
             return new Dictionary<string, CotiHostMeshes.MeshEntry>();
         }
     }
@@ -238,7 +236,7 @@ public sealed class CotiHostMeshSync(
             return JsonSerializer.Deserialize<Dictionary<string, Source>>(File.ReadAllText(path))
                    ?? new Dictionary<string, Source>();
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
             return new Dictionary<string, Source>();
         }

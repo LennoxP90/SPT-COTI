@@ -88,14 +88,16 @@ namespace Coti.Client
       if( _shortcut != null && _shortcut.Value.IsDown() )
       {
         Sequence.Press( now );
-        Plugin.Log.LogInfo( $"[COTI] Power toggle pressed - {Sequence.Phase}" );
+        if( Plugin.Config?.VerboseLogging ?? false )
+          Plugin.Log.LogInfo( $"[COTI] Power toggle pressed - {Sequence.Phase}" );
       }
 
       if( _modeShortcut != null && _mode != null && _modeShortcut.Value.IsDown() )
       {
         _mode.Value = CotiThermalModes.Next( _mode.Value );
         Sequence.ShowMode( now );
-        Plugin.Log.LogInfo( $"[COTI] Mode toggle pressed - {_mode.Value}" );
+        if( Plugin.Config?.VerboseLogging ?? false )
+          Plugin.Log.LogInfo( $"[COTI] Mode toggle pressed - {_mode.Value}" );
       }
 
       var previous = Frame.Phase;

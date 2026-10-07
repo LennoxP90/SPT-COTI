@@ -7,8 +7,8 @@ namespace Coti.Client
   /// off it, and the one component it must never be missing.
   ///
   /// Shared rather than copied because a fix landing in one camera and not the other is hard to
-  /// detect, since both would still render. Stateless: each camera owns
-  /// its own clone, target and failure latch.
+  /// detect, since both would still render. Each camera owns its own clone, target and failure latch; only the target
+  /// format and the warm-up stagger are kept here.
   /// </summary>
   internal static class CotiThermalRig
   {
@@ -64,7 +64,7 @@ namespace Coti.Client
     /// and with ThermalVision off, since its passes post-process a G-buffer this camera no longer fills.
     ///
     /// Run every frame after the camera copies its settings from the one it follows, which writes the rendering
-    /// path and clear flags back. With a bundle that predates the shader, ThermalVision renders as before.
+    /// path and clear flags back. With a bundle that lacks the shader, ThermalVision renders the image itself.
     /// </summary>
     internal static void ApplyRenderMode( Camera camera, ThermalVision thermal, ref bool replacing )
     {
@@ -90,8 +90,8 @@ namespace Coti.Client
           volumetric.enabled = false;
 
         // Kept on the clone for ThermalVision.Awake (see StripComponentNames), but it resamples the finished image,
-        // alpha included, and alpha is each surface's distance: at a scope's zoom it pulled a body 25 m away down to
-        // 8-16 m, so the perspective outline drew it several times too thick.
+        // alpha included, and alpha is each surface's distance: at a scope's zoom it shortens distances and the
+        // perspective outline draws bodies too thick.
         if( camera.GetComponent( "ChromaticAberration" ) is Behaviour aberration )
           aberration.enabled = false;
 
@@ -107,6 +107,58 @@ namespace Coti.Client
         camera.clearFlags = CameraClearFlags.SolidColor;
       if( camera.backgroundColor != Color.black )
         camera.backgroundColor = Color.black;
+
+      // Straight into the half-float target: with HDR off an image effect's intermediate would be 8-bit and clamp the distance alpha.
+      if( !camera.allowHDR )
+        camera.allowHDR = true;
+    }
+
+    private static RenderTextureFormat? _targetFormat;
+
+    /// <summary>
+    /// The thermal targets' format: half float whatever the eye's HDR setting, since alpha carries each surface's distance
+    /// in metres and an 8-bit target clamps it to 1. Every DX11 card has it; the fallbacks only keep a missing format loud.
+    /// </summary>
+    internal static RenderTextureFormat TargetFormat
+    {
+      get
+      {
+        if( _targetFormat == null )
+        {
+          _targetFormat = SystemInfo.SupportsRenderTextureFormat( RenderTextureFormat.ARGBHalf ) ? RenderTextureFormat.ARGBHalf
+              : SystemInfo.SupportsRenderTextureFormat( RenderTextureFormat.ARGBFloat ) ? RenderTextureFormat.ARGBFloat
+              : RenderTextureFormat.ARGB32;
+          if( _targetFormat != RenderTextureFormat.ARGBHalf )
+            Plugin.Log.LogWarning( $"[COTI] ARGBHalf render textures unsupported, thermal targets use {_targetFormat}" );
+        }
+        return _targetFormat.Value;
+      }
+    }
+
+    private static int _warmFrame = -1;
+    private static bool _bundleWarm;
+
+    /// <summary>
+    /// Whether an idle camera may build its clone now, ahead of use: a COTI is fitted in a loaded raid, and no other warm-up
+    /// work ran this frame. The shader bundle loads on a frame of its own, the raid's world setup on another and each clone
+    /// on another, so the first flip-down pays for none of them and no single frame pays for more than one. Builds only;
+    /// nothing renders until the COTI is on.
+    /// </summary>
+    internal static bool ClaimWarmUp()
+    {
+      var frame = Time.frameCount;
+      if( _warmFrame == frame || !CotiState.CotiAttached || CotiFrame.Main == null
+          || !Comfort.Common.Singleton<EFT.GameWorld>.Instantiated )
+        return false;
+
+      _warmFrame = frame;
+      if( !_bundleWarm )
+      {
+        _bundleWarm = true;
+        _ = CotiShaderBundle.HeatOnly; // AssetBundle.LoadFromFile and LoadAllAssets, once a session
+        return false;
+      }
+      return !CotiThermalWorld.WarmUp();
     }
 
     internal static GameObject LoadPrefab()
@@ -150,7 +202,7 @@ namespace Coti.Client
             continue;
 
           // DestroyImmediate: Destroy is deferred to end of frame, so a "stripped" component would
-          // still be alive while the camera is configured and prewarm-rendered.
+          // still be alive while the camera is configured.
           Object.DestroyImmediate( component );
           break;
         }

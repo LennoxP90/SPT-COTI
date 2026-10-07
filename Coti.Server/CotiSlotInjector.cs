@@ -93,33 +93,36 @@ public class CotiSlotInjector : IOnLoad
       }
     }
 
-    // ByHostId only holds hosts that resolved, so the unresolved count comes from the store's
-    // census over every host entry it declared eligible.
-    var notInstalled = snapshot.UnresolvedHostCount;
+    LogLoadSummary( snapshot, added );
 
-    // Two different failures. A store that declared zero host entries checked nothing (an empty
-    // or missing nvghostcompat/, a staging failure, an unreadable directory) and the warning
-    // names the folder. A store that declared entries and fitted none is the case below: a
-    // healthy install can have no supported device installed.
+    return Task.CompletedTask;
+  }
+
+  /// <summary>
+  /// One line per start. A store that declared no host entries checked nothing (an empty or
+  /// missing nvghostcompat/, a staging failure, an unreadable directory); a store that declared
+  /// entries and fitted none means the item exists and is purchasable but nothing can mount it.
+  /// ByHostId only holds hosts that resolved, so the not-installed count comes from the store's
+  /// census over every host entry it declared eligible.
+  /// </summary>
+  private void LogLoadSummary( CotiDeviceSnapshot snapshot, int added )
+  {
     if( snapshot.DeclaredHostCount == 0 )
     {
       logger.Warning(
           $"[COTI] Device store declared no host entries to check - {deviceStore.FolderPath} is " +
           $"missing, empty, or every file in it failed to load. See the warnings above for why." );
     }
-    // Zero fitted is worth a warning: the item exists and is purchasable, but nothing can mount it.
     else if( added == 0 )
     {
       logger.Warning(
           $"[COTI] No supported night vision device is installed - the ECOTI has nothing to " +
           $"clip to. Checked {snapshot.DeclaredHostCount} host(s)." );
     }
-    else if( notInstalled > 0 )
+    else
     {
-      logger.Success( $"[COTI] {added} host(s) fitted, {notInstalled} not installed" );
+      logger.Success( $"[COTI] {added} host(s) fitted, {snapshot.UnresolvedHostCount} not installed" );
     }
-
-    return Task.CompletedTask;
   }
 
   /// <summary>
@@ -135,8 +138,9 @@ public class CotiSlotInjector : IOnLoad
   /// Mutates the live template table so <paramref name="hostId"/> has every COTI slot of
   /// <paramref name="layout"/> (mod_coti alone when it is null), and reports what happened - see
   /// <see cref="CotiInjectOutcome"/>. Every outcome except AlreadyPresent logs here, because every
-  /// caller wants the same line. AlreadyPresent (every slot already there) is silent because the
-  /// right reaction to it differs by caller - see its call site in <see cref="LoadAsync"/>.
+  /// caller wants the same line; Added and NotInstalled log at Debug, since each caller writes its
+  /// own summary. AlreadyPresent (every slot already there) is silent because the right reaction to
+  /// it differs by caller - see its call site in <see cref="LoadAsync"/>.
   /// </summary>
   public CotiInjectOutcome InjectInto( string hostId, string label, CotiLayout? layout )
   {
@@ -162,9 +166,9 @@ public class CotiSlotInjector : IOnLoad
       return CotiInjectOutcome.NoSlotsCollection;
     }
 
-    // Appended, never stopped at mod_coti: a device upgraded and republished at runtime already
-    // has mod_coti and still needs the rest. EFT fills the first free slot that takes the item, so
-    // they go in the auto-pick order SlotNames returns.
+    // Appended, never stopped at mod_coti: a device upgraded to more tubes and republished at
+    // runtime has mod_coti and still needs the rest. EFT fills the first free slot that takes the
+    // item, so they go in the auto-pick order SlotNames returns.
     var present = host.Properties.Slots.Select( s => s.Name ).ToHashSet();
     var missing = CotiTubes.SlotNames( layout ).Where( name => !present.Contains( name ) ).ToList();
 
@@ -172,9 +176,9 @@ public class CotiSlotInjector : IOnLoad
       return CotiInjectOutcome.AlreadyPresent;
 
     // Atomic reference swap rather than an in-place add. The dynamic path can inject while
-    // another client is serialising /client/items, and on 4.1.3 that walk is lazy: the route
-    // returns StreamedJsonBody, which holds a reference rather than bytes, so the window spans
-    // the whole multi-megabyte download. Assigning a fresh list means the serialiser's
+    // another client is serialising /client/items, and that walk is lazy: the route returns
+    // StreamedJsonBody, which holds a reference rather than bytes, so the window spans the whole
+    // multi-megabyte download. Assigning a fresh list means the serialiser's
     // enumerator holds either the old list or the new one, never a torn one. Do not replace
     // this with Slots.Add.
     var slots = host.Properties.Slots.ToList();
@@ -184,7 +188,7 @@ public class CotiSlotInjector : IOnLoad
 
     // Uses the device's display name: the template's ShortName is BSG's internal one and is
     // Russian for some items (the PVS-14's is "ПНВ"). English lives in the locale files.
-    logger.Success( $"[COTI] {string.Join( ", ", missing )} added to {label} ({hostId})" );
+    logger.Debug( $"[COTI] {string.Join( ", ", missing )} added to {label} ({hostId})" );
     return CotiInjectOutcome.Added;
   }
 

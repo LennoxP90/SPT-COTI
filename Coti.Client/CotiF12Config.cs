@@ -92,7 +92,7 @@ namespace Coti.Client
           "ignores this.",
           new AcceptableValueRange<float>( 0f, 100f ) ) );
 
-      // 3.2.0 wrote 55 into every install; it becomes 45 once, and a value set afterwards stands.
+      // Moves an install still holding the old 55 default to 45, once; a value set afterwards stands.
       var fillMoved = _file.Bind( "Image", "Full Mode Fill Moved", false, new ConfigDescription(
           "Set once the 3.2.0 fill default has been moved to 45.", null,
           new ConfigurationManagerAttributes { Browsable = false } ) );

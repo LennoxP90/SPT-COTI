@@ -76,6 +76,10 @@ namespace Coti.Client
       TryEnable( nameof( CotiScopeGlassPatch ), () => new CotiScopeGlassPatch() );
       TryEnable( nameof( CotiAttachPatch ), () => new CotiAttachPatch() );
       TryEnable( nameof( CotiWorldViewPatch ), () => new CotiWorldViewPatch() );
+      TryEnable( nameof( CotiHotObjectAwakePatch ), () => new CotiHotObjectAwakePatch() );
+      TryEnable( nameof( CotiDeviceAwakePatch ), () => new CotiDeviceAwakePatch() );
+      TryEnable( nameof( CotiLampAwakePatch ), () => new CotiLampAwakePatch() );
+      TryEnable( nameof( CotiFireAwakePatch ), () => new CotiFireAwakePatch() );
       TryEnable( nameof( CotiWorldViewPatch.OnAttachMods ), () => new CotiWorldViewPatch.OnAttachMods() );
 
       // Runs regardless of verboseLogging: EFT's on-disk icon cache can hold pictures taken before
@@ -151,9 +155,10 @@ namespace Coti.Client
 
     private void Update()
     {
-      // Support for fika headless clients, will essentially no-op
       if( IsHeadless )
         return;
+
+      CotiFrame.Begin();
 
       // Separate from the raid-state block below: a failure applying the host table must not
       // suppress thermal-camera updates for the rest of the session (or vice versa), and each
@@ -245,7 +250,7 @@ namespace Coti.Client
       CotiState.Update( hostTemplateId, filled, lit, hostNvgOn );
 
       // Nothing further. The second-camera path owns thermal rendering, and nothing may switch
-      // ThermalVision on for Camera.main: that raises the global _ThermalVisionOn across the
+      // ThermalVision on for the main camera: that raises the global _ThermalVisionOn across the
       // player's whole render span and thermalises the entire screen, viewmodel included.
     }
 

@@ -76,7 +76,7 @@ namespace Coti.Shared
         position.Y += mount.PositionY;
         position.Z += mount.PositionZ;
 
-        // A host entry predating the scale field deserialises to 0.
+        // A host entry without a scale field deserialises to 0.
         scale = mount.Scale > 0f ? mount.Scale : 1f;
 
         rotation = Multiply(

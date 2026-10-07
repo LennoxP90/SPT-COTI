@@ -22,6 +22,7 @@ namespace Coti.Client
     private static readonly float[] Radii = new float[CotiCapsuleBounds.CapsulesPerBody];
     private static Vector4[] _out;
     private static int _at, _n;
+    private static bool _miscountLogged;
 
     /// <summary>
     /// Writes one body's capsules into <paramref name="capsules"/> from capsule index <paramref name="first"/> (two
@@ -77,6 +78,11 @@ namespace Coti.Client
       Arm( shoulderR, bones.Forearms[1].position, bones.RightPalm.position, celsius );
       Leg( thighL, kneeL, Ankle( feet.Left, kneeL, ground ), forward, celsius );
       Leg( thighR, kneeR, Ankle( feet.Right, kneeR, ground ), forward, celsius );
+      if( _n != CotiCapsuleBounds.CapsulesPerBody && !_miscountLogged )
+      {
+        _miscountLogged = true;
+        Plugin.Log.LogError( $"[COTI] a reflected body wrote {_n} capsules; the mirror shader walks {CotiCapsuleBounds.CapsulesPerBody}" );
+      }
 
       var sphere = CotiCapsuleBounds.Sphere( Ends, Radii, _n );
       return new Vector4( sphere.X, sphere.Y, sphere.Z, sphere.Radius );

@@ -5,35 +5,51 @@ namespace Coti.Client
 {
   /// <summary>
   /// Keeps a thermal camera's per-layer cull distances matched to the camera it looks through (see
-  /// <see cref="CotiCullRange"/>), capped at the thermal's range. Re-read every half second rather than every frame:
-  /// reading <c>layerCullDistances</c> allocates, and EFT only changes them with the graphics settings.
+  /// <see cref="CotiCullRange"/>), capped at the thermal's range. The eye's distances are read every half second, on a
+  /// far-clip change or for a new eye: the getter allocates, and EFT only changes them with the graphics settings. A
+  /// range change (a variable scope's zoom moves it every frame) recomputes from that copy into one reused buffer.
   /// </summary>
   internal sealed class CotiCullMirror
   {
     private const int RefreshFrames = 30;
 
-    private int _frame = int.MinValue;
+    // Unity keeps 32 layers, and the setter copies, so one buffer serves every write.
+    private readonly float[] _distances = new float[32];
+    private Camera _eye;
+    private float[] _eyeDistances;
+    private int _frame;
     private float _range = float.NaN;
     private float _farClip = float.NaN;
 
     internal void Apply( Camera thermal, Camera eye, float range )
     {
       var frame = Time.frameCount;
-      if( frame - _frame < RefreshFrames && range == _range && eye.farClipPlane == _farClip )
+      var farClip = eye.farClipPlane;
+      // !=, not ReferenceEquals: on il2cpp a camera read twice can come back as two wrappers of one native object.
+      var reread = _eyeDistances == null || eye != _eye
+                   || frame - _frame >= RefreshFrames || farClip != _farClip;
+      if( !reread && range == _range )
         return;
 
-      thermal.layerCullSpherical = eye.layerCullSpherical;
-      thermal.layerCullDistances = CotiCullRange.Distances( eye.layerCullDistances, eye.farClipPlane, range );
+      if( reread )
+      {
+        _eye = eye;
+        _eyeDistances = eye.layerCullDistances;
+        thermal.layerCullSpherical = eye.layerCullSpherical;
+        _frame = frame;
+        _farClip = farClip;
+      }
 
-      _frame = frame;
+      CotiCullRange.Distances( _eyeDistances, farClip, range, _distances );
+      thermal.layerCullDistances = _distances;
       _range = range;
-      _farClip = eye.farClipPlane;
     }
 
     /// <summary>Applies on the next call, for a new camera.</summary>
     internal void Reset()
     {
-      _frame = int.MinValue;
+      _eye = null;
+      _eyeDistances = null;
       _range = float.NaN;
     }
   }

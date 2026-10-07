@@ -7,7 +7,7 @@ namespace Coti.Shared
 
   /// <summary>
   /// Tube labels, tube_0 to tube_3 left to right (tube_center on a mono), and the COTI slot each one gets. The home tube
-  /// keeps mod_coti, today's slot on today's tube, so every COTI already fitted in a profile stays where it is. Its
+  /// keeps mod_coti, the single-tube slot, so every COTI already fitted in a profile stays where it is. Its
   /// label stays "ECOTI" because a slot's locale key is global per slot name and the mono's only tube shares it.
   /// </summary>
   public static class CotiTubes
@@ -43,7 +43,7 @@ namespace Coti.Shared
       throw new ArgumentException( $"\"{label}\" has no slot on the {layout.Name} layout", nameof( label ) );
     }
 
-    /// <summary>The layout's slots in auto-pick order. A v1 device (null layout) has mod_coti only, as today.</summary>
+    /// <summary>The layout's slots in auto-pick order. A v1 device (null layout) has mod_coti only.</summary>
     public static IReadOnlyList<string> SlotNames( CotiLayout? layout )
     {
       var names = new List<string> { CotiIds.ModSlotName };

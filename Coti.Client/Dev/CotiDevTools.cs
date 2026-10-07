@@ -37,7 +37,7 @@ namespace Coti.Client.Dev
         return;
 
       var report = new StringBuilder();
-      report.Append( $"[COTI PROBE] {_probeCount++}: active cameras, main FOV {( Camera.main == null ? -1f : Camera.main.fieldOfView ):F2}" );
+      report.Append( $"[COTI PROBE] {_probeCount++}: active cameras, main FOV {( CotiFrame.Main == null ? -1f : CotiFrame.Main.fieldOfView ):F2}" );
 
       // Camera.allCameras is enabled cameras only, which is what matters: a disabled optic camera
       // is not what the player is looking through.
@@ -56,7 +56,7 @@ namespace Coti.Client.Dev
             $" pixels={cam.pixelWidth}x{cam.pixelHeight}" +
             $"\n      clip={cam.nearClipPlane:F3}..{cam.farClipPlane:F0} mask={cam.cullingMask:X8}" +
             $" parent='{( cam.transform.parent == null ? "(none)" : cam.transform.parent.name )}'" +
-            $" isMain={ReferenceEquals( cam, Camera.main )}" );
+            $" isMain={ReferenceEquals( cam, CotiFrame.Main )}" );
       }
 
       // Which renderer draws the optic texture onto the lens. The overlay paints over the lens, so
@@ -143,7 +143,7 @@ namespace Coti.Client.Dev
         return;
       }
 
-      var main = Camera.main;
+      var main = CotiFrame.Main;
       var mainFov = main == null ? 0f : main.fieldOfView;
 
       report.Append(
@@ -171,7 +171,7 @@ namespace Coti.Client.Dev
     /// </summary>
     private static void ReportLensRenderers( StringBuilder report )
     {
-      var camera = Camera.main;
+      var camera = CotiFrame.Main;
       var found = 0;
       var blocks = 0;
 
@@ -312,6 +312,9 @@ namespace Coti.Client.Dev
     public static void ReportAttach( GameObject itemView, Transform bone )
     {
 #if COTI_DEV
+      if( Plugin.Config == null || !Plugin.Config.VerboseLogging )
+        return;
+
       var report = new StringBuilder();
       report.Append( $"[COTI] Attached {itemView.name} to {bone.name}" );
       report.Append( $"\n  local pos {itemView.transform.localPosition}, " +

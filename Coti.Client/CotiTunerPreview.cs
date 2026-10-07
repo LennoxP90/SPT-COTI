@@ -162,12 +162,11 @@ namespace Coti.Client
     // ---- Camera and render target lifecycle ------------------------------------------------------
 
     /// <summary>
-    /// Logs what the camera and its target hold at render time, to diagnose the viewport drawing
-    /// white where this code sets dark grey.
+    /// Logs what the camera and its target hold at render time, once, with verbose logging on.
     /// </summary>
     private static void LogRenderStateOnce()
     {
-      if( _loggedRenderState || _cam == null )
+      if( _loggedRenderState || _cam == null || Plugin.Config == null || !Plugin.Config.VerboseLogging )
         return;
 
       _loggedRenderState = true;
@@ -213,7 +212,7 @@ namespace Coti.Client
       _light.intensity = 1.15f;
       _light.shadows = LightShadows.None;
 
-      if( !_loggedCreated )
+      if( !_loggedCreated && Plugin.Config != null && Plugin.Config.VerboseLogging )
       {
         _loggedCreated = true;
         Plugin.Log.LogInfo( "[COTI TUNE] preview camera created" );
@@ -243,7 +242,8 @@ namespace Coti.Client
       _rt.Create();
       _cam.targetTexture = _rt;
 
-      Plugin.Log.LogInfo( $"[COTI TUNE] preview camera target {TextureWidth}x{TextureHeight}" );
+      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+        Plugin.Log.LogInfo( $"[COTI TUNE] preview camera target {TextureWidth}x{TextureHeight}" );
     }
 
     /// <summary>
@@ -272,7 +272,7 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Resolves the mask, caches it and logs the result. Called from OnHostChanged and on each
+    /// Resolves the mask and caches it. Called from OnHostChanged and on each
     /// retry <see cref="ShouldRetryMask"/> allows, never per frame, because GetComponentsInChildren
     /// allocates.
     /// </summary>
@@ -285,7 +285,8 @@ namespace Coti.Client
       _maskRetryCount++;
       _nextMaskRetryTime = Time.unscaledTime + ProvisionalRetryIntervalSeconds;
 
-      LogCullingMask( _trackedHostId, _cullingMask, _maskProvisional, _maskRetryCount );
+      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+        LogCullingMask( _trackedHostId, _cullingMask, _maskProvisional, _maskRetryCount );
 
       if( _maskProvisional && _maskRetryCount >= MaxProvisionalRetries )
       {
@@ -341,7 +342,9 @@ namespace Coti.Client
       return bone != null && bone.GetComponentInChildren<Renderer>( true ) != null;
     }
 
-    // Logged in release builds: a black viewport is the expected failure and this names the layers.
+    /// <summary>
+    /// Names the layers in the mask: a black viewport is the expected failure, and this shows why.
+    /// </summary>
     private static void LogCullingMask( string hostId, int mask, bool provisional, int attempt )
     {
       var suffix = provisional

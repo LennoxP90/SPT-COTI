@@ -34,5 +34,63 @@ namespace Coti.Shared
 
       return false;
     }
+
+    /// <summary>
+    /// The same answer as the overload above, for classifying a whole item table. <paramref name="known"/>
+    /// carries answers between calls: every node on a walked path gets the walk's answer, so each
+    /// interior node is read once and a leaf under a known node costs one parent lookup.
+    /// </summary>
+    public static bool IsNightVision( ICotiItemView items, string id, Dictionary<string, bool> known )
+    {
+      if( items == null || string.IsNullOrEmpty( id ) )
+        return false;
+
+      if( known.TryGetValue( id, out var result ) )
+        return result;
+
+      var parent = items.ParentOf( id );
+
+      // Checked before any memo lookup: the NightVision node itself is memoised false.
+      if( parent == NightVisionNodeId )
+        return known[id] = true;
+
+      if( string.IsNullOrEmpty( parent ) || parent == id )
+        return known[id] = false;
+
+      if( known.TryGetValue( parent, out result ) )
+        return known[id] = result;
+
+      var path = new List<string> { id };
+      var current = parent;
+      result = false;
+
+      while( !string.IsNullOrEmpty( current ) )
+      {
+        if( known.TryGetValue( current, out result ) )
+          break;
+
+        if( path.Contains( current ) )
+        {
+          result = false;
+          break;
+        }
+
+        path.Add( current );
+
+        var next = items.ParentOf( current );
+        if( next == NightVisionNodeId )
+        {
+          result = true;
+          break;
+        }
+
+        current = next;
+      }
+
+      foreach( var node in path )
+        known[node] = result;
+
+      return result;
+    }
   }
 }

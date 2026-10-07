@@ -33,7 +33,7 @@ namespace Coti.Client
       new ShowPatch().Enable();
     }
 
-    /// <summary>Resolved by decompiling both builds; the member names differ between them.</summary>
+    /// <summary>The target's member names differ between the two SPT builds; EftCompat resolves them.</summary>
     private sealed class ShowPatch : ModulePatch
     {
       protected override MethodBase GetTargetMethod()

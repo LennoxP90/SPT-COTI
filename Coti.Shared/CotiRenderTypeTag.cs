@@ -3,8 +3,8 @@ namespace Coti.Shared
   /// <summary>
   /// The RenderType a material is given so the heat-only replacement shader draws it. Replacement reads the tag off
   /// the material's own shader, never a Fallback's, and draws nothing where it has no matching sub-shader. A solid
-  /// surface whose shader declares no RenderType therefore wrote no depth in the thermal image, and heat behind it
-  /// showed through: the admin office wall on Factory, which uses a vertex-paint shader with no tag of its own.
+  /// surface whose shader declares no RenderType (a vertex-paint wall, say) would write no depth in the thermal image,
+  /// and heat behind it would show through.
   /// </summary>
   public static class CotiRenderTypeTag
   {
@@ -57,7 +57,7 @@ namespace Coti.Shared
     /// <summary>
     /// The RenderType for materials only particle systems draw. Coti/HeatOnly has no sub-shader for it, so they are never
     /// drawn: smoke, sparks and heat haze are not surfaces, whatever their shaders declare. EFT's heat haze declares
-    /// Opaque, and drawn as solid it blacked out a hot barrel exactly while it was hot enough to shimmer.
+    /// Opaque, and drawn as solid it would black out a hot barrel exactly while it shimmers.
     /// </summary>
     public const string ParticleOnly = "CotiParticle";
 

@@ -19,11 +19,9 @@ public class CotiDevicePublisher(
   /// <param name="publishedBy">Who to name in the log.</param>
   public CotiPublishResultDto Publish( CotiDeviceFile device, string publishedBy )
   {
-    // The shared merge path over a list of one, applying every per-file rule CotiDeviceMerge
-    // enforces: current schema, non-blank device and displayName, a positive mask radius, non-null
-    // hosts and mount. Cross-file conflicts are caught by TryWrite's own Reload below, which
-    // re-reads every file on disk together. A republish under the same device name is an update,
-    // backed by the .bak TryWrite takes.
+    // The shared merge over a list of one applies every per-file rule. Cross-file conflicts are
+    // caught by TryWrite's Reload below, which re-reads every file on disk together. A republish
+    // under the same device name is an update, backed by the .bak TryWrite takes.
     var merged = CotiDeviceMerge.Merge( new[] { new CotiParsedFile { Path = "<published>", Device = device } } );
 
     if( merged.Devices.Count == 0 )
@@ -39,7 +37,7 @@ public class CotiDevicePublisher(
       return new CotiPublishResultDto { Ok = false, Error = writeError };
     }
 
-    // Logged here, not by the Reload below: TryWrite saves the cleaned device, so the reload never
+    // Logged here, not by TryWrite's reload: TryWrite saves the cleaned device, so the reload never
     // sees what validation dropped.
     foreach( var warning in merged.Warnings )
       logger.Warning( $"[COTI] {publishedBy}'s publish of \"{device.Device}\": {warning}" );
@@ -70,14 +68,11 @@ public class CotiDevicePublisher(
           string.Join( ", ", unfitHosts ) );
     }
 
-    // Leaves the store as fresh as a restart would.
-    deviceStore.Reload();
-
     logger.Success(
         $"[COTI] {publishedBy} published \"{device.Device}\", covering {device.Hosts.Count} host(s)" );
 
 #if SPT41
-    // Sent after the reload; a re-fetch then reads the new table.
+    // Sent after TryWrite's reload; a re-fetch then reads the new table.
     hostSocket.NotifyHostsChanged();
 #endif
 

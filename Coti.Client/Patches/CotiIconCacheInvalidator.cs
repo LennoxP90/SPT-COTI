@@ -1,4 +1,3 @@
-using Coti.Shared;
 using System.Collections.Generic;
 using System.Reflection;
 using EFT.InventoryLogic;
@@ -8,7 +7,8 @@ using SPT.Reflection.Patching;
 namespace Coti.Client.Patches
 {
   /// <summary>
-  /// Forces a one-time re-render of any item icon whose contents include a COTI.
+  /// Forces a one-time re-render of any item icon that draws a COTI: the device itself, or an item holding one through
+  /// its slots.
   ///
   /// GetItemIcon answers from the on-disk cache and never renders. An icon cached without the
   /// device drawn on it is filed under the same hash the correct one would use, since the hash
@@ -23,6 +23,8 @@ namespace Coti.Client.Patches
   /// </summary>
   public class CotiIconCacheInvalidator : ModulePatch
   {
+    private const string Site = "CotiIconCacheInvalidator";
+
     private static readonly HashSet<int> Invalidated = new HashSet<int>();
 
     protected override MethodBase GetTargetMethod()
@@ -33,16 +35,14 @@ namespace Coti.Client.Patches
     [PatchPrefix]
     private static void Prefix( object __instance, Item item )
     {
-      CotiPatchGuard.Run( "CotiIconCacheInvalidator", () => Invalidate( __instance, item ) );
+      if( !CotiWorldViewPatch.CarriesCoti( item, Site ) )
+        return;
+
+      CotiPatchGuard.Run( Site, () => Invalidate( __instance, item ) );
     }
 
     private static void Invalidate( object __instance, Item item )
     {
-      if( item == null )
-        return;
-      if( !ContainsCoti( item ) )
-        return;
-
       var hash = EftCompat.GetItemHash( item );
       if( !Invalidated.Add( hash ) )
         return;
@@ -58,17 +58,6 @@ namespace Coti.Client.Patches
             $"[COTI] Invalidated stale icon for {item.TemplateId} (hash {hash}, " +
             $"file={hadFile} memory={hadMemory}) - it was cached without the device drawn on it" );
       }
-    }
-
-    private static bool ContainsCoti( Item item )
-    {
-      foreach( var child in item.GetAllItems() )
-      {
-        if( child != null && child.TemplateId == CotiIds.TplId )
-          return true;
-      }
-
-      return false;
     }
   }
 }

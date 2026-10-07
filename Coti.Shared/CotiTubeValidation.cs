@@ -5,7 +5,7 @@ namespace Coti.Shared
 {
   /// <summary>
   /// The layout and tubes rules of a device file, applied in place once CotiDeviceMerge's own checks have passed. A
-  /// fault falls back towards today's one COTI on the legacy mount and never further: Mask and Mount are not touched,
+  /// fault falls back towards a single COTI on the legacy mount and never further: Mask and Mount are not touched,
   /// and a known layout is never removed, because the slots come from it and a typo in one tube must not take away a
   /// slot that holds a COTI.
   /// </summary>

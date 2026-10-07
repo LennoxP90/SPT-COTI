@@ -84,7 +84,8 @@ namespace Coti.Client
           return;
 
         // Any frame means the same thing; the payload is never parsed.
-        Plugin.Log?.LogInfo( "[COTI] host table changed on the server - re-fetching" );
+        if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+          Plugin.Log?.LogInfo( "[COTI] host table changed on the server - re-fetching" );
         CotiHostTableClient.BeginFetch();
       }
     }

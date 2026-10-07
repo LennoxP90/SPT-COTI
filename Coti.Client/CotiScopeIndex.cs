@@ -22,10 +22,13 @@ namespace Coti.Client
     private static HashSet<string> _keys;
     private static readonly Dictionary<string, WeakReference<EasyBundle>> Bundles = new Dictionary<string, WeakReference<EasyBundle>>( StringComparer.Ordinal );
     private static readonly List<string> Pending = new List<string>();
+    private static readonly HashSet<int> SharedIds = new HashSet<int>();
+    private static readonly Func<string, IEnumerable<string>> DependenciesOf = Dependencies;
 
     internal static void Build( IEnumerable<ItemTemplate> templates )
     {
-      var clock = Stopwatch.StartNew();
+      var verbose = VerboseLogging;
+      var started = verbose ? Stopwatch.GetTimestamp() : 0L;
       var keys = new HashSet<string>( StringComparer.Ordinal );
       var count = 0;
       foreach( var template in templates )
@@ -37,7 +40,8 @@ namespace Coti.Client
       keys.Remove( null );
       keys.Remove( "" );
       _keys = keys;
-      Verbose( $"[COTI] scope glass: {keys.Count} magnified sight bundle(s) of {count} template(s) in {clock.Elapsed.TotalMilliseconds:0.0} ms, {Pending.Count} queued" );
+      if( verbose )
+        Plugin.Log.LogInfo( $"[COTI] scope glass: {keys.Count} magnified sight bundle(s) of {count} template(s) in {Milliseconds( started ):0.0} ms, {Pending.Count} queued" );
 
       // Each on its own guard: one bad bundle must not stop the rest.
       foreach( var key in Pending )
@@ -57,7 +61,10 @@ namespace Coti.Client
       var key = bundle?.Key;
       if( string.IsNullOrEmpty( key ) )
         return;
-      Bundles[key] = new WeakReference<EasyBundle>( bundle );
+      if( Bundles.TryGetValue( key, out var reference ) )
+        reference.SetTarget( bundle );
+      else
+        Bundles.Add( key, new WeakReference<EasyBundle>( bundle ) );
       if( _keys != null && !_keys.Contains( key ) )
         return;
 
@@ -82,12 +89,16 @@ namespace Coti.Client
 
     private static void TagIfScope( string key )
     {
-      var assets = LoadedAssets( key );
-      if( !_keys.Contains( key ) || assets == null )
+      if( !_keys.Contains( key ) )
         return;
-      var clock = Stopwatch.StartNew();
+      var assets = LoadedAssets( key );
+      if( assets == null )
+        return;
+      var verbose = VerboseLogging;
+      var started = verbose ? Stopwatch.GetTimestamp() : 0L;
       var tagged = CotiScopeGlassTagger.Tag( assets, SharedMaterials( key ), CotiScopeGlass.Mode( Plugin.Config.Image.Glass, Plugin.Config.Image.ScopeGlassReflections ) );
-      Verbose( $"[COTI] scope glass: {tagged} material(s) tagged in {key} in {clock.Elapsed.TotalMilliseconds:0.00} ms" );
+      if( verbose )
+        Plugin.Log.LogInfo( $"[COTI] scope glass: {tagged} material(s) tagged in {key} in {Milliseconds( started ):0.00} ms" );
     }
 
     /// <summary>A recorded bundle's assets while it is Loaded; null once it is unloaded or gone.</summary>
@@ -97,17 +108,17 @@ namespace Coti.Client
              && bundle.LoadState.Value == ELoadState.Loaded ? bundle.Assets : null;
     }
 
-    /// <summary>Every material a Loaded bundle in this one's dependency closure holds or draws.</summary>
-    private static HashSet<Material> SharedMaterials( string key )
+    /// <summary>The instance id of every material a Loaded bundle in this one's dependency closure holds or draws.</summary>
+    private static HashSet<int> SharedMaterials( string key )
     {
-      var shared = new HashSet<Material>();
-      foreach( var dependency in CotiScopeGlass.DependencyClosure( key, Dependencies ) )
+      SharedIds.Clear();
+      foreach( var dependency in CotiScopeGlass.DependencyClosure( key, DependenciesOf ) )
       {
         var assets = LoadedAssets( dependency );
         if( assets != null )
-          CotiScopeGlassTagger.CollectMaterials( assets, shared );
+          CotiScopeGlassTagger.CollectMaterials( assets, SharedIds );
       }
-      return shared;
+      return SharedIds;
     }
 
     private static IEnumerable<string> Dependencies( string key )
@@ -121,10 +132,11 @@ namespace Coti.Client
       return CotiScopeGlass.IsMagnified( CotiScopeGlass.MaxZoom( sight.Zooms ), isScope, sight is SpecialScopeTemplate, CotiOpticFusion.MinimumMagnification );
     }
 
-    private static void Verbose( string message )
+    private static bool VerboseLogging => Plugin.Config != null && Plugin.Config.VerboseLogging;
+
+    private static double Milliseconds( long started )
     {
-      if( Plugin.Config != null && Plugin.Config.VerboseLogging )
-        Plugin.Log.LogInfo( message );
+      return ( Stopwatch.GetTimestamp() - started ) * 1000.0 / Stopwatch.Frequency;
     }
   }
 }

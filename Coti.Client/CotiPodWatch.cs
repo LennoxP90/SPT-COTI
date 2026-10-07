@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Coti.Shared;
+using EFT;
 using UnityEngine;
 
 namespace Coti.Client
@@ -13,8 +14,8 @@ namespace Coti.Client
   ///
   /// Only the local player's own goggles are read; the overlay is local. A pod bone is found through the tube's own
   /// bone, which CotiMountBonePatch names after its slot and parents to the tube's anchor: the first bone above it with
-  /// the pod's name. It is kept until the inventory or the host table changes or the bone is destroyed. One not found
-  /// counts as down, as every tube did before pods existed.
+  /// the pod's name. It is kept until the inventory or the host table changes, the local player changes (a pooled goggles view
+  /// outlives its raid), or the bone is destroyed. One not found counts as down.
   /// </summary>
   internal static class CotiPodWatch
   {
@@ -27,6 +28,7 @@ namespace Coti.Client
 
     private static int _loggedFilled;
     private static int _loggedLit;
+    private static int _bonesOwnerId;
 
     internal static void Invalidate()
     {
@@ -35,8 +37,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// <paramref name="filledSlots"/> without the tubes on a pod that is up, as CotiTubeSet bits. Logs one line
-    /// whenever the filled or the lit set changes.
+    /// <paramref name="filledSlots"/> without the tubes on a pod that is up, as CotiTubeSet bits. With verbose logging
+    /// on, logs one line whenever the filled or the lit set changes.
     /// </summary>
     internal static int LitSlots( string hostTemplateId, int filledSlots )
     {
@@ -46,6 +48,9 @@ namespace Coti.Client
 
       if( filledSlots != 0 && host?.Tubes != null && layout != null )
       {
+        var player = CotiNvgHost.LocalPlayer;
+        ForgetBonesOfAnotherPlayer( player );
+
         for( var i = 0; i < layout.Tubes.Count; i++ )
         {
           var label = layout.Tubes[i].Label;
@@ -56,7 +61,7 @@ namespace Coti.Client
           if( ( filledSlots & bit ) == 0 || !host.Tubes.TryGetValue( label, out tube ) || tube?.Pod == null )
             continue;
 
-          var bone = PodBone( slot, PodBoneName( tube ) );
+          var bone = PodBone( player, slot, PodBoneName( tube ) );
           if( bone == null )
             continue;
 
@@ -67,10 +72,24 @@ namespace Coti.Client
       }
 
       var lit = filledSlots & ~up;
-      if( filledSlots != _loggedFilled || lit != _loggedLit )
+      if( ( filledSlots != _loggedFilled || lit != _loggedLit ) && Plugin.Config != null && Plugin.Config.VerboseLogging )
         LogSets( filledSlots, lit, host, layout );
 
       return lit;
+    }
+
+    /// <summary>
+    /// Cached bones belong to one player's goggles view, and pooled views outlive a raid, so a different local player
+    /// (a new raid, the hideout, a rejoin) starts the search over.
+    /// </summary>
+    private static void ForgetBonesOfAnotherPlayer( Player player )
+    {
+      var id = player == null ? 0 : player.GetInstanceID();
+      if( id == _bonesOwnerId )
+        return;
+
+      Invalidate();
+      _bonesOwnerId = id;
     }
 
     private static CotiNvgHostConfig Host( string hostTemplateId )
@@ -86,7 +105,7 @@ namespace Coti.Client
       return string.IsNullOrEmpty( tube.Pod.Bone ) ? tube.Mount?.AnchorBone : tube.Pod.Bone;
     }
 
-    private static Transform PodBone( string slot, string name )
+    private static Transform PodBone( Player player, string slot, string name )
     {
       Transform bone;
       if( Bones.TryGetValue( slot, out bone ) && bone != null )
@@ -97,7 +116,7 @@ namespace Coti.Client
       if( RetryAt.TryGetValue( slot, out retryAt ) && now < retryAt )
         return null;
 
-      bone = Find( slot, name );
+      bone = Find( player, slot, name );
       if( bone == null )
       {
         // Find parks a misnamed pod bone until the next Invalidate; anything else is retried.
@@ -114,9 +133,8 @@ namespace Coti.Client
     /// The first bone named <paramref name="name"/> above the tube's own bone. Logged once when the tube's bone is there
     /// and the pod's is not, which is a device file naming the wrong bone; a tube bone not built yet is only retried.
     /// </summary>
-    private static Transform Find( string slot, string name )
+    private static Transform Find( Player player, string slot, string name )
     {
-      var player = CotiNvgHost.LocalPlayer;
       if( player == null )
         return null;
 

@@ -145,7 +145,7 @@ public class CotiTraderAssort : IOnLoad
     if( peacekeeper.Base is not null )
       peacekeeper.Base.RefreshTraderRagfairOffers = true;
 
-    logger.Success(
+    logger.Debug(
         $"[COTI] Trader settings re-applied: LL{config.Trader.LoyaltyLevel}, " +
         $"${config.Trader.PriceUsd}, limit {config.Trader.BuyLimit}" );
 

@@ -56,7 +56,7 @@ namespace Coti.Client
     [JsonProperty( "mount" )]
     public CotiMountBlockDto Mount { get; set; } = new CotiMountBlockDto();
 
-    // Omitted when null, so a v1 device keeps 3.2.0's shape on the publish route.
+    // Omitted when null, so a v1 device carries no multi-tube keys on the publish route.
     [JsonProperty( "layout", NullValueHandling = NullValueHandling.Ignore )]
     public string? Layout { get; set; }
 

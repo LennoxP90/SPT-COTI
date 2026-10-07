@@ -30,9 +30,8 @@ namespace Coti.Shared
     }
 
     /// <summary>
-    /// Full mode's fill as saved, moved off the 3.2.0 default. 3.2.0 wrote 55 into every install, so a saved 55 is
-    /// the old default rather than a choice and becomes today's 45; any other value is a choice and stays. Applied
-    /// once per install.
+    /// Full mode's fill as saved, applied once per install: a saved 55 is the 3.2.0 default rather than a choice and
+    /// becomes 45; any other value is a choice and stays.
     /// </summary>
     public static float MovedFill( float saved )
     {

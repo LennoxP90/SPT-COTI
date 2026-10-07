@@ -114,28 +114,27 @@ public class CotiLootDistribution : IOnLoad
 
       foreach( var container in staticLoot.Values )
       {
-        var distribution = container.ItemDistribution?.ToList();
-        if( distribution is null || distribution.Any( entry => entry.Tpl == cotiTpl ) )
+        var distribution = container.ItemDistribution;
+        if( distribution is null )
           continue;
 
-        var nightVisionWeight = distribution
-            .Where( entry => nightVisionTpls.Contains( entry.Tpl ) )
-            .Sum( entry => entry.RelativeProbability ?? 0 );
-
+        var nightVisionWeight = StaticNightVisionWeight( distribution, nightVisionTpls, cotiTpl );
         if( nightVisionWeight <= 0 )
           continue;
 
-        distribution.Add( new ItemDistribution
+        container.ItemDistribution = new List<ItemDistribution>( distribution )
         {
-          Tpl = cotiTpl,
-          RelativeProbability = (float)( nightVisionWeight * config.Loot.WeightFraction )
-        } );
+          new ItemDistribution
+          {
+            Tpl = cotiTpl,
+            RelativeProbability = (float)( nightVisionWeight * config.Loot.WeightFraction )
+          }
+        };
 
-        container.ItemDistribution = distribution;
         added++;
       }
 
-      Report( $"{name} containers", added );
+      Report( name, "containers", added );
 
       return staticLoot;
     } );
@@ -157,39 +156,36 @@ public class CotiLootDistribution : IOnLoad
       foreach( var spawnpoint in looseLoot.Spawnpoints )
       {
         var template = spawnpoint.Template;
-        var items = template?.Items?.ToList();
-        var distribution = spawnpoint.ItemDistribution?.ToList();
+        var items = template?.Items;
+        var distribution = spawnpoint.ItemDistribution;
 
         if( template is null || items is null || distribution is null )
           continue;
-        if( items.Any( item => item.Template == cotiTpl ) )
-          continue;
 
-        var nightVisionWeight = WeightOfNightVisionAt( items, distribution, nightVisionTpls );
+        var nightVisionWeight = WeightOfNightVisionAt( items, distribution, nightVisionTpls, cotiTpl );
         if( nightVisionWeight <= 0 )
           continue;
 
         var composedKey = new MongoId().ToString();
 
-        items.Add( new SptLootItem
+        template.Items = new List<SptLootItem>( items )
         {
-          Id = new MongoId(),
-          Template = cotiTpl,
-          ComposedKey = composedKey
-        } );
+          new SptLootItem { Id = new MongoId(), Template = cotiTpl, ComposedKey = composedKey }
+        };
 
-        distribution.Add( new LooseLootItemDistribution
+        spawnpoint.ItemDistribution = new List<LooseLootItemDistribution>( distribution )
         {
-          ComposedKey = new ComposedKey { Key = composedKey },
-          RelativeProbability = nightVisionWeight * config.Loot.WeightFraction
-        } );
+          new LooseLootItemDistribution
+          {
+            ComposedKey = new ComposedKey { Key = composedKey },
+            RelativeProbability = nightVisionWeight * config.Loot.WeightFraction
+          }
+        };
 
-        template.Items = items;
-        spawnpoint.ItemDistribution = distribution;
         added++;
       }
 
-      Report( $"{name} loose positions", added );
+      Report( name, "loose positions", added );
 
       return looseLoot;
     } );
@@ -197,37 +193,76 @@ public class CotiLootDistribution : IOnLoad
 
   /// <summary>
   /// Once per map per pool. A transformer runs on every read of the lazy-loaded table, so an
-  /// unguarded line would repeat for the life of the server.
+  /// unguarded line would repeat for the life of the server. Keyed on the parts rather than the
+  /// formatted line, so a repeat read builds no string.
   /// </summary>
-  private void Report( string what, int added )
+  private void Report( string map, string pool, int added )
   {
-    if( !_reported.Add( what ) )
-      return;
+    // Two maps' tables can load at once on different threads.
+    lock( _reported )
+    {
+      if( !_reported.Add( ( map, pool ) ) )
+        return;
+    }
 
-    logger.Success( $"[COTI] {what}: COTI added to {added}" );
+    logger.Debug( $"[COTI] {map} {pool}: COTI added to {added}" );
   }
 
-  private readonly HashSet<string> _reported = new();
+  private readonly HashSet<(string Map, string Pool)> _reported = new();
 
   /// <summary>
-  /// The distribution names a composedKey, not a template, so keys resolve back through the item list.
+  /// Zero when the position already holds the COTI or holds no night vision. The distribution names a
+  /// composedKey, not a template, so keys resolve back through the item list.
   /// </summary>
   private static double WeightOfNightVisionAt(
-      List<SptLootItem> items,
-      List<LooseLootItemDistribution> distribution,
-      HashSet<MongoId> nightVisionTpls )
+      IEnumerable<SptLootItem> items,
+      IEnumerable<LooseLootItemDistribution> distribution,
+      HashSet<MongoId> nightVisionTpls,
+      MongoId cotiTpl )
   {
-    var nightVisionKeys = items
-        .Where( item => nightVisionTpls.Contains( item.Template ) )
-        .Select( item => item.ComposedKey )
-        .Where( key => !string.IsNullOrEmpty( key ) )
-        .ToHashSet();
+    HashSet<string>? nightVisionKeys = null;
 
-    if( nightVisionKeys.Count == 0 )
+    foreach( var item in items )
+    {
+      if( item.Template == cotiTpl )
+        return 0;
+
+      if( !string.IsNullOrEmpty( item.ComposedKey ) && nightVisionTpls.Contains( item.Template ) )
+        ( nightVisionKeys ??= new HashSet<string>() ).Add( item.ComposedKey );
+    }
+
+    if( nightVisionKeys is null )
       return 0;
 
-    return distribution
-        .Where( entry => entry.ComposedKey?.Key is not null && nightVisionKeys.Contains( entry.ComposedKey.Key ) )
-        .Sum( entry => entry.RelativeProbability ?? 0 );
+    double weight = 0;
+
+    foreach( var entry in distribution )
+    {
+      if( entry.ComposedKey?.Key is { } key && nightVisionKeys.Contains( key ) )
+        weight += entry.RelativeProbability ?? 0;
+    }
+
+    return weight;
+  }
+
+  /// <summary>
+  /// Zero when the container already holds the COTI. Summed in double and narrowed once, as
+  /// Enumerable.Sum over a float selector does.
+  /// </summary>
+  private static float StaticNightVisionWeight(
+      IEnumerable<ItemDistribution> distribution, HashSet<MongoId> nightVisionTpls, MongoId cotiTpl )
+  {
+    double weight = 0;
+
+    foreach( var entry in distribution )
+    {
+      if( entry.Tpl == cotiTpl )
+        return 0;
+
+      if( nightVisionTpls.Contains( entry.Tpl ) )
+        weight += entry.RelativeProbability ?? 0;
+    }
+
+    return (float) weight;
   }
 }

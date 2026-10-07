@@ -8,7 +8,7 @@ namespace Coti.Client
   /// Draws the magnified thermal through the scope's own lens, on top of the finished frame.
   ///
   /// The game shows the scope camera's picture on the lens through the global <c>_CamTex</c>. Heat written into that
-  /// picture went through the main camera's effects with the rest of the scene, and UltimateBloom haloed it. So once
+  /// picture would go through the main camera's effects with the rest of the scene, where UltimateBloom halos it. So once
   /// the main camera has finished, the heat is composited alone into a texture of its own, <c>_CamTex</c> points at it
   /// while the lens is drawn again into a scratch target with its reticle blanked, <c>_CamTex</c> is put back, and the
   /// scratch target is added onto the frame. The lens's own shader maps the heat, so it lands exactly where the
@@ -25,8 +25,8 @@ namespace Coti.Client
     private const int AddVisiblePass = 3;
 
     /// <summary>
-    /// The pass of CW FX/OpticSight that draws <c>_CamTex</c> through the lens's eye-box mask: found by drawing each of
-    /// its five unnamed passes with the heat texture flat grey (Debug > Lens Probe 20 to 24), where only pass 2 drew.
+    /// The pass of CW FX/OpticSight that draws <c>_CamTex</c> through the lens's eye-box mask. Its five passes are
+    /// unnamed; Debug > Lens Probe 20 to 24 draws each with the heat texture flat grey to tell them apart.
     /// </summary>
     private const int LensPass = 2;
 
@@ -107,7 +107,7 @@ namespace Coti.Client
           return;
         }
 
-        var main = Camera.main;
+        var main = CotiFrame.Main;
         var wanted = CotiOpticThermalCamera.Magnifying
                      && CotiState.Active
                      && CotiState.Host != null
@@ -136,7 +136,7 @@ namespace Coti.Client
 
     private static void EnsureBuffer( Camera main )
     {
-      if( _commandBuffer != null && _attachedTo == main )
+      if( _attachedTo == main )
         return;
 
       Detach();
@@ -144,11 +144,14 @@ namespace Coti.Client
       if( !EnsureMaterial() )
         return;
 
-      _commandBuffer = new CommandBuffer { name = "COTI magnified overlay" };
+      // One buffer for the session. Record clears and refills it at every pre-cull; cleared here as well so the attach
+      // frame can never replay the last scope's commands.
+      if( _commandBuffer == null )
+        _commandBuffer = new CommandBuffer { name = "COTI magnified overlay" };
+      _commandBuffer.Clear();
+
       main.AddCommandBuffer( InjectionPoint, _commandBuffer );
       _attachedTo = main;
-
-      Camera.onPreCull -= RecordBeforeCulling;
       Camera.onPreCull += RecordBeforeCulling;
 
       if( !_loggedAttached )
@@ -523,9 +526,12 @@ namespace Coti.Client
 
     internal static void Detach()
     {
-      Camera.onPreCull -= RecordBeforeCulling;
+      // By reference: a camera destroyed between raids is Unity-null, and its callback still has to be dropped.
+      if( ReferenceEquals( _attachedTo, null ) )
+        return;
 
-      if( _commandBuffer != null && _attachedTo != null )
+      Camera.onPreCull -= RecordBeforeCulling;
+      if( _attachedTo != null )
       {
         try
         {
@@ -533,24 +539,21 @@ namespace Coti.Client
         }
         catch( Exception ex )
         {
-          // The camera is destroyed between raids and throws here. The buffer is dropped regardless.
-          Plugin.Log.LogWarning(
-              $"[COTI] Removing magnified overlay command buffer failed: {ex.Message}" );
+          Plugin.Log.LogWarning( $"[COTI] Removing magnified overlay command buffer failed: {ex.Message}" );
         }
       }
-
-      _commandBuffer?.Release();
-      _commandBuffer = null;
       _attachedTo = null;
     }
 
     /// <summary>
-    /// Drops the materials and the heat texture as well as the buffer, for plugin shutdown. Detach runs on every
-    /// weapon lower, where rebuilding them would be waste.
+    /// Drops the buffer, the materials and the heat texture, for plugin shutdown. Detach runs on every weapon lower, where
+    /// rebuilding them would be waste.
     /// </summary>
     internal static void Teardown()
     {
       Detach();
+      _commandBuffer?.Release();
+      _commandBuffer = null;
 
       if( _material != null )
       {
