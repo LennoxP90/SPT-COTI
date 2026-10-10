@@ -48,7 +48,8 @@ Modelled on the Safran DSI AN/PAS-29B.
 - **Other players see it on you.** It renders on your head in third person and is hidden from your
   own first-person view, using the game's own mechanism for worn gear.
 - **Found where night vision is found.** It spawns in the same containers and loose-loot positions
-  as the goggles it clips to, at a fraction of their rate, and is sold by Peacekeeper.
+  as the goggles it clips to, at a fraction of their rate, and is sold by Peacekeeper. Bots don't
+  carry it by default; `loot.onBots` lets them.
 
 ## A COTI on every tube
 
@@ -149,6 +150,7 @@ are server-side, in `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json` - 
 | `trader.loyaltyLevel` / `priceUsd` / `buyLimit` | Peacekeeper's offer. Defaults to LL4, $2000, three per profile. |
 | `loot.enabled` | Turn off to make the trader the only source. |
 | `loot.weightFraction` | Spawn weight relative to the night vision already at each spot. `0.25` makes it a quarter as likely as the goggles themselves. |
+| `loot.onBots` | Off by default, so bots never carry a COTI. With Acid's Progressive Bot System, on means every bot that spawns with night vision at night has one on every tube. |
 | `flea.playerSellable` | Off by default, so the only flea listing is Peacekeeper's own, at `priceUsd`. On also lets SPT list simulated player offers and lets players sell their own. SPT prices those listings itself, not from `priceUsd`: expect roughly two to three times Peacekeeper's price. |
 
 The F12 page:

@@ -97,6 +97,7 @@ public class CotiServerConfig
     {
       Loot.Enabled = file.Loot.Enabled;
       Loot.WeightFraction = file.Loot.WeightFraction;
+      Loot.OnBots = file.Loot.OnBots;
     }
 
     if( file.HostEditor is not null )
@@ -181,6 +182,13 @@ public class CotiLootSettings
   /// </summary>
   [JsonPropertyName( "weightFraction" )]
   public double WeightFraction { get; set; } = 0.25;
+
+  /// <summary>
+  /// False strips the COTI from every generated bot (CotiBotStripPatch). True leaves bot
+  /// generation alone, which under APBS means every night bot's NVG carries one on every tube.
+  /// </summary>
+  [JsonPropertyName( "onBots" )]
+  public bool OnBots { get; set; }
 }
 
 public class CotiHostEditorSettings

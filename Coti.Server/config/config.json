@@ -6,7 +6,8 @@
   },
   "loot": {
     "enabled": true,
-    "weightFraction": 0.25
+    "weightFraction": 0.25,
+    "onBots": false
   },
   "hostEditor": {
     "autoDiscover": true

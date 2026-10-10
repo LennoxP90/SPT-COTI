@@ -58,6 +58,11 @@
                  Value="@file.Loot.WeightFraction" ValueChanged="@(v => Set(() => file.Loot.WeightFraction = v))">
         Weight relative to the night vision at each spot: @file.Loot.WeightFraction.ToString("P0")
       </MudSlider>
+      <MudSwitch T="bool" Color="Color.Primary" Label="Bots can carry it" Class="mt-4"
+                 Value="@file.Loot.OnBots" ValueChanged="@(v => Set(() => file.Loot.OnBots = v))" />
+      <MudText Typo="Typo.body2" Class="mud-text-secondary">
+        Off by default. With Acid's Progressive Bot System, on means every bot that spawns with night vision at night carries one on every tube.
+      </MudText>
     </MudPaper>
 
     <MudPaper Class="pa-6" Elevation="2">

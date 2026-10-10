@@ -11,6 +11,7 @@ global using SPTarkov.Server.Core.Models.Utils;           // ISptLogger
 global using SPTarkov.Server.Core.Helpers;                // ModHelper, ProfileHelper
 global using SPTarkov.Server.Core.Services.Mod;           // CustomItemService
 global using SPTarkov.Server.Core.Servers;                // DatabaseServer
+global using SPTarkov.Server.Core.Generators;             // BotGenerator
 global using CotiTemplateTable = SPTarkov.Server.Core.Models.Spt.Templates.Templates;
 global using CotiLocationTable = SPTarkov.Server.Core.Models.Spt.Server.Locations;
 global using CotiLocaleTable   = SPTarkov.Server.Core.Models.Spt.Server.LocaleBase;
@@ -19,6 +20,7 @@ global using SPTarkov.Common.Models.Logging;              // ISptLogger
 global using SPTarkov.Server.Core.Helpers.Server;         // ModHelper
 global using SPTarkov.Server.Core.Helpers.Profile;        // ProfileHelper
 global using SPTarkov.Server.Core.Services.Modding.Custom; // CustomItemService
+global using SPTarkov.Server.Core.Generators.Bot;         // BotGenerator
 global using CotiTemplateTable = SPTarkov.Server.Core.Models.Spt.Tables.TemplateTable;
 global using CotiLocationTable = SPTarkov.Server.Core.Models.Spt.Tables.LocationTable;
 global using CotiLocaleTable   = SPTarkov.Server.Core.Models.Spt.Tables.LocaleTable;
