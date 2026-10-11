@@ -220,18 +220,10 @@ namespace Coti.Client
         return;
       _loggedHostForRaid = true;
 
-      // Image parameters are global (see CotiImageConfig); only the circles are per-host.
-      var image = Plugin.Config?.Image ?? new CotiImageConfig();
-      var paletteText = string.IsNullOrEmpty( image.Palette ) ? "(unchanged)" : image.Palette;
-
       Plugin.Log.LogInfo(
           $"[COTI] host {hostTemplateId} ({maskLabel}) " +
-          $"minTemp={image.MinimumTemperatureValue:F2} colorCoef={image.MainTexColorCoef:F2} " +
-          $"depthFade={image.DepthFade:F2} unsharp={image.UnsharpRadiusBlur:F1}/{image.UnsharpBias:F1} " +
           $"layout={host.Layout?.Name ?? "none"} " +
-          $"mask=({host.MaskCenterX:F3},{host.MaskCenterY:F3}) r={host.MaskRadius:F3} f={host.MaskFeather:F3} " +
-          $"pix={image.IsPixelated} noise={image.IsNoisy} motion={image.IsMotionBlurred} " +
-          $"palette={paletteText} rampShift={image.RampShift:F2}" );
+          $"mask=({host.MaskCenterX:F3},{host.MaskCenterY:F3}) r={host.MaskRadius:F3} f={host.MaskFeather:F3}" );
     }
 
     private static void LogMissingHostOnce( string hostTemplateId )

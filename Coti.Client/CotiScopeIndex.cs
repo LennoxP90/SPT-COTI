@@ -7,6 +7,13 @@ using Diz.DependencyManager;
 using Diz.Resources;
 using EFT.InventoryLogic;
 using UnityEngine;
+#if SPT40
+using AssaultScopeTemplate = AssaultScopeTemplateClass;
+using EasyBundle = EasyAssetHelperClass;
+using OpticScopeTemplate = OpticScopeTemplateClass;
+using SightModTemplate = SightsTemplateClass;
+using SpecialScopeTemplate = SpecialScopeTemplateClass;
+#endif
 
 namespace Coti.Client
 {

@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using Coti.Shared;
 using EFT.Interactive;
+#if SPT40
+using HarmonyLib;
+using MultiFlare;
+#endif
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -16,6 +20,16 @@ namespace Coti.Client
   /// </summary>
   internal static class CotiLampShapes
   {
+#if SPT40
+    // 4.0's Assembly-CSharp is not publicized, so these private fields are read by reflection.
+    private static readonly AccessTools.FieldRef<LampController, MaterialEmission[]> MaterialsWithEmission =
+        AccessTools.FieldRefAccess<LampController, MaterialEmission[]>( "_materialsWithEmission" );
+    private static readonly AccessTools.FieldRef<LampController, MaterialColor[]> LegacyMaterialsWithEmission =
+        AccessTools.FieldRefAccess<LampController, MaterialColor[]>( "_legacyMaterialsWithEmission" );
+    private static readonly AccessTools.FieldRef<LampController, FlareLight[]> MultiFlareLights =
+        AccessTools.FieldRefAccess<LampController, FlareLight[]>( "MultiFlareLights" );
+#endif
+
     private const int Texels = 64;
     // Room for a part's surface drawn four times over: parts reuse texture space (a tripod light's two heads share one
     // lens), and every copy appends its own points.
@@ -128,11 +142,18 @@ namespace Coti.Client
     internal static List<MaterialData> Parts( LampController lamp )
     {
       var parts = new List<MaterialData>();
-      foreach( var part in lamp._materialsWithEmission )
+#if SPT40
+      var emission = MaterialsWithEmission( lamp );
+      var legacy = LegacyMaterialsWithEmission( lamp );
+#else
+      var emission = lamp._materialsWithEmission;
+      var legacy = lamp._legacyMaterialsWithEmission;
+#endif
+      foreach( var part in emission )
         if( part != null && part.Renderer != null )
           parts.Add( part );
-      if( lamp._legacyMaterialsWithEmission != null )
-        foreach( var part in lamp._legacyMaterialsWithEmission )
+      if( legacy != null )
+        foreach( var part in legacy )
           if( part != null && part.Renderer != null )
             parts.Add( part );
       return parts;
@@ -267,7 +288,11 @@ namespace Coti.Client
       foreach( var r in renderers )
         bounds.Encapsulate( r.bounds );
       bounds.Expand( BoundsMarginMetres * 2f );
+#if SPT40
+      AddLights( MultiFlareLights( lamp ), bounds, shape );
+#else
       AddLights( lamp.MultiFlareLights, bounds, shape );
+#endif
       AddLights( lamp.CustomLights, bounds, shape );
       AddLights( lamp.AreaAndTubeLights, bounds, shape );
       AddLights( lamp.Lights, bounds, shape );

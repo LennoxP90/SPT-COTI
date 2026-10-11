@@ -63,6 +63,10 @@
       <HintPath>$(SptRefDir)\SemanticVersioning.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(SptRefDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0' And '$(SptRefsPresent)' != 'true'">

@@ -3,6 +3,10 @@ using EFT;
 using EFT.InventoryLogic;
 using HarmonyLib;
 using SPT.Reflection.Patching;
+#if SPT40
+using GridItemAddress = GClass3393;
+using StackSlotItemAddress = GClass3392;
+#endif
 
 namespace Coti.Client.Patches
 {

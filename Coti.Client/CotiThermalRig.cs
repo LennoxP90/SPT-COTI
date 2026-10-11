@@ -242,23 +242,13 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Copies the shared image tuning - see <see cref="CotiImageConfig"/> - onto a ThermalVision
-    /// instance. Called for both cameras, so the magnified image cannot drift from the 1x one it
-    /// sits inside.
+    /// Turns off BSG's failing-scope dropout on a ThermalVision. Only matters with a bundle that lacks
+    /// Coti/HeatOnly, the one case where ThermalVision draws the image (see ApplyRenderMode).
     /// </summary>
-    internal static void ApplyImageTuning( ThermalVision thermal, CotiImageConfig image )
+    internal static void ApplyImageTuning( ThermalVision thermal )
     {
-      if( image == null )
-        return;
-
-      thermal.IsPixelated = image.IsPixelated;
-      thermal.IsNoisy = image.IsNoisy;
-      thermal.IsMotionBlurred = image.IsMotionBlurred;
-
       // Dropout is BSG's artefact for a failing scope, not a characteristic of this device.
       thermal.IsGlitch = false;
-      thermal.UnsharpRadiusBlur = image.UnsharpRadiusBlur;
-      thermal.UnsharpBias = image.UnsharpBias;
     }
 
     /// <summary>

@@ -3,6 +3,9 @@ using System.Reflection;
 using EFT;
 using HarmonyLib;
 using SPT.Reflection.Patching;
+#if SPT40
+using ItemFactory = ItemFactoryClass;
+#endif
 
 namespace Coti.Client.Patches
 {

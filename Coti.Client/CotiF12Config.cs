@@ -128,51 +128,9 @@ namespace Coti.Client
           new AcceptableValueRange<float>( 0f, 20f ), new ConfigurationManagerAttributes { IsAdvanced = true } ) );
 
       var outlineWidth = _file.Bind( "Image", "Outline Width", image.OutlineWidth, new ConfigDescription(
-          "Contour thickness in texels of the thermal target, when Outline Mix is above 0.",
+          "The thickest a contour draws, in thermal texels. Outline Thickness sets the contour's real-world " +
+          "width, which thins with distance; up close this caps it.",
           new AcceptableValueRange<float>( 0.5f, 8f ), new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var minimumTemperature = _file.Bind( "Image", "Minimum Temperature Value", image.MinimumTemperatureValue,
-          new ConfigDescription(
-              "ThermalVisionUtilities.ValuesCoefs.MinimumTemperatureValue - the game's own thermal " +
-              "floor coefficient.",
-              null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var mainTexColorCoef = _file.Bind( "Image", "Main Tex Color Coef", image.MainTexColorCoef,
-          new ConfigDescription(
-              "ThermalVisionUtilities.ValuesCoefs.MainTexColorCoef - the game's own thermal colour " +
-              "coefficient.",
-              null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var depthFade = _file.Bind( "Image", "Depth Fade", image.DepthFade, new ConfigDescription(
-          "ThermalVisionUtilities.DepthFade - the game's own depth-based fade.",
-          null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var isPixelated = _file.Bind( "Image", "Pixelated", image.IsPixelated, new ConfigDescription(
-          "ThermalVision.IsPixelated.", null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var isNoisy = _file.Bind( "Image", "Noisy", image.IsNoisy, new ConfigDescription(
-          "ThermalVision.IsNoisy.", null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var isMotionBlurred = _file.Bind( "Image", "Motion Blurred", image.IsMotionBlurred, new ConfigDescription(
-          "ThermalVision.IsMotionBlurred.", null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var unsharpRadiusBlur = _file.Bind( "Image", "Unsharp Radius Blur", image.UnsharpRadiusBlur,
-          new ConfigDescription(
-              "ThermalVision.UnsharpRadiusBlur. Vanilla default 5.",
-              null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var unsharpBias = _file.Bind( "Image", "Unsharp Bias", image.UnsharpBias, new ConfigDescription(
-          "ThermalVision.UnsharpBias, the edge-dominance lever. Vanilla default 2.",
-          null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var palette = _file.Bind( "Image", "Palette", image.Palette, new ConfigDescription(
-          "Ramp palette mapping heat to colour - Fusion, Rainbow, WhiteHot, BlackHot. Empty leaves " +
-          "the current palette alone.",
-          null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
-
-      var rampShift = _file.Bind( "Image", "Ramp Shift", image.RampShift, new ConfigDescription(
-          "Shifts where the ramp palette is sampled. Vanilla default 0.",
-          null, new ConfigurationManagerAttributes { IsAdvanced = true } ) );
 
       var rows = _file.Bind( "Image", "Sensor Resolution (rows)", Current.ThermalCamera.Height,
           new ConfigDescription(
@@ -219,16 +177,6 @@ namespace Coti.Client
         Current.Image.HeatBrightness = heatBrightness.Value;
         Current.Image.RenderFlashlightHeat = flashlightHeat.Value;
         Current.Image.RenderSearchlightHeat = searchlightHeat.Value;
-        Current.Image.MinimumTemperatureValue = minimumTemperature.Value;
-        Current.Image.MainTexColorCoef = mainTexColorCoef.Value;
-        Current.Image.DepthFade = depthFade.Value;
-        Current.Image.IsPixelated = isPixelated.Value;
-        Current.Image.IsNoisy = isNoisy.Value;
-        Current.Image.IsMotionBlurred = isMotionBlurred.Value;
-        Current.Image.UnsharpRadiusBlur = unsharpRadiusBlur.Value;
-        Current.Image.UnsharpBias = unsharpBias.Value;
-        Current.Image.Palette = palette.Value;
-        Current.Image.RampShift = rampShift.Value;
 
         Current.ThermalCamera.Hz = hz.Value;
         Current.ThermalCamera.RangeMetres = range.Value;

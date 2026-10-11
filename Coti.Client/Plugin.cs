@@ -61,7 +61,6 @@ namespace Coti.Client
       CotiHostSocketClient.Start();
 #endif
 
-      TryEnable( nameof( ThermalParametersPatch ), () => new ThermalParametersPatch() );
       TryEnable( nameof( GameStartedPatch ), () => new GameStartedPatch() );
 
       // If this one fails to enable, the attach state is only refreshed when the equipped device

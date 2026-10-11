@@ -1,6 +1,6 @@
 # COTI - Clip-On Thermal Imager
 
-A clip-on thermal imager for **SPT 4.1**. SPT 4.0 stays on 2.0.2, the last release of that line.
+A clip-on thermal imager for **SPT 4.1** (3.3.2) and **SPT 4.0** (2.1.0, expected to be the last release of that line).
 It clamps to the objective of a night vision device and
 injects a thermal overlay **into the tube's circle**, so heat signatures stand out while the night
 vision image shows through everywhere else - the way a real fused clip-on works, rather than
@@ -83,7 +83,7 @@ off. COTIs in ECOTI L, OR or OL are lost after one saved raid, with no error.
 
 ## Requirements
 
-- **SPT 4.1.** SPT 4.0 stays on 2.0.2, which gets no new features.
+- **SPT 4.1 or 4.0.** 4.1 takes the 3.x line, 4.0 the 2.x line; 2.1.0 is expected to be the last for 4.0.
 - **Borkel's Realistic NVGs - recommended, not required.** Nothing here depends on it. It is
   recommended because it gives night vision the masked, feathered tube the overlay is designed to sit
   inside; on vanilla night vision the effect still works but sits in a plainer picture. The circles

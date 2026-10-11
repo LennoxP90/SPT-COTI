@@ -7,6 +7,11 @@ using EFT.UI.DragAndDrop;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using UnityEngine;
+#if SPT40
+using ItemContext = ItemContextAbstractClass;
+using ItemController = TraderControllerClass;
+using TMPro;
+#endif
 
 namespace Coti.Client.Patches
 {
@@ -21,6 +26,12 @@ namespace Coti.Client.Patches
       return AccessTools.Method( typeof( ModSlotView ), nameof( ModSlotView.Show ),
           new[] { typeof( Slot ), typeof( ItemContext ), typeof( ItemController ), typeof( ItemUiContext ) } );
     }
+
+#if SPT40
+    // 4.0's Assembly-CSharp is not publicized.
+    private static readonly AccessTools.FieldRef<ModSlotView, TextMeshProUGUI> SlotName =
+        AccessTools.FieldRefAccess<ModSlotView, TextMeshProUGUI>( "_slotName" );
+#endif
 
     [PatchPostfix]
     private static void Postfix( ModSlotView __instance, Slot slot )
@@ -37,7 +48,11 @@ namespace Coti.Client.Patches
       if( Plugin.Config?.NvgHosts == null || !Plugin.Config.NvgHosts.TryGetValue( slot.ParentItem.StringTemplateId, out host ) || host == null )
         return;
 
+#if SPT40
+      SlotName( view ).text = CotiTubes.SlotDisplayName( slot.ID, host.Layout ).ToUpper();
+#else
       view._slotName.text = CotiTubes.SlotDisplayName( slot.ID, host.Layout ).ToUpper();
+#endif
     }
   }
 
@@ -50,13 +65,27 @@ namespace Coti.Client.Patches
   {
     protected override MethodBase GetTargetMethod()
     {
+#if SPT40
+      // CreateModSlots is unnamed in 4.0; method_17 is the one taking the CompoundItem and instantiating the views.
+      return AccessTools.Method( typeof( ItemSpecificationPanel ), "method_17", new[] { typeof( CompoundItem ) } );
+#else
       return AccessTools.Method( typeof( ItemSpecificationPanel ), nameof( ItemSpecificationPanel.CreateModSlots ) );
+#endif
     }
+
+#if SPT40
+    private static readonly AccessTools.FieldRef<ItemSpecificationPanel, RectTransform> ModsContainer =
+        AccessTools.FieldRefAccess<ItemSpecificationPanel, RectTransform>( "_modsContainer" );
+#endif
 
     [PatchPostfix]
     private static void Postfix( ItemSpecificationPanel __instance, CompoundItem compoundItem )
     {
+#if SPT40
+      CotiPatchGuard.Run( "CotiSlotOrderPatch", () => Reorder( ModsContainer( __instance ) ) );
+#else
       CotiPatchGuard.Run( "CotiSlotOrderPatch", () => Reorder( __instance._modsContainer ) );
+#endif
     }
 
     // The panel lists the slots of every attached item too (a helmet shows its goggles' slots), so each host's COTI

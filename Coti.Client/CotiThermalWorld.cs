@@ -36,7 +36,11 @@ namespace Coti.Client
     // EFT's rain on the player's own weapon and hands keeps a block of its own per material and re-applies it every
     // frame while it rains, so COTI's values have to be in that block too. Private, so read by reflection.
     private static readonly System.Reflection.FieldInfo RainBlockField =
+#if SPT40
+        HarmonyLib.AccessTools.Field( typeof( RainCondensator ), "materialPropertyBlock_0" );
+#else
         HarmonyLib.AccessTools.Field( typeof( RainCondensator ), "_materialPropertyBlock" );
+#endif
     private const float DeviceRefreshSeconds = 10f;
     // The shader's arrays are MaxBulbs long, and a block fixes an array's length the first time it is set. Bulbs and Axes
     // are one renderer's heat boxes in its own space, filled just before they are written; WorldBoxes and WorldAxes a
@@ -609,10 +613,15 @@ namespace Coti.Client
     // lamps).
     private static void HeatPart( MaterialData part, float? celsius, Vector4[] boxes, int count, Dictionary<Renderer, HashSet<int>> glowSlots )
     {
-      if( part == null || part.Renderer == null || part._mpb == null )
+#if SPT40
+      var mpb = part?.Mpb;
+#else
+      var mpb = part?._mpb;
+#endif
+      if( part == null || part.Renderer == null || mpb == null )
         return;
-      Write( part._mpb, Boxed( part.Renderer, celsius, boxes, null, count, 1f, CotiLampHeat.HousingWarmth ) );
-      part.Renderer.SetPropertyBlock( part._mpb );
+      Write( mpb, Boxed( part.Renderer, celsius, boxes, null, count, 1f, CotiLampHeat.HousingWarmth ) );
+      part.Renderer.SetPropertyBlock( mpb );
       if( !glowSlots.TryGetValue( part.Renderer, out var slots ) )
         glowSlots[part.Renderer] = slots = new HashSet<int>();
       slots.Add( part.MaterialId );

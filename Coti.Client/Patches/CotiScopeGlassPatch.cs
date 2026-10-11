@@ -2,6 +2,9 @@ using System.Reflection;
 using Diz.Resources;
 using HarmonyLib;
 using SPT.Reflection.Patching;
+#if SPT40
+using EasyBundle = EasyAssetHelperClass;
+#endif
 
 namespace Coti.Client.Patches
 {
@@ -14,7 +17,12 @@ namespace Coti.Client.Patches
   {
     protected override MethodBase GetTargetMethod()
     {
+      #if SPT40
+      // 4.0 has no LoadingCoroutine; Load sets Loading and starts the load the same way.
+      return AccessTools.Method( typeof( EasyBundle ), "Load" );
+#else
       return AccessTools.Method( typeof( EasyBundle ), "LoadingCoroutine" );
+#endif
     }
 
     [PatchPostfix]

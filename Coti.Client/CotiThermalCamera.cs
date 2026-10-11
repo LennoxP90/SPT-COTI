@@ -64,11 +64,6 @@ namespace Coti.Client
 
     private static bool _tuned;
     private static int _tunedHz;
-    private static bool _tunedPixelated;
-    private static bool _tunedNoisy;
-    private static bool _tunedMotionBlurred;
-    private static float _tunedUnsharpRadius;
-    private static float _tunedUnsharpBias;
 
     /// <summary>
     /// Latches on failure so the camera stays down and logs once, rather than throwing every
@@ -469,34 +464,22 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Refresh rate and image tuning come from config alone, so they are re-applied only when one
-    /// of those values moves - nine native writes a frame otherwise.
+    /// Refresh rate comes from config alone, so it is re-applied only when it
+    /// moves.
     /// </summary>
     private static void ApplyTuning( CotiCameraConfig cfg )
     {
-      var image = Plugin.Config.Image;
-
       if( _tunedHz == cfg.Hz
-          && _tunedPixelated == image.IsPixelated
-          && _tunedNoisy == image.IsNoisy
-          && _tunedMotionBlurred == image.IsMotionBlurred
-          && _tunedUnsharpRadius == image.UnsharpRadiusBlur
-          && _tunedUnsharpBias == image.UnsharpBias
           && _tuned )
       {
         return;
       }
 
       CotiThermalRig.SetRefreshRate( _tv, cfg.Hz );
-      CotiThermalRig.ApplyImageTuning( _tv, image );
+      CotiThermalRig.ApplyImageTuning( _tv );
 
       _tuned = true;
       _tunedHz = cfg.Hz;
-      _tunedPixelated = image.IsPixelated;
-      _tunedNoisy = image.IsNoisy;
-      _tunedMotionBlurred = image.IsMotionBlurred;
-      _tunedUnsharpRadius = image.UnsharpRadiusBlur;
-      _tunedUnsharpBias = image.UnsharpBias;
     }
 
     /// <summary>

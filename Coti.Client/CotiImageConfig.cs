@@ -9,50 +9,6 @@ namespace Coti.Client
   /// </summary>
   public class CotiImageConfig
   {
-    [JsonProperty( "minimumTemperatureValue" )]
-    public float MinimumTemperatureValue { get; set; } = 0.25f;
-
-    [JsonProperty( "mainTexColorCoef" )]
-    public float MainTexColorCoef { get; set; } = 0.2f;
-
-    [JsonProperty( "depthFade" )]
-    public float DepthFade { get; set; } = 0.03f;
-
-    [JsonProperty( "isPixelated" )]
-    public bool IsPixelated { get; set; }
-
-    [JsonProperty( "isNoisy" )]
-    public bool IsNoisy { get; set; }
-
-    [JsonProperty( "isMotionBlurred" )]
-    public bool IsMotionBlurred { get; set; }
-
-    /// <summary>
-    /// ThermalVision.UnsharpRadiusBlur. Vanilla default 5.
-    /// </summary>
-    [JsonProperty( "unsharpRadiusBlur" )]
-    public float UnsharpRadiusBlur { get; set; } = 5.0f;
-
-    /// <summary>
-    /// ThermalVision.UnsharpBias, the edge-dominance lever. Vanilla default 2.
-    /// </summary>
-    [JsonProperty( "unsharpBias" )]
-    public float UnsharpBias { get; set; } = 2.0f;
-
-    /// <summary>
-    /// Ramp palette mapping heat to colour - Fusion, Rainbow, WhiteHot, BlackHot. A string rather than
-    /// the game enum because the shared half must not reference a game assembly. Empty leaves the player's
-    /// current palette alone.
-    /// </summary>
-    [JsonProperty( "palette" )]
-    public string Palette { get; set; } = "";
-
-    /// <summary>
-    /// Shifts where the ramp palette is sampled. Vanilla default 0.
-    /// </summary>
-    [JsonProperty( "rampShift" )]
-    public float RampShift { get; set; }
-
     [JsonProperty( "heatThreshold" )]
     public float HeatThreshold { get; set; } = 0.16f;
 
