@@ -25,6 +25,7 @@ namespace Coti.Client
     private static readonly int CirclesId = Shader.PropertyToID( "_Circles" );
     private static readonly int CircleCountId = Shader.PropertyToID( "_CircleCount" );
     private static readonly int AspectId = Shader.PropertyToID( "_Aspect" );
+    private static readonly int CutTexId = Shader.PropertyToID( "_CutTex" );
 
     /// <summary>
     /// The message's brightness. 1 renders the letters at exactly HotColour, the tube's own
@@ -37,6 +38,15 @@ namespace Coti.Client
     private static Material _material;
 
     private static Texture _setMainTex;
+    private static Texture _setCutTex;
+
+    /// <summary>
+    /// This frame cuts the scope's silhouette and the riser's window out of the image (CotiScopeCut), so the buffer is
+    /// recorded at every pre-cull instead of once per source.
+    /// </summary>
+    private static bool _cutting;
+    private static Texture _source;
+    private static bool _recordsPerFrame;
 
     // All four entries on every write: Unity fixes a material array's length at its first SetVectorArray.
     private static readonly Vector4[] CircleValues = new Vector4[CotiState.MaxTubes];
@@ -118,9 +128,15 @@ namespace Coti.Client
           return;
         }
 
+        // A message keeps its whole circle, so the text stays readable over the scope, as it always has.
+        _cutting = CotiState.Showing == CotiShowing.Thermal && CotiScopeCut.Wanted && CotiScopeCut.Ensure( camera );
+        _source = source;
+
         EnsureBuffer( camera, source );
 
         ApplyMaterialValues( source );
+        if( !_cutting )
+          CotiScopeCut.Drop();
       }
       catch( Exception ex )
       {
@@ -132,21 +148,14 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Whether an aimed sight owns the picture, so the 1x overlay stands down entirely.
-    ///
-    /// A thermal sight's own picture is the thermal. Behind a magnified sight the heat is the magnified composite's,
-    /// both while it draws and in the frame or two it takes to come back after a mode change's message, so the 1x heat
-    /// and the circle's glow never show over the scope; a message still draws here. Cutting a hole for the lens
-    /// instead could only approximate the tilted disc, and its rim would read as a second circle inside the scope.
-    ///
-    /// The composite's check needs both Magnifying and Attached: they fail independently, and standing down for a
-    /// composite that is not running would leave no thermal at all.
+    /// Whether an aimed sight owns the picture, so the 1x overlay stands down entirely: a thermal sight, whose own picture
+    /// is the thermal. Behind a magnified sight the 1x keeps drawing everywhere the scope does not cover; CotiScopeCut
+    /// takes the scope's own silhouette out, so the 1x heat never shows over the scope or its lens. The silhouette has
+    /// no inner rim, unlike a hole cut for the lens disc alone, so nothing reads as a second circle inside the scope.
     /// </summary>
     private static bool SightOwnsTheView()
     {
-      return CotiOpticCamera.ThermalSightAimed
-             || ( CotiOpticThermalCamera.Magnifying && CotiOpticOverlayCompositor.Attached )
-             || ( CotiOpticCamera.MagnifiedSightAimed && CotiState.Showing == CotiShowing.Thermal );
+      return CotiOpticCamera.ThermalSightAimed;
     }
 
     /// <summary>
@@ -186,20 +195,30 @@ namespace Coti.Client
         _commandBuffer = new CommandBuffer { name = "COTI overlay" };
 
       // The whole composite: the shader blends additively, so the frame is only written to. Re-recorded in place, even
-      // while attached, since the camera reads the buffer when it renders.
-      if( !ReferenceEquals( _recordedSource, source ) )
+      // while attached, since the camera reads the buffer when it renders. With a cut it is recorded at every pre-cull.
+      if( _cutting )
+        _recordedSource = null;
+      else if( !ReferenceEquals( _recordedSource, source ) )
       {
         _commandBuffer.Clear();
         _commandBuffer.Blit( source, BuiltinRenderTextureType.CameraTarget, _material, 0 );
         _recordedSource = source;
       }
 
-      if( _attachedTo == camera )
-        return;
+      if( _attachedTo != camera )
+      {
+        Detach();
+        camera.AddCommandBuffer( InjectionPoint, _commandBuffer );
+        _attachedTo = camera;
+      }
 
-      Detach();
-      camera.AddCommandBuffer( InjectionPoint, _commandBuffer );
-      _attachedTo = camera;
+      if( _cutting != _recordsPerFrame )
+      {
+        Camera.onPreCull -= RecordCutBeforeCulling;
+        if( _cutting )
+          Camera.onPreCull += RecordCutBeforeCulling;
+        _recordsPerFrame = _cutting;
+      }
 
       if( !_loggedAttached )
       {
@@ -207,6 +226,30 @@ namespace Coti.Client
         Plugin.Log.LogInfo(
             $"[COTI] Overlay attached at {InjectionPoint} using additive blit " +
             $"(thermal {source.width}x{source.height}, no frame read-back)" );
+      }
+    }
+
+    /// <summary>
+    /// The cut and the composite, at the main camera's pre-cull, when its matrices are final for the frame, so the mask
+    /// lands on the scope as drawn. A failure empties the buffer and latches like Sync's.
+    /// </summary>
+    private static void RecordCutBeforeCulling( Camera rendering )
+    {
+      // ==, not ReferenceEquals: see CotiOpticOverlayCompositor.RecordBeforeCulling.
+      if( _broken || !_cutting || _commandBuffer == null || _source == null || rendering != _attachedTo )
+        return;
+
+      try
+      {
+        _commandBuffer.Clear();
+        CotiScopeCut.Record( _commandBuffer, rendering );
+        _commandBuffer.Blit( _source, BuiltinRenderTextureType.CameraTarget, _material, 0 );
+      }
+      catch( Exception ex )
+      {
+        _commandBuffer.Clear();
+        _broken = true;
+        Plugin.Log.LogError( $"[COTI] Overlay composite disabled - switch the overlay off and on to retry: {ex}" );
       }
     }
 
@@ -222,6 +265,7 @@ namespace Coti.Client
       var image = Plugin.Config.Image;
 
       SetTextureIfChanged( MainTexId, source, ref _setMainTex );
+      SetTextureIfChanged( CutTexId, _cutting ? (Texture)CotiScopeCut.Mask : Texture2D.blackTexture, ref _setCutTex );
       SetCircles();
 
       ApplyPhosphorTint();
@@ -346,6 +390,7 @@ namespace Coti.Client
     private static void ForgetMaterialValues()
     {
       _setMainTex = null;
+      _setCutTex = null;
       _circlesSet = false;
       _setCircleCount = float.NaN;
       _setAspect = float.NaN;
@@ -466,9 +511,8 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// What this material is actually set to. While a magnified
-    /// optic is up this compositor is detached, so ApplyMaterialValues does not run and these hold
-    /// whatever was last set before the scope came up.
+    /// What this material is actually set to. While a thermal sight is up this compositor is detached, so
+    /// ApplyMaterialValues does not run and these hold whatever was last set before the sight came up.
     /// </summary>
     internal static string DescribeMaterial()
     {
@@ -502,10 +546,13 @@ namespace Coti.Client
       return target;
     }
 
-    // ponytail: the buffer lives for the session; Plugin.OnDestroy only calls Detach, so the buffer is freed at process
+    // The buffer lives for the session; Plugin.OnDestroy only calls Detach, so the buffer is freed at process
     // exit. Add a Release there if the plugin ever unloads mid-session.
     internal static void Detach()
     {
+      Camera.onPreCull -= RecordCutBeforeCulling;
+      _recordsPerFrame = false;
+
       // Unity's null: a destroyed camera has no buffer list left to remove from.
       if( _attachedTo != null )
       {

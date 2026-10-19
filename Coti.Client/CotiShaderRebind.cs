@@ -44,6 +44,24 @@ namespace Coti.Client
       }
     }
 
+    /// <summary>
+    /// Rebinds the thermal riser's own mesh and the LED's mode_ children (the LED node itself has no renderer;
+    /// <see cref="Apply"/> walks its inactive children too) wherever they sit under <paramref name="view"/>. Only
+    /// those nodes are handed to <see cref="Apply"/>, never the view, for the reason given on
+    /// GameShader: the view also holds the gun's and the sight's renderers, already on the game's shader.
+    /// </summary>
+    public static void ApplyToRisers( GameObject view )
+    {
+      if( view == null )
+        return;
+
+      foreach( var node in view.GetComponentsInChildren<Transform>( includeInactive: true ) )
+      {
+        if( node.name == Coti.Shared.CotiIds.RiserMeshName || node.name == Coti.Shared.CotiIds.RiserLedName )
+          Apply( node.gameObject );
+      }
+    }
+
     private static bool NeedsRebind( Renderer renderer )
     {
       foreach( var material in renderer.sharedMaterials )

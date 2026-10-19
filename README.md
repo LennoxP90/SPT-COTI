@@ -35,11 +35,13 @@ Modelled on the Safran DSI AN/PAS-29B.
   illuminators. The searchlights that heat are listed in `lamps.json` beside the DLL.
 - **Two modes.** Outline draws the edges of hot things; Full fills them in. `Alt+N` switches between
   them, and the display names the new mode with the calibration click.
-- **Through a scope.** With `Magnify With Optic` on, heat is drawn through a magnified scope's own
-  lens at the scope's zoom, so it lines up with what the scope shows. Behind a thermal sight such as
-  the REAP-IR or the RS-32, the imager stands down and the sight's own picture is left alone.
+- **Through a scope.** With `Heat In Magnified Scopes` on (F12, Image), heat is drawn through a magnified scope's
+  own lens at the scope's zoom, so it lines up with what the scope shows. Either way the goggle view keeps its heat
+  all around the scope, cut off exactly where the scope itself covers it, so the outer tubes of a quad keep theirs.
+  Behind a thermal sight such as the REAP-IR or the RS-32, the imager stands down and the sight's own picture is
+  left alone.
 - **Its own power.** `Ctrl+N` toggles the imager independently of the goggles, like the real device's
-  own button. The night vision stays on when the thermal goes off. Powering up shows the device's
+  own button. It never touches a thermal riser, which has its own key. The night vision stays on when the thermal goes off. Powering up shows the device's
   own `Initializing...`, then the thermal arrives with the core's calibration click; powering down
   shows `Power Off...`. Switch the sequence off in F12 for an instant toggle.
 - **Mounts to the game's own goggles** - PVS-14, N-15, GPNVG-18, PNV-10T and PNV-57E - each with its
@@ -80,6 +82,32 @@ up switches off that pod's COTIs while the other stays lit.
 
 **Before going back to an older COTI**, or to an older single-tube addon file, take the extra COTIs
 off. COTIs in ECOTI L, OR or OL are lost after one saved raid, with no error.
+
+## Thermal riser (SPT 4.1)
+
+A second device, for the rifle rather than the goggles: a riser that goes on the top rail under a red dot or
+holographic sight and draws the heat inside that sight's own window. No goggles needed. It comes in black and tan.
+
+- **Under your own sight.** Most red dots and holographic sights fit on it, the game's and other mods', and so do
+  mounts that carry a micro dot. Magnified scopes do not. It is a rifle and carbine part, and it cannot share a gun
+  with a flip-up rear sight, since it reaches back over where those sit. A server owner can take any sight that does
+  not sit right off it on the ECOTI **Riser sights** page.
+- **Its own power.** `Shift+N` switches the riser on the weapon in hand, and it is the only key that does: `Ctrl+N`
+  is the goggle COTI's alone. Both can be on together; the goggle view stays full and the riser draws its own heat
+  in the window. The sight shows `Initializing...`, then the mode, and `Power Off...` on the way down, at one letter
+  height for the glass. A green LED on the back glows while the riser is on, and other players see it too. `T` and
+  `Ctrl+T` leave it alone, so it never switches with your flashlight. Rebind it in F12 (Controls, Riser Power
+  Toggle). Shift is also Sprint, so a press while running forward starts a sprint as well.
+- **The same image.** Heat draws white-hot in the window, in Outline or Full. `Alt+N` switches the one mode both
+  devices share; the new mode's name shows in the riser's sight while you aim through it, otherwise in the goggle
+  view.
+- **Through a magnifier.** With a magnifier behind the dot, such as the HHS-1's G33, the heat shows magnified as well,
+  and so do the riser's messages, flat on the magnified lens at the same letter height. The riser does this on its
+  own, whatever `Heat In Magnified Scopes` says. With the goggle COTI also on, the riser draws the magnified view
+  alone, and the goggle COTI takes it back when the riser goes off.
+- **Where to get one.** Peacekeeper sells both colours at loyalty level 3 for $1,500, three of each, the same limit
+  as the COTI. It also turns up rarely wherever night vision spawns, and now and then on a bot's rifle.
+- **Bots** that carry one never use it as a flashlight; they use their real light, or none.
 
 ## Requirements
 
@@ -151,6 +179,10 @@ are server-side, in `SPT_Runtime/user/mods/LennoxP90-COTI/config/config.json` - 
 | `loot.enabled` | Turn off to make the trader the only source. |
 | `loot.weightFraction` | Spawn weight relative to the night vision already at each spot. `0.25` makes it a quarter as likely as the goggles themselves. |
 | `loot.onBots` | Off by default, so bots never carry a COTI. With Acid's Progressive Bot System, on means every bot that spawns with night vision at night has one on every tube. |
+| `riser.trader.loyaltyLevel` / `priceUsd` / `buyLimit` | Peacekeeper's thermal riser offer, the same values for both colours. Defaults to LL3, $1500, three. SPT 4.1 only. |
+| `riser.loot.enabled` | Turn off to make the trader the only source of risers. |
+| `riser.loot.weightFraction` | The riser's spawn weight relative to the night vision at each spot, shared between the two colours. `0.3` makes it a little more common than the COTI (`0.25`). |
+| `riser.loot.onBots` / `botChance` | On by default, with `0.05`: of the risers a bot would be given, one in twenty stays on the gun. Off takes every riser off bots. |
 | `flea.playerSellable` | Off by default, so the only flea listing is Peacekeeper's own, at `priceUsd`. On also lets SPT list simulated player offers and lets players sell their own. SPT prices those listings itself, not from `priceUsd`: expect roughly two to three times Peacekeeper's price. |
 
 The F12 page:
@@ -164,14 +196,15 @@ The F12 page:
 | | Glass | Default `Reflections`. Glass blocks heat either way. `Plain` draws the pane blank; `Reflections` also mirrors the bodies in front of it, you included. Measured free, so pick by taste. |
 | | Scope Glass Reflections | On by default. A magnified scope's front and eyepiece glass reflect like a window while Glass is on Reflections; off, scope glass stays plain. Measured free. |
 | | Heat Brightness | Default 1, from 0.25 to 2. Dims or brightens how heat draws without changing what is detected. |
-| | Magnify With Optic | Off by default. On draws the heat through a magnified scope's lens at the scope's zoom, at the cost of a second render while aiming: 0.13 ms a frame on, against 0.05 ms off, on the empty test range below. **Potential FPS improvement:** leave it off. |
+| | Heat In Magnified Scopes | Stored in the config file as `Magnify With Optic`. Off by default, and for the goggle COTI only: the thermal riser always shows its heat through a magnifier. On draws the heat through a magnified scope's lens at the scope's zoom, at the cost of a second render while aiming: 0.13 ms a frame on, against 0.05 ms off, on the empty test range below (measured before the goggle view started drawing around scopes; not yet re-measured). **Potential FPS improvement:** leave it off. |
 | | Render Flashlight Heat | On by default. A lit flashlight's head shows faintly warm, from its lens back; lasers and infrared illuminators stay cold. Off, every flashlight reads cold. Not measured on its own; a preference. |
 | | Render Searchlight Heat | On by default. A lit searchlight shows hot at its lens and warm around it; every other lamp stays cold. Off, searchlights read cold too. Measured free: with 1000 lit searchlights in view, turning it off moved the median frame from 3.51 ms to 3.50 ms. |
 | | Sensor Refresh (Hz) | The thermal image updates at this rate and holds in between, as a real low-refresh core does. Default 60; 0 updates every frame and costs the most. Measured on 3.2.0 at 1x: 0.25 ms a frame at 0, against nothing measurable at 60. The saving shrinks at lower frame rates. **Potential FPS improvement:** keep it at 60 or lower. |
-| **Controls** | Power Toggle | Click and press the combination you want. Default `Ctrl+N`. Keep a modifier - EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
-| | Mode Toggle | Switches Outline and Full. Default `Alt+N`. |
+| **Controls** | Power Toggle | The goggle COTI's power, never the riser's. Click and press the combination you want. Default `Ctrl+N`. Keep a modifier - EFT does not demand an exact match on its own binds, so a bare `N` would toggle the goggles too. |
+| | Riser Power Toggle | The thermal riser's power, and the only key for it. Default `Shift+N`, unbound in Tarkov's own defaults; Shift is Sprint, so a press while running forward also sprints. With a riser on the gun in hand, `Shift+N` no longer toggles the goggles. |
+| | Mode Toggle | Switches Outline and Full for both devices. Default `Alt+N`. The name shows in the riser's sight while you aim through it, otherwise in the goggle view. |
 | | Thermal Mode | The mode the device powers up in. Mode Toggle changes it. |
-| **Power Sequence** | Enabled | On by default. Off makes `Ctrl+N` switch the thermal instantly, with no messages and no click. |
+| **Power Sequence** | Enabled | On by default. Off makes `Ctrl+N` and `Shift+N` switch the thermal instantly, with no messages and no click. |
 | | Initializing / Warm-up Gap / Power Off Seconds | How long each stage lasts. Defaults 1.2, 0.3 and 1.5 - a little quicker than the real device. |
 | | Click Volume | The calibration click, on top of the game's own volume. 0 mutes it. |
 | **Debug** | Verbose Logging | Off for normal play. Writes detailed diagnostics to the BepInEx log if you are reporting a problem. |
@@ -190,7 +223,9 @@ little as possible:
 - **Rendered at the sensor's rate.** The image updates at `Sensor Refresh` (60 Hz) and holds in
   between; at a high frame rate most frames render nothing.
 - **Only the circles.** The camera renders just the part of the view inside the tubes' circles.
-- **One camera at a time.** While a magnified scope draws its own heat, the 1x camera rests.
+- **One magnified camera.** Only one device draws a magnified view at a time. With the goggle COTI on, the 1x camera
+  keeps drawing behind a magnified scope, since the goggle view keeps its heat around the scope; with only a riser,
+  it rests.
 - **Culled like your eyes.** The thermal skips what the main view would cull at the same distance.
 - **No world scans mid-raid.** Things register as they appear, and the one-off setup runs during the
   deploy countdown.
@@ -202,7 +237,7 @@ runs. Cost is COTI's own, over the same view with it off:
 |---|---|---|
 | Frame time at 1x | 0.46 to 0.53 ms | 0.02 to 0.06 ms |
 | Frame time through a magnified scope | 0.60 to 0.67 ms | 0.13 ms |
-| Frame time through a scope, Magnify With Optic off | 0.32 ms | 0.05 ms |
+| Frame time through a scope, Heat In Magnified Scopes off | 0.32 ms | 0.05 ms |
 | GPU time | 0.22 to 0.51 ms | nothing measurable |
 
 That range is the imager's lightest case, with no terrain and few bodies; a full map costs more. On
@@ -223,6 +258,9 @@ Other measurements:
 
 **3D model by [3DMA - 3D Military Assets](https://www.3dmilitaryassets.com/)**, used under their
 Extended Licence.
+
+The display text is set in **Nunito** by The Nunito Project Authors, under the SIL Open Font
+Licence 1.1 (`fonts/OFL.txt`).
 
 Thanks to Eukyre for pointing out that worn gear wants a dress script - that turned out to be
 exactly how the device is hidden from the wearer's own view.

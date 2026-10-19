@@ -13,6 +13,11 @@ namespace Coti.Client
     public bool? IsAdvanced;
 
     /// <summary>
+    /// The name shown in the menu in place of the key. The key, and so the line in the .cfg file, is unchanged.
+    /// </summary>
+    public string? DispName;
+
+    /// <summary>
     /// Draws the row itself instead of ConfigurationManager's default editor for the type. Used
     /// for the mask editor's Open button, which is an action rather than a value.
     /// </summary>

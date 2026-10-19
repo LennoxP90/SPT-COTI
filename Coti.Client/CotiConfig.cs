@@ -62,7 +62,8 @@ namespace Coti.Client
     /// Renders a second thermal pass matched to a magnified optic, so heat lines up with the scope.
     ///
     /// Off by default because the COTI is an offset sensor, so a 1x thermal is what it would really
-    /// produce. Costs a second scene render while aiming.
+    /// produce. Costs a second scene render while aiming. The goggle COTI's setting only: a thermal riser magnifies
+    /// whatever it says (CotiCameraDuty.MagnifyEnabled).
     /// </summary>
     [JsonProperty( "magnifyWithOptic" )]
     public bool MagnifyWithOptic { get; set; }
@@ -129,13 +130,6 @@ namespace Coti.Client
     /// </summary>
     [JsonProperty( "dumpFrames" )]
     public int DumpFrames { get; set; }
-
-    /// <summary>
-    /// The magnified lens redraw, taken apart for diagnosis: 0 as shipped, 1 adds the heat texture straight to the
-    /// screen, 2 draws the lens mesh with the overlay's copy pass instead of the lens shader, 3 redraws with culling
-    /// inverted.
-    /// </summary>
-    public int LensProbe { get; set; }
 #endif
 
   }

@@ -15,8 +15,9 @@ namespace Coti.Client.Patches
   /// already includes the COTI, so nothing else ever invalidates it.
   ///
   /// Dropping the hash from the file index sends GetItemIcon down its render path instead. The fresh
-  /// icon is written back with saveToFile, so this costs one re-render per affected item per
-  /// session and nothing thereafter.
+  /// icon is written back with saveToFile under a new file id, and on 4.1 the old PNG is deleted
+  /// (<see cref="EftCompat.RemoveFromIconCaches"/>). Nothing is compared: every affected item is
+  /// re-rendered once per session, changed or not, and served from memory after that.
   ///
   /// ItemIconCache.ClearIconCache() is avoided because it deletes every icon and makes the game
   /// re-render every item the player owns.
@@ -56,7 +57,7 @@ namespace Coti.Client.Patches
       {
         Plugin.Log.LogInfo(
             $"[COTI] Invalidated stale icon for {item.TemplateId} (hash {hash}, " +
-            $"file={hadFile} memory={hadMemory}) - it was cached without the device drawn on it" );
+            $"file={hadFile} memory={hadMemory}), re-rendered once this session" );
       }
     }
   }

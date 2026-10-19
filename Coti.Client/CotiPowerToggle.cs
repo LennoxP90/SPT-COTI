@@ -6,10 +6,11 @@ using UnityEngine;
 namespace Coti.Client
 {
   /// <summary>
-  /// The COTI's own power and mode buttons, driving CotiPowerSequence.
+  /// The COTI's own power and mode buttons, driving CotiPowerSequence, and the thermal riser's power button.
   ///
   /// A clip-on is a separate device with its own switch, so killing the thermal while keeping night
-  /// vision is faithful as well as useful.
+  /// vision is faithful as well as useful. The riser is a separate device again: its key is the only one that powers
+  /// it, and the goggle COTI's never does, even with no goggle COTI worn.
   /// </summary>
   internal static class CotiPowerToggle
   {
@@ -17,6 +18,7 @@ namespace Coti.Client
     private static readonly CotiPowerSequence Sequence = new CotiPowerSequence( Timings );
 
     private static ConfigEntry<KeyboardShortcut> _shortcut;
+    private static ConfigEntry<KeyboardShortcut> _riserShortcut;
     private static ConfigEntry<KeyboardShortcut> _modeShortcut;
     private static ConfigEntry<CotiThermalMode> _mode;
 
@@ -28,19 +30,22 @@ namespace Coti.Client
     internal static bool PoweredOn => Frame.ThermalOn;
 
     internal static void Bind(
-        ConfigEntry<KeyboardShortcut> shortcut, ConfigEntry<KeyboardShortcut> modeShortcut, ConfigEntry<CotiThermalMode> mode )
+        ConfigEntry<KeyboardShortcut> shortcut, ConfigEntry<KeyboardShortcut> riserShortcut,
+        ConfigEntry<KeyboardShortcut> modeShortcut, ConfigEntry<CotiThermalMode> mode )
     {
       _shortcut = shortcut;
+      _riserShortcut = riserShortcut;
       _modeShortcut = modeShortcut;
       _mode = mode;
     }
 
     /// <summary>
-    /// True while either bind's modifiers are held and nothing else is - the same test as
+    /// True while any bind's modifiers are held and nothing else is - the same test as
     /// KeyboardShortcut.IsDown. A looser test would suppress the goggles on presses that never fire
     /// a COTI bind, swallowing the key.
     /// </summary>
-    internal static bool ModifierHeld => Held( _shortcut ) || Held( _modeShortcut );
+    internal static bool ModifierHeld =>
+        Held( _shortcut ) || Held( _modeShortcut ) || ( Held( _riserShortcut ) && ThermalRiserState.Present );
 
     private static bool Held( ConfigEntry<KeyboardShortcut> shortcut )
     {
@@ -92,12 +97,26 @@ namespace Coti.Client
           Plugin.Log.LogInfo( $"[COTI] Power toggle pressed - {Sequence.Phase}" );
       }
 
+      // Does nothing without a riser with a sight on the weapon in hand.
+      if( _riserShortcut != null && _riserShortcut.Value.IsDown() )
+      {
+        ThermalRiserState.RequestToggle();
+        if( Plugin.Config?.VerboseLogging ?? false )
+          Plugin.Log.LogInfo( $"[COTI] Riser power toggle pressed - riser {( ThermalRiserState.Present ? "present" : "absent" )}" );
+      }
+
       if( _modeShortcut != null && _mode != null && _modeShortcut.Value.IsDown() )
       {
+        // One mode for both devices, so both heat images change with it; the name shows only where the player looks.
         _mode.Value = CotiThermalModes.Next( _mode.Value );
-        Sequence.ShowMode( now );
+        var device = CotiDeviceKeys.ModeNameOn( ThermalRiserState.AimedThrough, ThermalRiserState.Powered,
+            CotiState.Showing != CotiShowing.Nothing );
+        if( device == CotiDevice.Riser )
+          ThermalRiserState.ShowMode();
+        else if( device == CotiDevice.Goggle )
+          Sequence.ShowMode( now );
         if( Plugin.Config?.VerboseLogging ?? false )
-          Plugin.Log.LogInfo( $"[COTI] Mode toggle pressed - {_mode.Value}" );
+          Plugin.Log.LogInfo( $"[COTI] Mode toggle pressed - {_mode.Value} - name on {device}" );
       }
 
       var previous = Frame.Phase;

@@ -33,6 +33,7 @@ namespace Coti.Client
     private static Shader _heatOnly;
     private static Shader _terrainGrid;
     private static Shader _glowBake;
+    private static Font _sightFont;
     private static bool _attempted;
 
     private static string _loadedPath;
@@ -82,6 +83,17 @@ namespace Coti.Client
         if( !_attempted )
           Load();
         return _glowBake;
+      }
+    }
+
+    /// <summary>The riser's sight text font (CotiSightFont), a dynamic font with its own material, or null with a bundle that predates it.</summary>
+    internal static Font SightFont
+    {
+      get
+      {
+        if( !_attempted )
+          Load();
+        return _sightFont;
       }
     }
 
@@ -169,7 +181,8 @@ namespace Coti.Client
             continue;
           }
 
-          if( _material != null )
+          // By name too: the sight font brings its own material on the game's text shader.
+          if( _material != null || shader.name != OverlayShaderName )
             continue;
 
           _material = materials[i];
@@ -182,6 +195,11 @@ namespace Coti.Client
                 $"(isSupported={_overlay.isSupported}, passes={_material.passCount})" );
           }
         }
+
+        var fonts = _bundle.LoadAllAssets<Font>();
+        _sightFont = fonts.Length > 0 ? fonts[0] : null;
+        KeepLoaded( _sightFont );
+        KeepLoaded( _sightFont != null ? _sightFont.material : null );
 
         var shaders = _overlay != null ? new Shader[0] : _bundle.LoadAllAssets<Shader>();
 

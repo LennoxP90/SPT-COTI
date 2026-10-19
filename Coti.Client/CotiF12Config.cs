@@ -15,6 +15,8 @@ namespace Coti.Client
 
     public ConfigEntry<KeyboardShortcut> PowerToggle { get; private set; }
 
+    public ConfigEntry<KeyboardShortcut> RiserPowerToggle { get; private set; }
+
     public ConfigEntry<KeyboardShortcut> ModeToggle { get; private set; }
 
     public ConfigEntry<CotiThermalMode> ThermalMode { get; private set; }
@@ -153,13 +155,15 @@ namespace Coti.Client
 
       var magnify = _file.Bind( "Image", "Magnify With Optic", defaults.MagnifyWithOptic,
           new ConfigDescription(
-              "Renders a second thermal pass matched to a magnified scope, so heat lines up with " +
-              "what the scope shows instead of with the 1x view around it, and keeps the 1x heat " +
-              "off the lens. Off by default: the COTI is an offset sensor looking downrange on its " +
-              "own axis, so a 1x thermal is what it would really produce. Non-magnified sights are " +
-              "unaffected either way. With Borkel's scope blur on, the heat is aligned onto the blurred " +
-              "scope picture. Potential FPS improvement: leave it off, since on renders the scene a " +
-              "second time while aiming." ) );
+              "Shown in F12 as Heat In Magnified Scopes. On: while you aim a magnified scope, the goggle ECOTI also " +
+              "shows heat inside the scope, magnified to match what the scope shows. Off: no heat inside the scope. " +
+              "Either way the goggle ECOTI's normal view keeps its heat around the scope, and stops only where the " +
+              "scope itself covers it. Off by default, because the ECOTI sits on your goggles and looks past the " +
+              "scope, not through it. Red dots and other 1x sights are not affected. With Borkel's scope blur on, " +
+              "the heat lines up with the blurred scope picture. Potential FPS improvement: leave it off, since on " +
+              "draws the scene a second time while you aim. A thermal riser shows heat through a magnifier on its " +
+              "sight whatever this is set to.",
+              null, new ConfigurationManagerAttributes { DispName = "Heat In Magnified Scopes" } ) );
 
       _appliers.Add( () =>
       {
@@ -193,19 +197,29 @@ namespace Coti.Client
       PowerToggle = _file.Bind( "Controls", "Power Toggle",
           new KeyboardShortcut( KeyCode.N, KeyCode.LeftControl ),
           new ConfigDescription(
-              "Switches the ECOTI on and off without touching the night vision device. Keep a " +
-              "modifier: EFT does not require an exact match on its own binds, so a bare N would " +
-              "toggle the goggles as well." ) );
+              "Switches the ECOTI on your goggles on and off without touching the night vision device. It never " +
+              "switches the thermal riser, which has its own key (Riser Power Toggle). Keep a modifier: EFT does " +
+              "not require an exact match on its own binds, so a bare N would toggle the goggles as well." ) );
+
+      RiserPowerToggle = _file.Bind( "Controls", "Riser Power Toggle",
+          new KeyboardShortcut( KeyCode.N, KeyCode.LeftShift ),
+          new ConfigDescription(
+              "Switches the thermal riser on the weapon in your hands on and off. It is the only key that does, and " +
+              "it never touches the ECOTI on your goggles; the two can be on together. Shift is also EFT's Sprint, so " +
+              "pressing this while moving forward starts a sprint. Keep a modifier, for the same reason as Power " +
+              "Toggle." ) );
 
       ModeToggle = _file.Bind( "Controls", "Mode Toggle",
           new KeyboardShortcut( KeyCode.N, KeyCode.LeftAlt ),
           new ConfigDescription(
-              "Switches the thermal between Outline and Full, naming the new mode on the display. Keep a " +
-              "modifier, for the same reason as Power Toggle." ) );
+              "Switches the thermal between Outline and Full. One mode for both devices: the goggle ECOTI and the " +
+              "thermal riser change together. The new mode's name shows in the riser's sight while you aim through " +
+              "it, otherwise in the goggle image. Keep a modifier, for the same reason as Power Toggle." ) );
 
       ThermalMode = _file.Bind( "Controls", "Thermal Mode", CotiThermalMode.Outline, new ConfigDescription(
           "Outline draws only the edges of hot things; Full adds a dimmer fill inside them (see Image, " +
-          "Full Mode Fill). Mode Toggle changes this, and the device powers up in it." ) );
+          "Full Mode Fill). Mode Toggle changes this, for the goggle ECOTI and the thermal riser alike, and " +
+          "both power up in it." ) );
 
       _appliers.Add( () => Current.Image.Mode = ThermalMode.Value );
     }
@@ -295,12 +309,6 @@ namespace Coti.Client
           "Under a grayscale palette a correct thermal render has neutral channel means; a " +
           "colour cast means the target was lit rather than thermal.",
           new AcceptableValueRange<int>( 0, 30 ) ) );
-
-      var lensProbe = _file.Bind( "Debug", "Lens Probe", 0, new ConfigDescription(
-          "Takes the magnified lens redraw apart: 0 as shipped, 1 the heat texture added to the screen, 2 the lens " +
-          "mesh drawn with the overlay's copy pass, 3 the redraw with culling inverted, 10 to 14 the redraw with " +
-          "that lens shader pass (10 is pass 0), 20 to 24 the same with the heat texture flat grey.",
-          new AcceptableValueRange<int>( 0, 24 ) ) );
 #endif
 
 #if SPT40
@@ -349,7 +357,6 @@ namespace Coti.Client
 #endif
 #if COTI_DEV
         Current.ThermalCamera.DumpFrames = dumpFrames.Value;
-        Current.ThermalCamera.LensProbe = lensProbe.Value;
 #endif
       } );
     }

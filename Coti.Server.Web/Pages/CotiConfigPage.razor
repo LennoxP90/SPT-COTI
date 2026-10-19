@@ -45,6 +45,34 @@
     </MudPaper>
 
     <MudPaper Class="pa-6 mb-4" Elevation="2">
+      @Header("Thermal riser", "Peacekeeper's offer for each colour, black and tan. Applied to the running server on save; relaunch the game client to see it.")
+      <MudNumericField T="int" Label="Loyalty level" Min="1" Max="4" Variant="Variant.Outlined"
+                       Value="@file.Riser.Trader.LoyaltyLevel" ValueChanged="@(v => Set(() => file.Riser.Trader.LoyaltyLevel = v))" />
+      <MudNumericField T="int" Label="Price (USD)" Min="1" Variant="Variant.Outlined" Class="mt-4"
+                       Value="@file.Riser.Trader.PriceUsd" ValueChanged="@(v => Set(() => file.Riser.Trader.PriceUsd = v))" />
+      <MudNumericField T="int" Label="Purchases per restock, each colour" Min="1" Variant="Variant.Outlined" Class="mt-4"
+                       Value="@file.Riser.Trader.BuyLimit" ValueChanged="@(v => Set(() => file.Riser.Trader.BuyLimit = v))" />
+
+      <MudText Typo="Typo.subtitle1" Class="mt-6">Loot and bots</MudText>
+      <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">Applies at the next raid. No restart, no relaunch.</MudText>
+      <MudSwitch T="bool" Color="Color.Primary" Label="Spawns in loot"
+                 Value="@file.Riser.Loot.Enabled" ValueChanged="@(v => Set(() => file.Riser.Loot.Enabled = v))" />
+      <MudSlider T="double" Min="0" Max="1" Step="0.05" Class="mt-4" Color="Color.Primary"
+                 Value="@file.Riser.Loot.WeightFraction" ValueChanged="@(v => Set(() => file.Riser.Loot.WeightFraction = v))">
+        Weight relative to the night vision at each spot, both colours together: @file.Riser.Loot.WeightFraction.ToString("P0")
+      </MudSlider>
+      <MudSwitch T="bool" Color="Color.Primary" Label="Bots can carry it" Class="mt-4"
+                 Value="@file.Riser.Loot.OnBots" ValueChanged="@(v => Set(() => file.Riser.Loot.OnBots = v))" />
+      <MudSlider T="double" Min="0" Max="1" Step="0.01" Class="mt-4" Color="Color.Primary" Disabled="@(!file.Riser.Loot.OnBots)"
+                 Value="@file.Riser.Loot.BotChance" ValueChanged="@(v => Set(() => file.Riser.Loot.BotChance = v))">
+        Chance a riser fitted to a bot's weapon stays on it: @file.Riser.Loot.BotChance.ToString("P0")
+      </MudSlider>
+      <MudText Typo="Typo.body2" Class="mud-text-secondary">
+        A riser that is taken off leaves its sight on the gun when the rail below takes it.
+      </MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-6 mb-4" Elevation="2">
       @Header("Flea market", "Peacekeeper's offer reaches the flea either way. This only decides whether simulated player offers are generated, and whether you can list one yourself. Relaunch the game client to see it.")
       <MudSwitch T="bool" Color="Color.Primary" Label="Players can sell it on the flea"
                  Value="@file.Flea.PlayerSellable" ValueChanged="@(v => Set(() => file.Flea.PlayerSellable = v))" />

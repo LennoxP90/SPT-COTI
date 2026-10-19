@@ -1,4 +1,5 @@
 using System;
+using Coti.Shared;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -76,11 +77,15 @@ namespace Coti.Client
     private static float _setPixelsPerMetre = float.NaN;
     private static float _setOutlineMinTexels = float.NaN;
     private static float _setIntensity = float.NaN;
+    private static readonly Color RiserCool = new Color( 0.55f, 0.55f, 0.55f, 1f );
     private static Color? _setHotColour;
     private static Color? _setCoolColour;
 
     private static bool _broken;
     private static bool _loggedAttached;
+
+    /// <summary>This frame's owner of the magnified view, read once in Sync: it picks the tint.</summary>
+    private static CotiMagnifiedOwner _owner;
 
     /// <summary>
     /// Whether the composite is attached and drawing. The 1x overlay stands down on this rather than
@@ -93,8 +98,8 @@ namespace Coti.Client
     {
       try
       {
-        // Switching the setting off is the retry: nothing else clears the latch.
-        if( Plugin.Config?.MagnifyWithOptic != true )
+        // The path switching off is the retry: nothing else clears the latch.
+        if( !CotiOpticCamera.MagnifyEnabled )
         {
           _broken = false;
           Detach();
@@ -108,9 +113,9 @@ namespace Coti.Client
         }
 
         var main = CotiFrame.Main;
+        _owner = CotiOpticCamera.MagnifiedOwner;
         var wanted = CotiOpticThermalCamera.Magnifying
-                     && CotiState.Active
-                     && CotiState.Host != null
+                     && ( _owner != CotiMagnifiedOwner.Goggle || CotiState.Host != null )
                      && CotiShaderBundle.OverlayMaterial != null
                      && CotiOpticThermalCamera.Optic.Lens != null;
 
@@ -129,7 +134,7 @@ namespace Coti.Client
         Detach();
         _broken = true;
         Plugin.Log.LogError(
-            "[COTI] Magnified composite disabled - switch Magnify With Optic off and on to retry: "
+            "[COTI] Magnified composite disabled - switch Magnify With Optic off and on (for a thermal riser, change weapons) to retry: "
             + ex );
       }
     }
@@ -179,7 +184,7 @@ namespace Coti.Client
         _commandBuffer.Clear();
         _broken = true;
         Plugin.Log.LogError(
-            "[COTI] Magnified composite disabled - switch Magnify With Optic off and on to retry: " + ex );
+            "[COTI] Magnified composite disabled - switch Magnify With Optic off and on (for a thermal riser, change weapons) to retry: " + ex );
       }
     }
 
@@ -201,61 +206,27 @@ namespace Coti.Client
         return;
       }
 
-#if COTI_DEV
-      var probe = Plugin.Config?.ThermalCamera?.LensProbe ?? 0;
-      LogRecordOnce( lens, picture, probe );
-#endif
-
       buffer.SetRenderTarget( _heat );
-#if COTI_DEV
-      if( probe >= 20 )
-        buffer.ClearRenderTarget( false, true, new Color( 0.5f, 0.5f, 0.5f, 1f ) );
-      else
-      {
-        buffer.ClearRenderTarget( false, true, Color.clear );
-        buffer.Blit( thermal, _heat, _material, CompositePass );
-      }
-#else
       buffer.ClearRenderTarget( false, true, Color.clear );
       buffer.Blit( thermal, _heat, _material, CompositePass );
-#endif
 
       buffer.GetTemporaryRT( ScratchId, -1, -1, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf );
       buffer.SetRenderTarget( ScratchId );
       buffer.ClearRenderTarget( false, true, Color.clear );
       buffer.SetGlobalTexture( CamTexId, _heat );
       buffer.SetViewProjectionMatrices( main.worldToCameraMatrix, main.projectionMatrix );
-#if COTI_DEV
-      if( probe == 3 )
-        buffer.SetInvertCulling( true );
-      if( probe == 2 )
-        buffer.DrawRenderer( lens, _material, 0, AddPass );
-      else
-        buffer.DrawRenderer( lens, _lensMaterial, 0, probe >= 20 ? probe - 20 : probe >= 10 ? probe - 10 : LensPass );
-#else
       buffer.DrawRenderer( lens, _lensMaterial, 0, LensPass );
-#endif
       // The lens's own distance into the scratch target's alpha, so the add below can hide what the scope's housing
       // or a hand covers: this redraw has no depth buffer of its own.
       buffer.DrawRenderer( lens, _material, 0, LensDepthPass );
-#if COTI_DEV
-      if( probe == 3 )
-        buffer.SetInvertCulling( false );
-#endif
       buffer.SetGlobalTexture( CamTexId, picture );
 
-#if COTI_DEV
-      if( probe == 1 )
-        buffer.Blit( _heat, BuiltinRenderTextureType.CameraTarget, _material, AddPass );
-      else
-#endif
       buffer.Blit( ScratchId, BuiltinRenderTextureType.CameraTarget, _material, AddVisiblePass );
       buffer.ReleaseTemporaryRT( ScratchId );
     }
 
 #if COTI_DEV
     private static bool _loggedSkip;
-    private static int _loggedProbe = -1;
 
     private static void LogSkipOnce( RenderTexture thermal, Renderer lens, Texture picture )
     {
@@ -268,25 +239,6 @@ namespace Coti.Client
                           $"lensMaterial={( lens == null || lens.sharedMaterial == null ? "null" : lens.sharedMaterial.name )}" );
     }
 
-    private static void LogRecordOnce( Renderer lens, Texture picture, int probe )
-    {
-      if( _loggedProbe == probe )
-        return;
-      _loggedProbe = probe;
-      var shader = _lensMaterial.shader;
-      Plugin.Log.LogInfo( $"[COTI] lens redraw probe {probe}: lens {lens.name} layer {lens.gameObject.layer}, " +
-                          $"material {_lensMaterial.name} shader {( shader == null ? "null" : shader.name )} " +
-                          $"passes {_lensMaterial.passCount} [{PassNames( _lensMaterial )}], picture {picture.name}, " +
-                          $"heat {_heat.width}x{_heat.height}" );
-    }
-
-    private static string PassNames( Material material )
-    {
-      var names = new string[material.passCount];
-      for( var i = 0; i < names.Length; i++ )
-        names[i] = i + ":" + material.shader.FindPassTagValue( i, new ShaderTagId( "LightMode" ) ).name;
-      return string.Join( " ", names );
-    }
 #endif
 
     private static bool EnsureMaterial()
@@ -302,6 +254,9 @@ namespace Coti.Client
       // programs were stripped renders nothing while reporting isSupported=true.
       _material = new Material( shared ) { name = "CotiMagnifiedOverlay" };
       CotiShaderBundle.KeepLoaded( _material );
+
+      // The 1x path's scope cut must not reach this copy: the lens is inside the cut.
+      _material.SetTexture( Shader.PropertyToID( "_CutTex" ), Texture2D.blackTexture );
 
       // The magnified heat is rendered full-frame; the copy may carry the 1x path's crop box from the shared material.
       _material.SetVector( Shader.PropertyToID( "_ThermalRect" ), new Vector4( 0f, 0f, 1f, 1f ) );
@@ -388,15 +343,17 @@ namespace Coti.Client
 
       // Phosphor and switching fade from the 1x path: the magnified image sits inside the same
       // tube, so a different tint would read as two instruments.
-      SetColorIfChanged( HotColourId, CotiOverlayCompositor.HotColour, ref _setHotColour );
-      SetColorIfChanged( CoolColourId, CotiOverlayCompositor.CoolColour, ref _setCoolColour );
+      // A riser has no tube: it draws white-hot, as it does at 1x. With both devices on the riser owns the view.
+      var riser = _owner == CotiMagnifiedOwner.Riser;
+      SetColorIfChanged( HotColourId, riser ? Color.white : CotiOverlayCompositor.HotColour, ref _setHotColour );
+      SetColorIfChanged( CoolColourId, riser ? RiserCool : CotiOverlayCompositor.CoolColour, ref _setCoolColour );
 
       // Scaled down - see CotiImageConfig.MagnifiedIntensityScale. Without the circle glow beneath
       // it, the 1x value drives contours past full scale and they clip to a solid mass.
       SetFloatIfChanged( IntensityId,
           Mathf.Max( 0f, image.OverlayIntensity )
               * Mathf.Clamp( image.MagnifiedIntensityScale, 0.05f, 1f )
-              * CotiOverlayCompositor.PhosphorFade,
+              * ( riser ? 1f : CotiOverlayCompositor.PhosphorFade ),
           ref _setIntensity );
     }
 

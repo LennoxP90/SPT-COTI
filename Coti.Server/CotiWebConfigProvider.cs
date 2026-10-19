@@ -26,17 +26,17 @@ public class CotiWebConfigProvider(
     yield return Build(
         TraderAndFlea,
         "ECOTI - trader and flea (relaunch the game client)",
-        [ "/loot", "/hostEditor" ] );
+        [ "/loot", "/hostEditor", "/riser/loot" ] );
 
     yield return Build(
         Loot,
         "ECOTI - loot (applies at the next raid)",
-        [ "/trader", "/flea", "/hostEditor" ] );
+        [ "/trader", "/flea", "/hostEditor", "/riser/trader" ] );
 
     yield return Build(
         HostEditor,
         "ECOTI - host editor (needs a server restart)",
-        [ "/trader", "/flea", "/loot" ] );
+        [ "/trader", "/flea", "/loot", "/riser" ] );
   }
 
   private ConfigEditorConfigRegistration Build( string id, string displayName, string[] hidden )

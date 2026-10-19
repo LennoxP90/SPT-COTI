@@ -7,6 +7,22 @@
                 "cubemaps",
                 "shaders"
             ]
+        },
+        {
+            "key": "coti/thermal_riser.bundle",
+            "dependencyKeys": [
+                "assets/commonassets/physics/physicsmaterials.bundle",
+                "cubemaps",
+                "shaders"
+            ]
+        },
+        {
+            "key": "coti/thermal_riser_tan.bundle",
+            "dependencyKeys": [
+                "assets/commonassets/physics/physicsmaterials.bundle",
+                "cubemaps",
+                "shaders"
+            ]
         }
     ]
 }

@@ -69,6 +69,53 @@ public class CotiScopeGlassTests
     }
 }
 
+// A red dot paired with a magnifier ships its own red dot body with glass named like a scope's; that window is found by
+// where it sits, never by name or item id. Boxes are taken from the prefabs in the sight lab (metres, root frame).
+public class CotiRedDotWindowTests
+{
+    private static bool Covers( float[] glassCentre, float[] glassSize, float[] lensCentre, float[] lensSize )
+    {
+        float[] Min( float[] c, float[] s ) => new[] { c[0] - s[0] / 2, c[1] - s[1] / 2, c[2] - s[2] / 2 };
+        float[] Max( float[] c, float[] s ) => new[] { c[0] + s[0] / 2, c[1] + s[1] / 2, c[2] + s[2] / 2 };
+        return CotiScopeGlass.CoversLens( Min( glassCentre, glassSize ), Max( glassCentre, glassSize ), Min( lensCentre, lensSize ), Max( lensCentre, lensSize ) );
+    }
+
+    [Fact]
+    public void AComboRedDotWindowCoversItsLens()
+    {
+        // Epic's Micro T-1 with a Unity FTC magnifier: T1 Glass, 4 mm in front of the 1x lens.
+        Assert.True( Covers( new[] { 0f, -0.0013f, 0.2096f }, new[] { 0.0209f, 0.0208f, 0.0582f },
+                             new[] { 0f, -0.0013f, 0.2135f }, new[] { 0.0209f, 0.0209f, 0f } ) );
+    }
+
+    [Fact]
+    public void ADualOpticsScopeGlassBelowItsRedDotDoesNot()
+    {
+        // NcStar ADO: the 3-9x scope's front glass sits 4.3 cm below the red dot on top of it.
+        Assert.False( Covers( new[] { 0.0001f, 0.0394f, -0.111f }, new[] { 0.0229f, 0.0229f, 0.0027f },
+                              new[] { 0.0001f, 0.0819f, 0.0621f }, new[] { 0.0234f, 0.0185f, 0f } ) );
+    }
+
+    [Fact]
+    public void TheLineOfSightIsTheLensThinnestAxis()
+    {
+        // A lens facing along x: glass anywhere along x but overlapping in y and z covers it.
+        Assert.True( Covers( new[] { 0.3f, 0f, 0f }, new[] { 0.01f, 0.02f, 0.02f }, new[] { 0f, 0f, 0f }, new[] { 0f, 0.02f, 0.02f } ) );
+        Assert.False( Covers( new[] { 0f, 0f, 0.3f }, new[] { 0.02f, 0.02f, 0.01f }, new[] { 0f, 0f, 0f }, new[] { 0f, 0.02f, 0.02f } ) );
+    }
+
+    [Theory]
+    [InlineData( "scope_base_aimpoint_micro_t1_LOD0", false, true, true )]   // the combo window
+    [InlineData( "scope_all_eotech_g33_pos_1_LOD0", true, true, false )]     // the magnifier's own glass, in line with the dot
+    [InlineData( "backLens", false, true, false )]                           // a rear glass stays the magnifier's
+    [InlineData( "scope_all_ncstar_advance_dual_optic_3_9x_42_LOD0", false, false, false )]   // off the dot's line
+    [InlineData( null, false, true, true )]
+    public void OnlyFrontGlassOutsideTheMagnifierOnTheDotsLineIsAWindow( string obj, bool underOptic, bool covers, bool expected )
+    {
+        Assert.Equal( expected, CotiScopeGlass.IsRedDotWindow( obj, underOptic, covers ) );
+    }
+}
+
 // Every bundle a scope bundle depends on, directly or through another dependency: where shared materials come from.
 public class CotiScopeGlassDependencyTests
 {

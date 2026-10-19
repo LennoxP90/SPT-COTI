@@ -63,6 +63,19 @@ public class CotiShippedAssetsTests
         Assert.Equal( height, BinaryPrimitives.ReadInt32BigEndian( bytes.AsSpan( 20, 4 ) ) );
     }
 
+    // The riser's sight text draws Nunito from the coti_shaders bundle; the OFL requires its licence to travel
+    // with it, and the loose TTF, which the game cannot draw, no longer ships.
+    [Fact]
+    public void TheSightFontShipsWithItsLicence()
+    {
+        Assert.False( File.Exists( Path.Combine( RepoRoot(), "fonts", "Nunito-Bold.ttf" ) ) );
+        Assert.True( File.Exists( Path.Combine( RepoRoot(), "bundles", "coti_shaders" ) ) );
+
+        var licence = File.ReadAllText( Path.Combine( RepoRoot(), "fonts", "OFL.txt" ) );
+        Assert.Contains( "The Nunito Project Authors", licence );
+        Assert.Contains( "SIL OPEN FONT LICENSE Version 1.1", licence );
+    }
+
     // Without a readable lamps.json no lamp shows heat at all.
     [Fact]
     public void LampListReadsAndNamesThePickedLamps()
@@ -74,5 +87,25 @@ public class CotiShippedAssetsTests
         Assert.Contains( "Searchlight_02_source_on", heated );
         Assert.Contains( "Searchlight_03_source_on", heated );
         Assert.All( heated, type => Assert.Equal( type, CotiLampHeat.TypeOf( type ) ) );
+    }
+
+    // Without a readable riser-sights.json the server denies nothing, and the eight sights that failed the fit check go
+    // back on the riser.
+    [Fact]
+    public void RiserDenyListReadsAndHoldsTheFitCheckDenials()
+    {
+        var json = File.ReadAllText( Path.Combine( RepoRoot(), "Coti.Server", "config", Coti.Server.ThermalRiserSightsFile.FileName ) );
+        var file = Coti.Server.ThermalRiserSightsFile.Parse( json, out var error );
+
+        Assert.True( file != null, error );
+        Assert.Equal( string.Empty, error );
+        Assert.Equal(
+            new[]
+            {
+                "f849f458cb4ad62c5d8b96e1", "86f1db244188717106a25806", "6a16dc0b82cfbdc3ab09f58a", "68611c8d57834d1471676982",
+                "68611d271b5181217dee6c31", "68611d79d2f8c2caf35ddd39", "696958420d2309811a0fd1d5", "682be7bf16812803987c3715",
+            },
+            file!.Deny.Select( d => d.Id ) );
+        Assert.All( file.Deny, d => Assert.False( string.IsNullOrWhiteSpace( d.Note ) ) );
     }
 }

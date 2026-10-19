@@ -110,6 +110,9 @@ namespace Coti.Shared
 
     public CotiPowerPhase Phase => _phase;
 
+    /// <summary>Headed on: anywhere from Initializing to On.</summary>
+    public bool SwitchedOn => _phase != CotiPowerPhase.Off && _phase != CotiPowerPhase.PoweringOff;
+
     public void Press( double now )
     {
       if( !Enabled )

@@ -31,6 +31,16 @@ namespace Coti.Client
     }
 
     /// <summary>
+    /// Whether the live optic camera is the sight the player looks through. A dual sight with both its red dot and its
+    /// scope in one mode (the ADO P4) keeps the scope's camera running while aiming through the dot, so only the aim
+    /// bone tells them apart: the game's own SightNBone.BoneRelatesToOptics. With no aim bone known, the camera stands.
+    /// </summary>
+    public static bool AimedThroughOptic( bool aimBoneKnown, bool aimBoneIsOptic )
+    {
+      return !aimBoneKnown || aimBoneIsOptic;
+    }
+
+    /// <summary>
     /// How much larger the optic renders the world than the main camera does. Returns 1 for any
     /// input that cannot produce a sensible ratio, including a camera mid-teardown.
     /// </summary>

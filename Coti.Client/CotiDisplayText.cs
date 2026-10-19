@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Coti.Shared;
 using UnityEngine;
@@ -160,6 +161,30 @@ namespace Coti.Client
       }
 
       GL.PopMatrix();
+    }
+
+    /// <summary>
+    /// <paramref name="message"/> on a black <paramref name="target"/> (one texel per screen pixel), centred in the glass
+    /// <paramref name="glass"/> (top-left origin), its em <paramref name="em"/> screen pixels (CotiSightText), in
+    /// Nunito Bold at that exact size. Blank, or no font, leaves the target black.
+    /// </summary>
+    internal static void DrawInGlass( RenderTexture target, CotiDisplayMessage message, Rect glass, float em )
+    {
+      var previous = RenderTexture.active;
+      RenderTexture.active = target;
+      GL.Clear( false, true, Color.black );
+
+      if( em > 0f && message != CotiDisplayMessage.Blank && message != CotiDisplayMessage.None )
+      {
+        GL.PushMatrix();
+        GL.LoadPixelMatrix( 0f, target.width, target.height, 0f );
+
+        CotiSightFont.Draw( CotiSightText.Words( message, CurrentMode ), em, glass.center );
+
+        GL.PopMatrix();
+      }
+
+      RenderTexture.active = previous;
     }
 
     private static void Remember( CotiDisplayMessage message )

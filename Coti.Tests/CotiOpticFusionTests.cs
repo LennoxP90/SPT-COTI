@@ -148,6 +148,20 @@ public class CotiOpticFusionTests
     }
 
     [Fact]
+    public void ADualSightsDotIsNotItsScopeWhileTheScopeCameraRuns()
+    {
+        // ADO P4 in red dot mode: the scope camera stays live, but the aim bone is the dot's.
+        Assert.False(CotiOpticFusion.AimedThroughOptic(aimBoneKnown: true, aimBoneIsOptic: false));
+        Assert.True(CotiOpticFusion.AimedThroughOptic(aimBoneKnown: true, aimBoneIsOptic: true));
+    }
+
+    [Fact]
+    public void WithNoAimBoneKnownTheOpticCameraStands()
+    {
+        Assert.True(CotiOpticFusion.AimedThroughOptic(aimBoneKnown: false, aimBoneIsOptic: false));
+    }
+
+    [Fact]
     public void WidthKeepsTheSensorsFourThreeRatio()
     {
         Assert.Equal(768, CotiSensorResolutions.WidthFor(576));

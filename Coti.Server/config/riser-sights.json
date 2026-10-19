@@ -1,0 +1,36 @@
+{
+  "deny": [
+    {
+      "id": "f849f458cb4ad62c5d8b96e1",
+      "note": "EpicsAIO KAC Micro NVG riser: a riser on the riser"
+    },
+    {
+      "id": "86f1db244188717106a25806",
+      "note": "EpicsAIO KAC Micro NVG riser, second variant"
+    },
+    {
+      "id": "6a16dc0b82cfbdc3ab09f58a",
+      "note": "WTT ContentBackport P226 RM50 mount: a pistol slide mount"
+    },
+    {
+      "id": "68611c8d57834d1471676982",
+      "note": "Eukyre Kastle FRT 226: a pistol slide mount"
+    },
+    {
+      "id": "68611d271b5181217dee6c31",
+      "note": "Eukyre Kastle FRT 226"
+    },
+    {
+      "id": "68611d79d2f8c2caf35ddd39",
+      "note": "Eukyre Kastle FRT 226"
+    },
+    {
+      "id": "696958420d2309811a0fd1d5",
+      "note": "WTT Armory FN F2000 1.6x: the F2000's own sight, made a rail scope by WTT"
+    },
+    {
+      "id": "682be7bf16812803987c3715",
+      "note": "WTT Armory Aimpoint CGA5P: a carry handle optic, a peer only through the Ak5C"
+    }
+  ]
+}

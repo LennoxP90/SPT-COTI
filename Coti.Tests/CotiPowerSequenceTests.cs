@@ -27,6 +27,20 @@ public class CotiPowerSequenceTests
     }
 
     [Fact]
+    public void SwitchedOnHoldsFromBootUntilPowerOff()
+    {
+        var sequence = StartingOff();
+        Assert.False( sequence.SwitchedOn );
+
+        sequence.Press( 0 );
+        Assert.True( sequence.SwitchedOn );
+
+        sequence.Advance( 5 );
+        sequence.Press( 5 );
+        Assert.False( sequence.SwitchedOn );
+    }
+
+    [Fact]
     public void StartsOnWithNoClickAndNoBoost()
     {
         var frame = new CotiPowerSequence().Advance( 0 );

@@ -18,6 +18,7 @@ public class CotiServerConfig
   public CotiLootSettings Loot { get; } = new();
   public CotiHostEditorSettings HostEditor { get; } = new();
   public CotiFleaSettings Flea { get; } = new();
+  public CotiRiserSettings Riser { get; } = new();
 
   /// <summary>
   /// config/config.json, absolute. Empty when the mod folder could not be resolved.
@@ -68,6 +69,11 @@ public class CotiServerConfig
         Loot = file?.Loot ?? new CotiLootSettings(),
         HostEditor = file?.HostEditor ?? new CotiHostEditorSettings(),
         Flea = file?.Flea ?? new CotiFleaSettings(),
+        Riser = new CotiRiserSettings
+        {
+          Trader = file?.Riser?.Trader ?? new CotiRiserTraderSettings(),
+          Loot = file?.Riser?.Loot ?? new CotiRiserLootSettings(),
+        },
       };
     }
     catch( Exception ex )
@@ -105,6 +111,21 @@ public class CotiServerConfig
 
     if( file.Flea is not null )
       Flea.PlayerSellable = file.Flea.PlayerSellable;
+
+    if( file.Riser?.Trader is { } riserTrader )
+    {
+      Riser.Trader.LoyaltyLevel = riserTrader.LoyaltyLevel;
+      Riser.Trader.PriceUsd = riserTrader.PriceUsd;
+      Riser.Trader.BuyLimit = riserTrader.BuyLimit;
+    }
+
+    if( file.Riser?.Loot is { } riserLoot )
+    {
+      Riser.Loot.Enabled = riserLoot.Enabled;
+      Riser.Loot.WeightFraction = riserLoot.WeightFraction;
+      Riser.Loot.OnBots = riserLoot.OnBots;
+      Riser.Loot.BotChance = riserLoot.BotChance;
+    }
   }
 
   /// <summary>
@@ -133,7 +154,8 @@ public class CotiServerConfig
       Trader = Trader,
       Loot = Loot,
       HostEditor = HostEditor,
-      Flea = Flea
+      Flea = Flea,
+      Riser = Riser
     };
   }
 }
@@ -146,6 +168,12 @@ public class CotiConfigFile
 {
   [JsonPropertyName( "trader" )]
   public CotiTraderSettings Trader { get; set; } = new();
+
+  /// <summary>
+  /// Second in the file, beside the COTI's trader block: SaveToDiskAsync writes in declaration order.
+  /// </summary>
+  [JsonPropertyName( "riser" )]
+  public CotiRiserSettings Riser { get; set; } = new();
 
   [JsonPropertyName( "loot" )]
   public CotiLootSettings Loot { get; set; } = new();
@@ -210,4 +238,56 @@ public class CotiFleaSettings
   /// </summary>
   [JsonPropertyName( "playerSellable" )]
   public bool PlayerSellable { get; set; } = false;
+}
+
+/// <summary>
+/// The thermal riser, both colourways. Its own block so its defaults can differ from the COTI's.
+/// </summary>
+public class CotiRiserSettings
+{
+  [JsonPropertyName( "trader" )]
+  public CotiRiserTraderSettings Trader { get; set; } = new();
+
+  [JsonPropertyName( "loot" )]
+  public CotiRiserLootSettings Loot { get; set; } = new();
+}
+
+/// <summary>
+/// Peacekeeper's offer, one per colourway, each with these values. A subclass only for its defaults,
+/// so a partial "trader" block falls back to the riser's, not the COTI's.
+/// </summary>
+public class CotiRiserTraderSettings : CotiTraderSettings
+{
+  public CotiRiserTraderSettings()
+  {
+    LoyaltyLevel = 3;
+    PriceUsd = 1500;
+  }
+}
+
+public class CotiRiserLootSettings
+{
+  [JsonPropertyName( "enabled" )]
+  public bool Enabled { get; set; } = true;
+
+  /// <summary>
+  /// Spawn weight of a riser, either colour, relative to the night vision at each spot, split evenly
+  /// between the colourways. 0 disables it. The COTI's is 0.25; the riser's default is a little higher.
+  /// </summary>
+  [JsonPropertyName( "weightFraction" )]
+  public double WeightFraction { get; set; } = 0.3;
+
+  /// <summary>
+  /// False takes every riser off generated bots. True keeps each one a generated bot carries with
+  /// <see cref="BotChance"/> (CotiBotStripPatch).
+  /// </summary>
+  [JsonPropertyName( "onBots" )]
+  public bool OnBots { get; set; } = true;
+
+  /// <summary>
+  /// Chance, 0 to 1, that a riser a generated bot carries, on a weapon or loose, stays. A riser that goes
+  /// leaves its sight on the gun when the slot below takes it.
+  /// </summary>
+  [JsonPropertyName( "botChance" )]
+  public double BotChance { get; set; } = 0.05;
 }

@@ -27,6 +27,7 @@
     <Compile Include="..\Coti.Client\CotiImageConfig.cs" Link="Client\CotiImageConfig.cs" />
     <Compile Include="..\Coti.Client\CotiLampFile.cs" Link="Client\CotiLampFile.cs" />
     <Compile Include="..\Coti.Server\CotiDeviceDto.cs" Link="Server\CotiDeviceDto.cs" />
+    <Compile Include="..\Coti.Server\ThermalRiserSightsFile.cs" Link="Server\ThermalRiserSightsFile.cs" />
     <Compile Include="..\Coti.Client\CotiDeviceDto.cs" Link="Client\CotiDeviceDto.cs" />
     <Compile Include="..\Coti.Client\CotiInspectGate.cs" Link="Client\CotiInspectGate.cs" />
     <Compile Include="..\Coti.Client\CotiAnchorAdvisor.cs" Link="Client\CotiAnchorAdvisor.cs" />

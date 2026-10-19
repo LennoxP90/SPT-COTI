@@ -24,3 +24,7 @@ Coti.Server/bundles/
 
 # Meshes converted from other mods bundles. Install-specific and not ours to ship.
 Coti.Server.Web/wwwroot/meshes-local/
+
+# Blender save backups and the bytecode its scripts leave beside them.
+*.blend1
+__pycache__/

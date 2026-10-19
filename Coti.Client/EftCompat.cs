@@ -560,10 +560,26 @@ namespace Coti.Client
       return sight != null && camera != null;
     }
 #else
+    /// <summary>
+    /// Drops a hash from both icon caches and deletes its old PNG. The game saves a re-render under a new file id and
+    /// never deletes the file the index pointed at, so without the delete every invalidation leaves one orphan behind.
+    /// A file still open (a load in flight) is left for the game.
+    /// </summary>
     internal static (bool file, bool memory) RemoveFromIconCaches( object iconCreator, int hash )
     {
       var creator = (ItemIconCreator)iconCreator;
-      return ( creator._fileCacheIndex.Remove( hash ), creator._memoryCacheIndex.Remove( hash ) );
+      var hadPng = creator.TryGetIconPath( hash, out var png );
+      var file = creator._fileCacheIndex.Remove( hash );
+      if( hadPng )
+      {
+        try
+        {
+          System.IO.File.Delete( png );
+        }
+        catch( System.IO.IOException ) { }
+        catch( UnauthorizedAccessException ) { }
+      }
+      return ( file, creator._memoryCacheIndex.Remove( hash ) );
     }
 
     internal static string ContainerTemplateId( object containerCollection )

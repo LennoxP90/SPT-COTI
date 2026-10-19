@@ -1,7 +1,7 @@
 using Coti.Shared;
 using Xunit;
 
-// The four hole patterns measured from BorkelRNVG 3.0.4's masks.
+// The four hole patterns measured from BorkelRNVG 3.0.4's masks by tools/derive-layouts.py.
 public class CotiLayoutsTests
 {
     [Fact]

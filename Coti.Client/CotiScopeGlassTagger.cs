@@ -19,6 +19,9 @@ namespace Coti.Client
     private static readonly HashSet<int> WorldGlassIds = new HashSet<int>();
     private static readonly List<Renderer> Renderers = new List<Renderer>();
     private static readonly List<Material> Materials = new List<Material>();
+    private static readonly List<CollimatorSight> Collimators = new List<CollimatorSight>();
+    // The built-in red dot lenses of the prefab being tagged, as boxes in its root's frame.
+    private static readonly List<Bounds> Lenses = new List<Bounds>();
 
     // The mode the copies made so far hold; mixed once a scope loaded under another mode since the last sweep.
     private static CotiGlassMode? _mode;
@@ -41,19 +44,28 @@ namespace Coti.Client
       {
         if( !( asset is GameObject prefab ) || prefab == null )
           continue;
+        var root = prefab.transform;
+        FindLenses( root );
         prefab.GetComponentsInChildren( true, Renderers );
         foreach( var renderer in Renderers )
         {
           renderer.GetSharedMaterials( Materials );
           string objectName = null;
-          foreach( var material in Materials )
+          for( var index = 0; index < Materials.Count; index++ )
           {
+            var material = Materials[index];
             if( material == null || Tagged.Contains( material ) || shared.Contains( material.GetInstanceID() ) )
               continue;
             if( objectName == null )
               objectName = renderer.gameObject.name;
             if( !CotiScopeGlass.IsScopeGlass( material.name, objectName, true ) )
               continue;
+            if( Lenses.Count > 0 && IsRedDotWindow( root, renderer, objectName, index ) )
+            {
+              if( Plugin.Config != null && Plugin.Config.VerboseLogging )
+                Plugin.Log.LogInfo( $"[COTI] scope glass: {material.name} in {prefab.name} left untagged, it is the red dot's window" );
+              continue;
+            }
             material.SetOverrideTag( RenderType, tag );
             Tagged.Add( material );
             count++;
@@ -62,7 +74,56 @@ namespace Coti.Client
       }
       Renderers.Clear();
       Materials.Clear();
+      Lenses.Clear();
       return count;
+    }
+
+    // Each built-in red dot lens (a CollimatorSight's flat mesh) of a prefab, as a box in its root's frame.
+    private static void FindLenses( Transform root )
+    {
+      Lenses.Clear();
+      root.GetComponentsInChildren( true, Collimators );
+      foreach( var sight in Collimators )
+      {
+        var lens = sight.CollimatorMeshRenderer != null ? (Component)sight.CollimatorMeshRenderer : sight;
+        var filter = lens.GetComponent<MeshFilter>();
+        if( filter != null && filter.sharedMesh != null )
+          Lenses.Add( InRoot( root, filter.transform, filter.sharedMesh.bounds ) );
+      }
+      Collimators.Clear();
+    }
+
+    // Front glass outside the magnifier's node whose submesh sits on a red dot lens's line of sight: the window of a
+    // red dot paired with a magnifier, which must stay see-through. Material i draws submesh i, the last one past the end.
+    private static bool IsRedDotWindow( Transform root, Renderer renderer, string objectName, int index )
+    {
+      var filter = renderer.GetComponent<MeshFilter>();
+      var mesh = filter != null ? filter.sharedMesh : null;
+      if( mesh == null || mesh.subMeshCount == 0 )
+        return false;
+      var glass = InRoot( root, renderer.transform, mesh.GetSubMesh( Mathf.Min( index, mesh.subMeshCount - 1 ) ).bounds );
+      var covers = false;
+      foreach( var lens in Lenses )
+        covers |= CotiScopeGlass.CoversLens( Corner( glass.min ), Corner( glass.max ), Corner( lens.min ), Corner( lens.max ) );
+      var underOptic = renderer.GetComponentInParent<EFT.CameraControl.OpticSight>( true ) != null;
+      return CotiScopeGlass.IsRedDotWindow( objectName, underOptic, covers );
+    }
+
+    // A mesh-space box carried into the root's frame: the box around the transformed one.
+    private static Bounds InRoot( Transform root, Transform node, Bounds local )
+    {
+      var m = root.worldToLocalMatrix * node.localToWorldMatrix;
+      var e = local.extents;
+      var size = new Vector3(
+        Mathf.Abs( m.m00 ) * e.x + Mathf.Abs( m.m01 ) * e.y + Mathf.Abs( m.m02 ) * e.z,
+        Mathf.Abs( m.m10 ) * e.x + Mathf.Abs( m.m11 ) * e.y + Mathf.Abs( m.m12 ) * e.z,
+        Mathf.Abs( m.m20 ) * e.x + Mathf.Abs( m.m21 ) * e.y + Mathf.Abs( m.m22 ) * e.z );
+      return new Bounds( m.MultiplyPoint3x4( local.center ), 2f * size );
+    }
+
+    private static float[] Corner( Vector3 v )
+    {
+      return new[] { v.x, v.y, v.z };
     }
 
     /// <summary>Adds the instance id of every material a bundle's assets are or draw.</summary>

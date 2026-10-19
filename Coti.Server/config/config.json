@@ -4,6 +4,19 @@
     "priceUsd": 2000,
     "buyLimit": 3
   },
+  "riser": {
+    "trader": {
+      "loyaltyLevel": 3,
+      "priceUsd": 1500,
+      "buyLimit": 3
+    },
+    "loot": {
+      "enabled": true,
+      "weightFraction": 0.3,
+      "onBots": true,
+      "botChance": 0.05
+    }
+  },
   "loot": {
     "enabled": true,
     "weightFraction": 0.25,

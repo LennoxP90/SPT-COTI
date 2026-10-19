@@ -6,7 +6,8 @@ namespace Coti.Shared
   /// <summary>
   /// Which sights are magnified scopes, and which of their materials are glass the thermal draws. A magnified scope's
   /// rear glass sits on an object named backLens (backLens (1), backLens_000) and its front glass in a material named
-  /// glass; a hybrid's built-in red dot names its parts collimator. Only materials the scope's own bundle holds qualify:
+  /// glass; a hybrid's built-in red dot names its parts collimator, and a red dot plus magnifier pair's red dot window is
+  /// found by where it sits (<see cref="IsRedDotWindow"/>). Only materials the scope's own bundle holds qualify:
   /// a dependency's material can be shared with a holo (the EOTech HHS-1 draws the EXPS3's glass).
   /// </summary>
   public static class CotiScopeGlass
@@ -48,6 +49,31 @@ namespace Coti.Shared
       if( Has( material, Collimator ) || Has( obj, Collimator ) )
         return false;
       return obj.StartsWith( RearObject, StringComparison.OrdinalIgnoreCase ) || Has( material, Glass );
+    }
+
+    /// <summary>
+    /// A hybrid's red dot window, which never draws as glass: front glass that is not under the magnifier's own
+    /// (OpticSight) node and sits on a built-in red dot's line of sight. A rear glass is the magnifier's wherever it sits.
+    /// </summary>
+    public static bool IsRedDotWindow( string objectName, bool underOptic, bool coversLens )
+    {
+      return coversLens && !underOptic && !( objectName ?? "" ).StartsWith( RearObject, StringComparison.OrdinalIgnoreCase );
+    }
+
+    /// <summary>
+    /// Whether a glass box lies on a red dot lens's line of sight: the two boxes (min and max corners, x y z, in one
+    /// frame) overlap on both axes across the lens's thinnest one, the way the flat lens faces.
+    /// </summary>
+    public static bool CoversLens( float[] glassMin, float[] glassMax, float[] lensMin, float[] lensMax )
+    {
+      var aim = 0;
+      for( var i = 1; i < 3; i++ )
+        if( lensMax[i] - lensMin[i] < lensMax[aim] - lensMin[aim] )
+          aim = i;
+      for( var i = 0; i < 3; i++ )
+        if( i != aim && ( glassMax[i] <= lensMin[i] || glassMin[i] >= lensMax[i] ) )
+          return false;
+      return true;
     }
 
     /// <summary>

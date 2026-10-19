@@ -35,6 +35,9 @@ namespace Coti.Client
     private static RenderTexture _rt;
     private static Transform _followed;
 
+    /// <summary>The main camera followed, for the field of view check at this camera's pre-cull.</summary>
+    private static Camera _main;
+
     private static int _rtWidth;
     private static int _rtHeight;
 
@@ -135,8 +138,10 @@ namespace Coti.Client
 
       try
       {
-        // Idled rather than destroyed: rebuilding it on every NVG toggle costs far more than leaving it asleep.
-        if( !CotiCameraDuty.OneX( CotiState.Active, CotiOpticCamera.ThermalSightAimed, CotiOpticCamera.MagnifiedSightAimed ) )
+        // Idled rather than destroyed: rebuilding it on every NVG toggle costs far more than leaving it asleep. The thermal
+        // riser is separate from the goggle COTI: no goggles needed for it.
+        if( !CotiCameraDuty.OneX( CotiState.Active, CotiCollimatorCompositor.Enabled, CotiOpticCamera.ThermalSightAimed,
+                CotiOpticCamera.MagnifiedSightAimed ) )
         {
           Idle();
           if( _go == null && CotiThermalRig.ClaimWarmUp() )
@@ -228,6 +233,9 @@ namespace Coti.Client
       // camera still renders when driven by hand, but silently produces an ordinary lit image.
       _cam.enabled = true;
       _tv.On = true;
+
+      Camera.onPreCull -= MatchEyeBeforeCulling;
+      Camera.onPreCull += MatchEyeBeforeCulling;
 
       // No SetActive(true) here: until Configure binds targetTexture, a live camera renders to the backbuffer as a
       // full-screen thermal frame. ActivateIfReady activates it once a target is bound.
@@ -353,6 +361,9 @@ namespace Coti.Client
     /// <summary>The box around every filled tube's circle; the whole screen when there is none.</summary>
     private static CotiCropBox FilledBox( float aspect )
     {
+      // The riser's red dot can sit outside every tube's box, at the hip especially.
+      if( CotiCollimatorCompositor.Enabled )
+        return CotiCropBox.Whole;
       FilledBoxes.Clear();
       for( var i = 0; i < CotiState.FilledCount; i++ )
       {
@@ -366,8 +377,37 @@ namespace Coti.Client
       return CotiSensorCrop.Union( FilledBoxes, out box ) ? box : CotiCropBox.Whole;
     }
 
+    /// <summary>
+    /// The main camera's field of view and aspect again, just before this camera culls. EFT eases the aiming field of view
+    /// in from a coroutine that runs after Update, so the values Configure copied are a frame old while the player raises
+    /// or lowers the weapon; behind a magnified scope, where this keeps drawing around the scope's silhouette, that
+    /// showed as heat sliding against the scene.
+    /// </summary>
+    private static void MatchEyeBeforeCulling( Camera rendering )
+    {
+      // ==, not ReferenceEquals: see CotiOpticThermalCamera.MatchOpticBeforeCulling.
+      if( _broken || rendering != _cam || _main == null )
+        return;
+
+      try
+      {
+        if( _mirroredFov != _main.fieldOfView )
+        {
+          _cam.fieldOfView = _main.fieldOfView;
+          _mirroredFov = _main.fieldOfView;
+        }
+
+        ApplyCrop( _main, Box );
+      }
+      catch( Exception ex )
+      {
+        MarkBroken( "matching the eye's field of view before culling", ex );
+      }
+    }
+
     private static void Follow( Camera main )
     {
+      _main = main;
       if( _followed == main.transform )
         return;
 
@@ -645,6 +685,8 @@ namespace Coti.Client
     /// </summary>
     internal static void Teardown()
     {
+      Camera.onPreCull -= MatchEyeBeforeCulling;
+
       if( _go != null )
       {
         UnityEngine.Object.Destroy( _go );
@@ -655,6 +697,7 @@ namespace Coti.Client
       _replacing = false;
       _tv = null;
       _followed = null;
+      _main = null;
       _broken = false;
       _loggedCreated = false;
 

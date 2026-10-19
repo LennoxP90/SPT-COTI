@@ -34,6 +34,8 @@ namespace Coti.Client.Patches
       if( itemView == null )
         return;
 
+      CotiShaderRebind.ApplyToRisers( itemView );
+
       var bone = itemView.transform.parent;
       if( bone == null || !CotiTubes.IsCotiSlot( bone.name ) )
         return;

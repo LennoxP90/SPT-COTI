@@ -91,7 +91,25 @@ namespace Coti.Client
     /// Plugin.Update composites in a finally block and Optic may describe the frame before.
     /// </summary>
     internal static bool Magnifying =>
-        CotiState.Active && Optic.Present && HasOutput && _go != null && _go.activeSelf;
+        DeviceOn && Optic.Present && HasOutput && _go != null && _go.activeSelf;
+
+    /// <summary>
+    /// The device that owns the magnified view (CotiOpticCamera.MagnifiedOwner) is drawing heat. Only the owner counts,
+    /// so with both on there is one magnified camera, and while a riser's message shows the goggle COTI does not take
+    /// the lens.
+    /// </summary>
+    internal static bool DeviceOn
+    {
+      get
+      {
+        switch( CotiOpticCamera.MagnifiedOwner )
+        {
+          case CotiMagnifiedOwner.Riser: return ThermalRiserState.Active;
+          case CotiMagnifiedOwner.Goggle: return CotiState.Active;
+          default: return false;
+        }
+      }
+    }
 
     /// <summary>
     /// Whether a ThermalVision belongs to this camera. Patches run for every instance in the game,
@@ -108,7 +126,7 @@ namespace Coti.Client
 
       // Rides on the 1x camera's switch too, and shares its config: with the core off there is
       // nothing to magnify, and a second set of values would drift.
-      if( cfg == null || !cfg.Enabled || Plugin.Config?.MagnifyWithOptic != true )
+      if( cfg == null || !cfg.Enabled || !CotiOpticCamera.MagnifyEnabled )
       {
         Teardown();
         return;
@@ -126,7 +144,7 @@ namespace Coti.Client
       {
         Optic = default( CotiOpticView );
 
-        if( !CotiCameraDuty.Magnified( CotiState.Active, CotiOpticCamera.ThermalSightAimed, CotiOpticCamera.MagnifiedSightAimed ) )
+        if( !CotiCameraDuty.Magnified( DeviceOn, CotiOpticCamera.ThermalSightAimed, CotiOpticCamera.MagnifiedSightAimed ) )
         {
           Idle();
           if( _go == null && CotiThermalRig.ClaimWarmUp() )

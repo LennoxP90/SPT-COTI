@@ -53,7 +53,7 @@ namespace Coti.Shared
   }
 
   /// <summary>
-  /// The four tube layouts. The circles are measured from BorkelRNVG's masks into
+  /// The four tube layouts. The circles are measured from BorkelRNVG's masks by tools/derive-layouts.py into
   /// CotiLayouts.g.cs, so the server's slots, the client's circles and the tests all compile one table.
   /// </summary>
   public static partial class CotiLayouts

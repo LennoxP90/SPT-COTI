@@ -6,12 +6,16 @@ using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using Coti.Client.Dev;
 using Coti.Client.Patches;
+using EFT;
 using EFT.InventoryLogic;
+using HarmonyLib;
 using SPT.Reflection.Patching;
 using UnityEngine;
 
 namespace Coti.Client
 {
+  // Soft: only so its assembly is loaded before AmandsFlashlightHookPatch looks for it.
+  [BepInDependency( "com.Amanda.Graphics", BepInDependency.DependencyFlags.SoftDependency )]
   [BepInPlugin( "com.lennoxp90.coti", "ECOTI", CotiVersion.Current )]
   public class Plugin : BaseUnityPlugin
   {
@@ -33,6 +37,10 @@ namespace Coti.Client
 
       // Support for fika headless clients, will essentially no-op
       IsHeadless = Chainloader.PluginInfos.ContainsKey( "com.fika.headless" );
+
+      // Before the headless returns: in co-op the headless host runs the bots' AI.
+      TryEnable( nameof( BotRiserLightPatch ), () => new BotRiserLightPatch() );
+
       if( IsHeadless )
       {
         Log.LogInfo( "[COTI] Headless client detected - plugin is disabled" );
@@ -43,7 +51,7 @@ namespace Coti.Client
 
       _settings = new CotiF12Config( ( (BaseUnityPlugin)this ).Config, hostFallback );
       Config = _settings.Current;
-      CotiPowerToggle.Bind( _settings.PowerToggle, _settings.ModeToggle, _settings.ThermalMode );
+      CotiPowerToggle.Bind( _settings.PowerToggle, _settings.RiserPowerToggle, _settings.ModeToggle, _settings.ThermalMode );
 
       var pluginDirectory = Path.GetDirectoryName( Info.Location );
       PluginDirectory = pluginDirectory;
@@ -67,6 +75,8 @@ namespace Coti.Client
       // itself changes - so a COTI added to goggles already worn would not be noticed.
       TryEnable( nameof( CotiInventoryChangePatch ), () => new CotiInventoryChangePatch() );
       TryEnable( nameof( GoggleToggleSuppressPatch ), () => new GoggleToggleSuppressPatch() );
+      EnableRiserLightFilter();
+      EnableAmandsFlashlightHook();
 
       // Enabled unconditionally rather than only in raid: the device has to appear in the
       // inventory and on the character preview in the menu, which is where AttachMods runs most.
@@ -113,6 +123,32 @@ namespace Coti.Client
       Log.LogInfo( "[COTI] Initialised" );
     }
 
+    private static void EnableRiserLightFilter()
+    {
+      TryEnable( nameof( RiserTacticalKeysPatch ), () => new RiserTacticalKeysPatch() );
+      TryEnable( nameof( RiserReleaseAllPatch ), () => new RiserReleaseAllPatch() );
+      TryEnable( nameof( RiserReleaseFilterPatch ), () => new RiserReleaseFilterPatch( typeof( Player.FirearmController ) ) );
+      TryEnable( nameof( RiserComboInitPatch ), () => new RiserComboInitPatch() );
+      TryEnable( nameof( RiserDropPatch ), () => new RiserDropPatch() );
+
+      var fika = AccessTools.TypeByName( RiserReleaseFilterPatch.FikaControllerType );
+      if( fika != null )
+        TryEnable( "RiserReleaseFilterPatch (Fika)", () => new RiserReleaseFilterPatch( fika ) );
+      else if( Chainloader.PluginInfos.ContainsKey( "com.fika.core" ) )
+        Log.LogWarning( $"[COTI] Fika is loaded but {RiserReleaseFilterPatch.FikaControllerType} was not found; peers will see the riser switch off on a hold-mode release" );
+    }
+
+    private static void EnableAmandsFlashlightHook()
+    {
+      if( !Chainloader.PluginInfos.ContainsKey( "com.Amanda.Graphics" ) )
+        return;
+
+      if( AmandsFlashlightHookPatch.Target() != null )
+        TryEnable( nameof( AmandsFlashlightHookPatch ), () => new AmandsFlashlightHookPatch() );
+      else
+        Log.LogInfo( $"[COTI] AmandsGraphics is loaded without {AmandsFlashlightHookPatch.HookType}; nothing to contain" );
+    }
+
     private static void TryEnable( string name, Func<ModulePatch> create )
     {
       try
@@ -152,6 +188,7 @@ namespace Coti.Client
       // Unconditional Detach rather than Sync(): the config still reports the mode as enabled
       // here, so Sync would re-attach the buffer being torn down.
       CotiOverlayCompositor.Detach();
+      CotiCollimatorCompositor.Detach();
     }
 
     private void Update()
@@ -188,6 +225,7 @@ namespace Coti.Client
 
         // Before state resolution: the toggle feeds into activation.
         CotiPowerToggle.Tick();
+        ThermalRiserState.Tick();
 
         UpdateCotiState();
 
@@ -222,6 +260,8 @@ namespace Coti.Client
         // buffer, and skipping it leaves the circle drawn with the device inactive.
         CotiOverlayCompositor.Sync();
         CotiOpticOverlayCompositor.Sync();
+        // After the 1x overlay, whose material values it copies.
+        CotiCollimatorCompositor.Sync();
       }
     }
 

@@ -64,7 +64,7 @@ namespace Coti.Client.Patches
     {
       if( item == null )
         return false;
-      if( item.TemplateId == CotiTemplate )
+      if( item.TemplateId == CotiTemplate || ThermalRiserState.IsRiser( item.TemplateId ) )
         return true;
 
       var slots = ( item as CompoundItem )?.Slots;
@@ -102,6 +102,8 @@ namespace Coti.Client.Patches
     {
       if( viewIsDevice )
         CotiShaderRebind.Apply( view );
+
+      CotiShaderRebind.ApplyToRisers( view );
 
       foreach( var bone in view.GetComponentsInChildren<Transform>( includeInactive: true ) )
       {

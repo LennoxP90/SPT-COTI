@@ -136,4 +136,62 @@ namespace Coti.Shared
       return true;
     }
   }
+
+  /// <summary>
+  /// The thermal riser's message size in its sight: the font's em in screen pixels. It comes from the glass's size on
+  /// screen alone, never from the zoom or from which message shows, so a variable scope zooming mid-message keeps the
+  /// letters as they are and every message in one glass has the same letter height.
+  /// </summary>
+  public static class CotiSightText
+  {
+    /// <summary>The em as a share of the glass's height on screen.</summary>
+    public const float EmShareOfGlass = 0.15f;
+
+    /// <summary>The widest message may span this share of the glass's width.</summary>
+    public const float MaxWidthShare = 0.72f;
+
+    /// <summary>Power Off..., the widest message, in ems of Nunito Bold (535 px at a 96 px em).</summary>
+    public const float WidestMessageEms = 5.58f;
+
+    /// <summary>A held size is kept until the glass asks for one this much larger or smaller (and at least a pixel).</summary>
+    public const float HoldShare = 0.04f;
+
+    /// <summary>
+    /// The em for a glass <paramref name="glassWidth"/> by <paramref name="glassHeight"/> pixels on screen:
+    /// <see cref="EmShareOfGlass"/> of its height, or less when the widest message would not fit
+    /// <see cref="MaxWidthShare"/> of its width. No minimum. 0 when there is no glass.
+    /// </summary>
+    public static float EmPixels( float glassWidth, float glassHeight )
+    {
+      if( !( glassWidth > 0f ) || !( glassHeight > 0f ) )
+        return 0f;
+
+      return Math.Min( glassHeight * EmShareOfGlass, glassWidth * MaxWidthShare / WidestMessageEms );
+    }
+
+    /// <summary>
+    /// The em to draw: <paramref name="held"/> while <paramref name="target"/> stays within <see cref="HoldShare"/> of it,
+    /// else the target. Keeps the letters still against the box's frame to frame wobble; an aim-in or a different glass
+    /// moves it.
+    /// </summary>
+    public static float Hold( float held, float target )
+    {
+      if( !( held > 0f ) || !( target > 0f ) )
+        return target > 0f ? target : 0f;
+
+      return Math.Abs( target - held ) > Math.Max( 1f, held * HoldShare ) ? target : held;
+    }
+
+    /// <summary>A message's words, as the riser writes them; null for Blank and None.</summary>
+    public static string? Words( CotiDisplayMessage message, CotiThermalMode mode )
+    {
+      switch( message )
+      {
+        case CotiDisplayMessage.Initializing: return "Initializing...";
+        case CotiDisplayMessage.PowerOff: return "Power Off...";
+        case CotiDisplayMessage.Mode: return mode == CotiThermalMode.Full ? "Full" : "Outline";
+        default: return null;
+      }
+    }
+  }
 }
