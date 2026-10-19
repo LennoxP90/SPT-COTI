@@ -33,12 +33,14 @@ public class CotiBotStripPatch : AbstractPatch, IOnLoad
   }
 #else
   private static CotiTemplateTable _templates = default!;
+  private static ISptLogger<CotiBotStripPatch> _logger = default!;
   private static readonly HashSet<MongoId> RiserTpls = CotiIds.RiserTplIds.Select( id => new MongoId( id ) ).ToHashSet();
 
-  public CotiBotStripPatch( CotiServerConfig config, CotiTemplateTable templates )
+  public CotiBotStripPatch( CotiServerConfig config, CotiTemplateTable templates, ISptLogger<CotiBotStripPatch> logger )
   {
     _config = config;
     _templates = templates;
+    _logger = logger;
   }
 #endif
 
@@ -69,6 +71,7 @@ public class CotiBotStripPatch : AbstractPatch, IOnLoad
 #if !SPT40
     if( items.Any( item => RiserTpls.Contains( item.Template ) ) )
       ThinRisers( items );
+    ThinScopeRings( items );
 #endif
   }
 
@@ -89,6 +92,33 @@ public class CotiBotStripPatch : AbstractPatch, IOnLoad
     }
 
     items.RemoveAll( item => plan.Remove.Contains( item.Id.ToString() ) );
+  }
+
+  private static readonly Dictionary<MongoId, MongoId> RingDonors =
+      ThermalScopeRing.Variants.ToDictionary( v => new MongoId( v.TplId ), v => new MongoId( v.DonorTplId ) );
+
+  /// <summary>
+  /// A scope ring not kept (the riser's bot settings) turns back into its base mount: the same slots, so the scope and
+  /// anything else on it stay where they are. One log line per bot that carried a ring.
+  /// </summary>
+  private static void ThinScopeRings( List<Item> items )
+  {
+    var settings = _config.Riser.Loot;
+    int kept = 0, swapped = 0;
+    foreach( var item in items )
+    {
+      if( !RingDonors.TryGetValue( item.Template, out var donor ) )
+        continue;
+      if( settings.OnBots && Random.Shared.NextDouble() < settings.BotChance )
+      {
+        kept++;
+        continue;
+      }
+      item.Template = donor;
+      swapped++;
+    }
+    if( kept + swapped > 0 )
+      _logger.Info( $"[COTI] Bot scope rings: {kept} kept, {swapped} back to their base mount" );
   }
 
   private static bool SlotAccepts( string parentTpl, string slotName, string childTpl )

@@ -57,7 +57,7 @@ namespace Coti.Client
 
       foreach( var node in view.GetComponentsInChildren<Transform>( includeInactive: true ) )
       {
-        if( node.name == Coti.Shared.CotiIds.RiserMeshName || node.name == Coti.Shared.CotiIds.RiserLedName )
+        if( Coti.Shared.CotiIds.IsThermalNodeName( node.name ) )
           Apply( node.gameObject );
       }
     }

@@ -42,26 +42,32 @@ namespace Coti.Client
     /// </summary>
     internal static bool MagnifiedOpticAimed { get; private set; }
 
-    /// <summary>The aimed magnified optic sits on a thermal riser, so the riser can see through it.</summary>
+    /// <summary>The aimed magnified optic sits on a thermal riser or scope ring, so the device can see through it.</summary>
     internal static bool OpticOnRiser { get; private set; }
+
 
     /// <summary>The aimed optic's sight, while <see cref="MagnifiedOpticAimed"/> holds; else null.</summary>
     internal static OpticSight AimedSight { get; private set; }
 
     /// <summary>
-    /// The magnified path's switch, read by this, the magnified camera and its compositor alike: Magnify With Optic, or a
-    /// thermal riser with a sight on it (CotiCameraDuty.MagnifyEnabled).
+    /// The aimed scope the goggle COTI's view is cut around: any non-thermal sight that renders a picture-in-picture
+    /// image (an OpticSight with its optic camera), at any zoom, so a variable scope at its lowest setting is cut too. A red dot has no OpticSight, so the
+    /// goggle's heat still shows through its window. Else null.
     /// </summary>
-    internal static bool MagnifyEnabled =>
-        CotiCameraDuty.MagnifyEnabled( Plugin.Config?.MagnifyWithOptic == true, ThermalRiserState.Present );
+    internal static OpticSight CutSight { get; private set; }
 
     /// <summary>
-    /// The one device that draws the magnified view (CotiCameraDuty.MagnifiedOwner): a powered riser under the aimed
-    /// optic, else the goggle COTI with Magnify With Optic on.
+    /// The magnified path's switch, read by this, the magnified camera and its compositor alike: a thermal riser or scope
+    /// ring with a sight on it, on the weapon in hand. The goggle COTI never draws inside a scope.
+    /// </summary>
+    internal static bool MagnifyEnabled => ThermalRiserState.Present;
+
+    /// <summary>
+    /// The one device that draws the magnified view (CotiCameraDuty.MagnifiedOwner): a powered riser or ring under the
+    /// aimed optic, else nothing.
     /// </summary>
     internal static CotiMagnifiedOwner MagnifiedOwner =>
-        CotiCameraDuty.MagnifiedOwner( ThermalRiserState.Powered && OpticOnRiser, CotiState.Active,
-            Plugin.Config?.MagnifyWithOptic == true );
+        CotiCameraDuty.MagnifiedOwner( ThermalRiserState.Powered && OpticOnRiser );
 
     internal static void Tick()
     {
@@ -75,6 +81,7 @@ namespace Coti.Client
                              main.fieldOfView, optic.FieldOfView );
       MagnifiedOpticAimed = magnified;
       AimedSight = magnified ? optic.Sight : null;
+      CutSight = present && !thermal ? optic.Sight : null;
       OpticOnRiser = magnified && ThermalRiserState.Present && ThermalRiserState.IsOnRiser( optic.Sight.transform );
       MagnifiedSightAimed = magnified && MagnifyEnabled && !CotiOpticThermalCamera.Broken;
     }

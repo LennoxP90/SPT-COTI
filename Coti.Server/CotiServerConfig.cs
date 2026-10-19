@@ -117,6 +117,7 @@ public class CotiServerConfig
       Riser.Trader.LoyaltyLevel = riserTrader.LoyaltyLevel;
       Riser.Trader.PriceUsd = riserTrader.PriceUsd;
       Riser.Trader.BuyLimit = riserTrader.BuyLimit;
+      Riser.Trader.RingPriceUsd = riserTrader.RingPriceUsd;
     }
 
     if( file.Riser?.Loot is { } riserLoot )
@@ -263,6 +264,13 @@ public class CotiRiserTraderSettings : CotiTraderSettings
     LoyaltyLevel = 3;
     PriceUsd = 1500;
   }
+
+  /// <summary>
+  /// A thermal scope ring's price, each size and colourway. The rings share the riser's loyalty level and purchase
+  /// limit (the owner's call); a ring costs more, being a scope mount as well as the thermal unit.
+  /// </summary>
+  [JsonPropertyName( "ringPriceUsd" )]
+  public int RingPriceUsd { get; set; } = 1750;
 }
 
 public class CotiRiserLootSettings

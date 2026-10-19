@@ -40,10 +40,11 @@ namespace Coti.Client
     internal static RenderTexture Mask => _mask;
 
     /// <summary>
-    /// Whether anything is cut this frame: a magnified optic is aimed, or the riser draws in its red dot window. A
-    /// thermal sight is not here: the 1x overlay stands down entirely for one.
+    /// Whether anything is cut this frame: an aimed sight renders a picture-in-picture image (an OpticSight with its
+    /// optic camera, so a scope at any zoom; red dots have none), or the riser draws in its red dot window. A thermal
+    /// sight is not here: the 1x overlay stands down entirely for one.
     /// </summary>
-    internal static bool Wanted => CotiOpticCamera.AimedSight != null || CotiCollimatorCompositor.DrawsInWindow;
+    internal static bool Wanted => CotiOpticCamera.CutSight != null || CotiCollimatorCompositor.DrawsInWindow;
 
     /// <summary>
     /// Frees the mask while nothing is cut, so a texture dump never reads the last cut frame and the screen-sized target
@@ -99,7 +100,7 @@ namespace Coti.Client
       buffer.ClearRenderTarget( false, true, Color.clear );
       buffer.SetViewProjectionMatrices( main.worldToCameraMatrix, main.projectionMatrix );
 
-      var sight = CotiOpticCamera.AimedSight;
+      var sight = CotiOpticCamera.CutSight;
       if( sight != null )
       {
         CollectScope( sight );
@@ -117,7 +118,7 @@ namespace Coti.Client
       if( CotiCollimatorCompositor.DrawsInWindow )
       {
         foreach( var lens in CotiCollimatorCompositor.WindowLenses( main.transform.position ) )
-          buffer.DrawRenderer( lens, _maskMaterial, 0, AddPass );
+          CotiCollimatorCompositor.DrawWindow( buffer, lens, _maskMaterial, AddPass );
       }
     }
 

@@ -45,6 +45,82 @@ namespace Coti.Client
     private static readonly List<CollimatorSight> Sights = new List<CollimatorSight>();
     private static readonly List<Renderer> Lenses = new List<Renderer>();
 
+    /// <summary>Each lens's window (<see cref="WindowOf"/>), worked out once per lens.</summary>
+    private static readonly Dictionary<Renderer, Renderer> Windows = new Dictionary<Renderer, Renderer>();
+
+    /// <summary>
+    /// The glass that stands for a lens's window: the lens itself, or, when a sibling mode's glass on the same sight is
+    /// over four times larger across, that one. TGC's Nomad scales its default mode's glass to 2.5% (half a millimetre),
+    /// so the window, the boot text and the heat all landed in 2 pixels. The modes share one window.
+    /// </summary>
+    internal static Renderer WindowOf( Renderer lens )
+    {
+      if( lens == null )
+        return null;
+      if( Windows.TryGetValue( lens, out var window ) && window != null )
+        return window;
+
+      window = lens;
+      // Each mode's glass sits under its own mode_00x node, so search the sight's item from its root (its
+      // ScopePrefabCache, as CotiScopeCut finds it); never above it, where another sight's glass could be.
+      var item = lens.GetComponentInParent<ScopePrefabCache>();
+      var modes = item != null ? item.GetComponentsInChildren<CollimatorSight>( true ) : null;
+
+      if( modes != null )
+      {
+        var size = Across( lens );
+        foreach( var other in modes )
+        {
+          var glass = other.CollimatorMeshRenderer;
+          var across = Across( glass );
+          if( glass != null && across > size * 4f )
+          {
+            window = glass;
+            size = across;
+          }
+        }
+      }
+
+      Windows[lens] = window;
+      return window;
+    }
+
+    // The mesh's own size through its world scale, read from the mesh: a renderer on an inactive mode reports empty
+    // bounds, which is how the first try measured every sibling of TGC's Nomad as 0.
+    private static float Across( Renderer glass )
+    {
+      var mesh = glass != null ? glass.GetComponent<MeshFilter>()?.sharedMesh : null;
+      return mesh == null ? 0f : Vector3.Scale( mesh.bounds.size, glass.transform.lossyScale ).magnitude;
+    }
+
+    /// <summary>
+    /// Draws a lens's window (<see cref="WindowOf"/>) into a mask: the lens itself, or, when it is shrunk, its own mesh
+    /// at a full-size sibling's scale (<see cref="WindowMatrix"/>).
+    /// </summary>
+    internal static void DrawWindow( CommandBuffer buffer, Renderer lens, Material material, int pass )
+    {
+      var window = WindowOf( lens );
+      var mesh = window == lens ? null : lens.GetComponent<MeshFilter>()?.sharedMesh;
+      if( mesh == null )
+      {
+        buffer.DrawRenderer( lens, material, 0, pass );
+        return;
+      }
+
+      buffer.DrawMesh( mesh, WindowMatrix( lens, window ), material, 0, pass );
+    }
+
+    /// <summary>
+    /// The dot's own glass where the dot is, at a full-size sibling's scale: the Nomad's other modes sit about 5 mm
+    /// higher, so drawing them in place put the window off the dot. The modes' meshes are the same square.
+    /// </summary>
+    internal static Matrix4x4 WindowMatrix( Renderer lens, Renderer window )
+    {
+      var t = lens.transform;
+      var local = Matrix4x4.TRS( t.localPosition, t.localRotation, window.transform.localScale );
+      return t.parent != null ? t.parent.localToWorldMatrix * local : local;
+    }
+
     private static CommandBuffer _commandBuffer;
     private static Camera _attachedTo;
     private static Material _material;
@@ -275,7 +351,7 @@ namespace Coti.Client
       buffer.ClearRenderTarget( false, true, Color.clear );
       buffer.SetViewProjectionMatrices( main.worldToCameraMatrix, main.projectionMatrix );
       foreach( var lens in Lenses )
-        buffer.DrawRenderer( lens, _maskMaterial, 0, AddPass );
+        DrawWindow( buffer, lens, _maskMaterial, AddPass );
 
       buffer.Blit( _source, BuiltinRenderTextureType.CameraTarget, _material, CompositePass );
     }
@@ -310,8 +386,9 @@ namespace Coti.Client
       {
         // The mesh's own box through its transform, not the renderer's world box: that one is axis-aligned, so it is
         // loose around a tilted eyepiece and its centre drifts off the glass.
-        var local = lens.localBounds;
-        var toWorld = lens.localToWorldMatrix;
+        var window = WindowOf( lens );
+        var local = window == lens ? lens.localBounds : lens.GetComponent<MeshFilter>().sharedMesh.bounds;
+        var toWorld = window == lens ? lens.localToWorldMatrix : WindowMatrix( lens, window );
         for( var corner = 0; corner < 8; corner++ )
         {
           var point = new Vector3( ( corner & 1 ) == 0 ? local.min.x : local.max.x, ( corner & 2 ) == 0 ? local.min.y : local.max.y,

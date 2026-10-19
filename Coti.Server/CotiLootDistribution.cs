@@ -83,7 +83,7 @@ public class CotiLootDistribution : IOnLoad
     var riser = string.Empty;
 #else
     var riser = config.Riser.Loot.Enabled && config.Riser.Loot.WeightFraction > 0
-        ? $", thermal riser at {config.Riser.Loot.WeightFraction:P0}"
+        ? $", thermal riser and scope rings at {config.Riser.Loot.WeightFraction:P0} each"
         : ", thermal riser disabled by config";
 #endif
 
@@ -113,6 +113,9 @@ public class CotiLootDistribution : IOnLoad
     {
       foreach( var tpl in CotiIds.RiserTplIds )
         additions.Add( ( new MongoId( tpl ), riser.WeightFraction / CotiIds.RiserTplIds.Length ) );
+      // The scope rings spawn alongside, the six together as likely as the two risers, so the riser's own odds hold.
+      foreach( var tpl in CotiIds.ScopeRingTplIds )
+        additions.Add( ( new MongoId( tpl ), riser.WeightFraction / CotiIds.ScopeRingTplIds.Length ) );
     }
 #endif
 

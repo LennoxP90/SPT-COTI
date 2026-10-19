@@ -191,36 +191,43 @@ namespace Coti.Client.Patches
 
     private static void DropSightParts( TacticalComboVisualController combo )
     {
-      var scope = RiserScopeNode( combo.transform );
-      if( scope == null )
+      var scopes = ScopeNodes( combo.transform );
+      if( scopes.Count == 0 )
         return;
 
-      bool UnderScope( Component c ) => c != null && c.transform.IsChildOf( scope );
+      bool Under( Transform t ) => t != null && scopes.Any( t.IsChildOf );
+      bool UnderScope( Component c ) => c != null && Under( c.transform );
 
-      Beams( combo ).RemoveAll( t => t.IsChildOf( scope ) );
+      Beams( combo ).RemoveAll( Under );
       Lights( combo ) = Lights( combo )?.Where( l => !UnderScope( l ) ).ToArray();
       Lasers( combo ) = Lasers( combo )?.Where( l => !UnderScope( l ) ).ToArray();
 
-      if( Disabled( combo ) != null && Disabled( combo ).IsChildOf( scope ) )
-        Disabled( combo ) = OwnDisabledNode( combo.transform, scope );
+      if( Under( Disabled( combo ) ) )
+        Disabled( combo ) = OwnDisabledNode( combo.transform, Under );
     }
 
-    private static Transform RiserScopeNode( Transform root )
+    /// <summary>The device's sight slots: the riser has mod_scope, a scope ring mod_scope or mod_scope_000 and on.</summary>
+    private static List<Transform> ScopeNodes( Transform root )
     {
+      var slots = new List<Transform>();
       foreach( var node in root.GetComponentsInChildren<Transform>( includeInactive: true ) )
       {
-        if( node.name == CotiIds.RiserMeshName )
-          return node.parent?.Find( "mod_scope" );
+        if( !CotiIds.IsThermalMeshName( node.name ) || node.parent == null )
+          continue;
+        foreach( Transform sibling in node.parent )
+          if( sibling.name.StartsWith( "mod_scope" ) )
+            slots.Add( sibling );
+        break;
       }
 
-      return null;
+      return slots;
     }
 
-    private static Transform OwnDisabledNode( Transform root, Transform scope )
+    private static Transform OwnDisabledNode( Transform root, System.Func<Transform, bool> underScope )
     {
       foreach( var node in root.GetComponentsInChildren<Transform>( includeInactive: true ) )
       {
-        if( node.name == TacticalComboVisualController.DISABLED_TRANSFORM_NAME && !node.IsChildOf( scope ) )
+        if( node.name == TacticalComboVisualController.DISABLED_TRANSFORM_NAME && !underScope( node ) )
           return node;
       }
 

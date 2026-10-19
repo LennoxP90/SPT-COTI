@@ -153,22 +153,9 @@ namespace Coti.Client
           "that far through the scope looks as near. 0 draws as far as your eyes do (Overall Visibility).",
           new AcceptableValueRange<float>( 0f, 3000f ), new ConfigurationManagerAttributes { IsAdvanced = true } ) );
 
-      var magnify = _file.Bind( "Image", "Magnify With Optic", defaults.MagnifyWithOptic,
-          new ConfigDescription(
-              "Shown in F12 as Heat In Magnified Scopes. On: while you aim a magnified scope, the goggle ECOTI also " +
-              "shows heat inside the scope, magnified to match what the scope shows. Off: no heat inside the scope. " +
-              "Either way the goggle ECOTI's normal view keeps its heat around the scope, and stops only where the " +
-              "scope itself covers it. Off by default, because the ECOTI sits on your goggles and looks past the " +
-              "scope, not through it. Red dots and other 1x sights are not affected. With Borkel's scope blur on, " +
-              "the heat lines up with the blurred scope picture. Potential FPS improvement: leave it off, since on " +
-              "draws the scene a second time while you aim. A thermal riser shows heat through a magnifier on its " +
-              "sight whatever this is set to.",
-              null, new ConfigurationManagerAttributes { DispName = "Heat In Magnified Scopes" } ) );
-
       _appliers.Add( () =>
       {
         Current.Enabled = enabled.Value;
-        Current.MagnifyWithOptic = magnify.Value;
 
         Current.Image.HeatThreshold = threshold.Value;
         Current.Image.OverlayIntensity = intensity.Value;

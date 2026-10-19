@@ -21,7 +21,10 @@ namespace Coti.Client
   internal static class ThermalRiserState
   {
     private const float RescanSeconds = 1f;
-    private static readonly MongoID[] RiserTemplates = System.Array.ConvertAll( CotiIds.RiserTplIds, id => new MongoID( id ) );
+    // the scope rings are the same device on a ring mount: one state, one power key, one LED rule
+    private static readonly MongoID[] RiserTemplates = System.Array.ConvertAll(
+        System.Linq.Enumerable.ToArray( System.Linq.Enumerable.Concat( CotiIds.RiserTplIds, CotiIds.ScopeRingTplIds ) ),
+        id => new MongoID( id ) );
     private static readonly CotiPowerTimings Timings = new CotiPowerTimings();
     private static CotiPowerSequence Sequence = new CotiPowerSequence( Timings, startOn: false );
 
@@ -78,7 +81,7 @@ namespace Coti.Client
     {
       for( node = node != null ? node.parent : null; node != null; node = node.parent )
       {
-        if( node.Find( CotiIds.RiserMeshName ) != null )
+        if( node.Find( CotiIds.RiserMeshName ) != null || node.Find( CotiIds.ScopeRingMeshName ) != null )
           return true;
       }
 
@@ -216,7 +219,7 @@ namespace Coti.Client
       return null;
     }
 
-    /// <summary>Any riser colourway (CotiIds.RiserTplIds). Allocation-free, for the per-item checks.</summary>
+    /// <summary>Any riser colourway or scope ring (CotiIds.RiserTplIds, ScopeRingTplIds). Allocation-free, for the per-item checks.</summary>
     internal static bool IsRiser( MongoID template )
     {
       for( var i = 0; i < RiserTemplates.Length; i++ )
@@ -232,7 +235,7 @@ namespace Coti.Client
     {
       foreach( var slot in riser.Slots )
       {
-        if( slot.ID == "mod_scope" && slot.ContainedItem != null )
+        if( slot.ID.StartsWith( "mod_scope" ) && slot.ContainedItem != null )     // the rings' slots are mod_scope_000 and on
           return true;
       }
 

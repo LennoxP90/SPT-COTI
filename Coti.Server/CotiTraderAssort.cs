@@ -10,9 +10,9 @@ using SPTarkov.Server.Core.Models.Spt.Tables; // TradersTable is a Dictionary<Mo
 namespace Coti.Server;
 
 /// <summary>
-/// Adds the COTI and, on 4.1, each thermal riser colourway to Peacekeeper's assort. Loyalty level,
-/// price and purchase limit come from config/config.json: the COTI's trader block, and riser.trader
-/// for every riser. Runs after the item factories so the templates already exist. The Debug-only $1
+/// Adds the COTI and, on 4.1, each thermal riser colourway and thermal scope ring to Peacekeeper's
+/// assort. Loyalty level, price and purchase limit come from config/config.json: the COTI's trader
+/// block, and riser.trader for every riser and ring (a ring at riser.trader.ringPriceUsd). Runs after the item factories so the templates already exist. The Debug-only $1
 /// riser offer is ThermalRiserTestAssort, separate from these.
 /// </summary>
 // TraderRegistration, not PostLoad: PostLoad runs after SPT has built the flea offers. See
@@ -27,7 +27,7 @@ public class CotiTraderAssort : IOnLoad
   /// The assort entries this mod added, each with the live settings it follows, for re-applying the
   /// config. Empty until OnLoad has run, or if the trader was not there to add them to.
   /// </summary>
-  private readonly List<(MongoId AssortId, CotiTraderSettings Settings)> entries = new();
+  private readonly List<(MongoId AssortId, CotiTraderSettings Settings, Func<int> Price)> entries = new();
 
 #if SPT40
   private readonly DatabaseServer databaseServer;
@@ -79,17 +79,19 @@ public class CotiTraderAssort : IOnLoad
       return Task.CompletedTask;
     }
 
-    Add( peacekeeper.Assort, CotiItemFactory.CotiTplId, config.Trader, "COTI" );
+    Add( peacekeeper.Assort, CotiItemFactory.CotiTplId, config.Trader, "COTI", () => config.Trader.PriceUsd );
 #if !SPT40
     // The riser is 4.1 only, so the 4.0 build must not list a template it never registers.
     foreach( var colourway in ThermalRiser.Colourways )
-      Add( peacekeeper.Assort, colourway.TplId, config.Riser.Trader, colourway.Name );
+      Add( peacekeeper.Assort, colourway.TplId, config.Riser.Trader, colourway.Name, () => config.Riser.Trader.PriceUsd );
+    foreach( var ring in ThermalScopeRing.Variants )
+      Add( peacekeeper.Assort, ring.TplId, config.Riser.Trader, ring.Name, () => config.Riser.Trader.RingPriceUsd );
 #endif
 
     return Task.CompletedTask;
   }
 
-  private void Add( TraderAssort assort, string tplId, CotiTraderSettings settings, string name )
+  private void Add( TraderAssort assort, string tplId, CotiTraderSettings settings, string name, Func<int> price )
   {
     var id = new MongoId();
 
@@ -107,18 +109,18 @@ public class CotiTraderAssort : IOnLoad
       }
     } );
 
-    Write( assort, id, settings );
-    entries.Add( ( id, settings ) );
+    Write( assort, id, settings, price() );
+    entries.Add( ( id, settings, price ) );
 
     logger.Success(
-        $"[COTI] {name} added to Peacekeeper LL{settings.LoyaltyLevel} at ${settings.PriceUsd}, " +
+        $"[COTI] {name} added to Peacekeeper LL{settings.LoyaltyLevel} at ${price()}, " +
         $"limit {settings.BuyLimit}" );
   }
 
   /// <summary>
   /// Loyalty level, price and purchase limit of one entry, from its settings as they are now.
   /// </summary>
-  private static void Write( TraderAssort assort, MongoId id, CotiTraderSettings settings )
+  private static void Write( TraderAssort assort, MongoId id, CotiTraderSettings settings, int priceUsd )
   {
     var item = assort.Items.FirstOrDefault( entry => entry.Id == id );
     if( item is not null )
@@ -131,7 +133,7 @@ public class CotiTraderAssort : IOnLoad
     {
       new List<BarterScheme>
       {
-        new BarterScheme { Count = settings.PriceUsd, Template = ItemTpl.MONEY_DOLLARS }
+        new BarterScheme { Count = priceUsd, Template = ItemTpl.MONEY_DOLLARS }
       }
     };
     assort.LoyalLevelItems[id] = settings.LoyaltyLevel;
@@ -150,8 +152,8 @@ public class CotiTraderAssort : IOnLoad
     if( !tradersTable.TryGetValue( Traders.PEACEKEEPER, out var peacekeeper ) || peacekeeper.Assort is null )
       return false;
 
-    foreach( var ( id, settings ) in entries )
-      Write( peacekeeper.Assort, id, settings );
+    foreach( var ( id, settings, price ) in entries )
+      Write( peacekeeper.Assort, id, settings, price() );
 
     if( peacekeeper.Base is not null )
       peacekeeper.Base.RefreshTraderRagfairOffers = true;
@@ -159,7 +161,7 @@ public class CotiTraderAssort : IOnLoad
     logger.Debug(
         $"[COTI] Trader settings re-applied: COTI LL{config.Trader.LoyaltyLevel}, ${config.Trader.PriceUsd}, " +
         $"limit {config.Trader.BuyLimit}; riser LL{config.Riser.Trader.LoyaltyLevel}, " +
-        $"${config.Riser.Trader.PriceUsd}, limit {config.Riser.Trader.BuyLimit}" );
+        $"${config.Riser.Trader.PriceUsd} (rings ${config.Riser.Trader.RingPriceUsd}), limit {config.Riser.Trader.BuyLimit}" );
 
     return true;
   }

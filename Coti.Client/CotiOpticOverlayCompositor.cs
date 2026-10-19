@@ -134,7 +134,7 @@ namespace Coti.Client
         Detach();
         _broken = true;
         Plugin.Log.LogError(
-            "[COTI] Magnified composite disabled - switch Magnify With Optic off and on (for a thermal riser, change weapons) to retry: "
+            "[COTI] Magnified composite disabled - change weapons to retry: "
             + ex );
       }
     }
@@ -184,7 +184,7 @@ namespace Coti.Client
         _commandBuffer.Clear();
         _broken = true;
         Plugin.Log.LogError(
-            "[COTI] Magnified composite disabled - switch Magnify With Optic off and on (for a thermal riser, change weapons) to retry: " + ex );
+            "[COTI] Magnified composite disabled - change weapons to retry: " + ex );
       }
     }
 

@@ -27,9 +27,9 @@ public static class ThermalRiser
   /// </summary>
   public static readonly Colourway[] Colourways =
   [
-    new( Coti.Shared.CotiIds.RiserTplId, "coti/thermal_riser.bundle", "LennoxP90 thermal riser",
+    new( Coti.Shared.CotiIds.RiserTplId, "coti/thermal_riser.bundle", "LennoxP90 TR-1 thermal sight riser",
          "mount_all_lennoxp90_thermal_riser" ),
-    new( Coti.Shared.CotiIds.RiserTanTplId, "coti/thermal_riser_tan.bundle", "LennoxP90 thermal riser (Tan)",
+    new( Coti.Shared.CotiIds.RiserTanTplId, "coti/thermal_riser_tan.bundle", "LennoxP90 TR-1 thermal sight riser (Tan)",
          "mount_all_lennoxp90_thermal_riser_tan" ),
   ];
 
@@ -44,10 +44,10 @@ public static class ThermalRiser
 [Injectable( TypePriority = CotiLoadOrder.Preload + 1 )]
 public class ThermalRiserItemFactory( ISptLogger<ThermalRiserItemFactory> logger, CustomItemService customItemService ) : IOnLoad
 {
-  private const string ShortName = "TRiser";
+  private const string ShortName = "TR-1";
   private const string Description =
-      "Picatinny riser with an uncooled thermal core in its housing. Pogo contacts on the top rail feed a 1x " +
-      "thermal image into a compatible red dot mounted on it.";
+      "Picatinny sight riser with an uncooled thermal core in its housing. Pogo contacts in its top rail feed the " +
+      "thermal image into the red dot or sight mounted on it. Runs on one 18650 cell. Made by LennoxP90 Industries.";
 
   public Task OnLoadAsync( CancellationToken cancellationToken )
   {
@@ -194,11 +194,14 @@ public class ThermalRiserCompatibility(
       }
     }
 
+    // One line with a count per mod; each id only at debug level, for chasing a sight that is missing.
+    var bySource = accepted.GroupBy( id => SourceOf( items[id].Name ) ).OrderBy( g => g.Key )
+        .Select( g => $"{g.Key} {g.Count()}" );
+    logger.Success( $"[COTI] Thermal riser ({risers.Count} colourways): {accepted.Count} sights and mounts " +
+                    $"({string.Join( ", ", bySource )}), fits {hosts} slots with the LaRue and {extraHosts} more scope " +
+                    $"slots, conflicts with {rearSights.Count} rear sights" );
     foreach( var id in accepted.OrderBy( id => items[id].Name ) )
-      logger.Info( $"[COTI] Thermal riser accepts {id} {items[id].Name}" );
-    logger.Success( $"[COTI] Thermal riser ({risers.Count} colourways): {accepted.Count} sights and mounts, " +
-                    $"fits {hosts} slots with the LaRue and {extraHosts} more scope slots, conflicts with " +
-                    $"{rearSights.Count} rear sights" );
+      logger.Debug( $"[COTI] Thermal riser accepts {id} {items[id].Name}" );
     return Task.CompletedTask;
 
     // ContainsKey first: ItemHelper warns about every id it cannot find, and filters can hold removed mods' ids.
@@ -229,6 +232,10 @@ public class ThermalRiserCompatibility(
             .SelectMany( s => s.Properties?.Filters ?? [] )
             .SelectMany( f => f.Filter ?? [] ) ?? [];
   }
+
+  /// <summary>The mod a template comes from, by the "[Mod]_(...)" name modded items carry; vanilla otherwise.</summary>
+  private static string SourceOf( string? name ) =>
+      name is { Length: > 2 } && name[0] == '[' && name.IndexOf( ']' ) is var end and > 1 ? name[1..end] : "vanilla";
 
   // A missing or broken file denies nothing rather than taking the riser down; the page shows the reason and its save
   // replaces the file.
@@ -346,7 +353,7 @@ public class ThermalRiserDenyList
 }
 
 #if DEBUG
-/// <summary>Test builds only: Peacekeeper LL1 sells every riser colourway for $1.</summary>
+/// <summary>Test builds only: Peacekeeper LL1 sells every riser colourway and scope ring for $1.</summary>
 [Injectable( InjectionType.Singleton, TypePriority = CotiLoadOrder.TraderRegistration + 31 )]
 public class ThermalRiserTestAssort( ISptLogger<ThermalRiserTestAssort> logger, TradersTable tradersTable ) : IOnLoad
 {
@@ -355,7 +362,9 @@ public class ThermalRiserTestAssort( ISptLogger<ThermalRiserTestAssort> logger, 
     if( !tradersTable.TryGetValue( Traders.PEACEKEEPER, out var peacekeeper ) || peacekeeper.Assort is null )
       return Task.CompletedTask;
 
-    foreach( var colourway in ThermalRiser.Colourways )
+    var forSale = ThermalRiser.Colourways.Select( c => (c.TplId, c.Name) )
+        .Concat( ThermalScopeRing.Variants.Select( v => (v.TplId, v.Name) ) );
+    foreach( var colourway in forSale )
     {
       var id = new MongoId();
       peacekeeper.Assort.Items.Add( new Item

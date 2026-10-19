@@ -8,7 +8,8 @@
     "trader": {
       "loyaltyLevel": 3,
       "priceUsd": 1500,
-      "buyLimit": 3
+      "buyLimit": 3,
+      "ringPriceUsd": 1750
     },
     "loot": {
       "enabled": true,

@@ -43,36 +43,12 @@ public class CotiCameraDutyTests
         Assert.False( CotiCameraDuty.Magnified( goggles || riser, false, false ) );
     }
 
-    // The path runs for Magnify With Optic, or for a riser with a sight on it whatever the goggles do.
+    // One magnified view: a powered riser or ring under the optic, else nobody; the goggle COTI never draws in a scope.
     [Theory]
-    [InlineData( true, false, true )]
-    [InlineData( true, true, true )]
-    [InlineData( false, true, true )]
-    [InlineData( false, false, false )]
-    public void MagnifyEnabledBySettingOrByARiser( bool setting, bool riser, bool expected )
+    [InlineData( true, CotiMagnifiedOwner.Riser )]
+    [InlineData( false, CotiMagnifiedOwner.None )]
+    public void OnlyAPoweredDeviceDrawsInTheScope( bool riserPowered, CotiMagnifiedOwner expected )
     {
-        Assert.Equal( expected, CotiCameraDuty.MagnifyEnabled( setting, riser ) );
-    }
-
-    // One magnified view: the riser first, the goggle COTI only with the setting, else nobody.
-    [Theory]
-    [InlineData( true, true, true, CotiMagnifiedOwner.Riser )]
-    [InlineData( true, true, false, CotiMagnifiedOwner.Riser )]
-    [InlineData( true, false, false, CotiMagnifiedOwner.Riser )]
-    [InlineData( false, true, true, CotiMagnifiedOwner.Goggle )]
-    [InlineData( false, true, false, CotiMagnifiedOwner.None )]
-    [InlineData( false, false, true, CotiMagnifiedOwner.None )]
-    [InlineData( false, false, false, CotiMagnifiedOwner.None )]
-    public void TheRiserOwnsTheMagnifiedViewWhilePowered( bool riserPowered, bool goggles, bool setting, CotiMagnifiedOwner expected )
-    {
-        Assert.Equal( expected, CotiCameraDuty.MagnifiedOwner( riserPowered, goggles, setting ) );
-    }
-
-    // When the riser powers off (its message over), the goggle COTI takes the lens back on the same setting.
-    [Fact]
-    public void TheGoggleTakesOverWhenTheRiserGoesOff()
-    {
-        Assert.Equal( CotiMagnifiedOwner.Riser, CotiCameraDuty.MagnifiedOwner( true, true, true ) );
-        Assert.Equal( CotiMagnifiedOwner.Goggle, CotiCameraDuty.MagnifiedOwner( false, true, true ) );
+        Assert.Equal( expected, CotiCameraDuty.MagnifiedOwner( riserPowered ) );
     }
 }
