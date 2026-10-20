@@ -12,6 +12,7 @@
 @inject ItemHelper ItemHelper
 @inject BundleLoader Bundles
 @inject IJSRuntime JS
+@inject CotiIconStore IconStore
 @inject ISnackbar Snackbar
 
 <PageTitle>ECOTI @Title.ToLowerInvariant()</PageTitle>
@@ -110,11 +111,12 @@
                 <MudPaper Outlined="true" Class="@($"coti-card pa-3 {(row.Denied ? "coti-denied" : "")}")">
                   @* Wraps on a phone: the switch drops under the name instead of squeezing it. *@
                   <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-                    @* The placeholder sits under the picture; a picture that fails hides itself and leaves it. *@
+                    @* The placeholder sits under the picture: a picture that loads hides it (wide icons are transparent at the sides),
+                       one that fails hides itself and leaves it. *@
                     <div class="coti-icon" title="@row.Name">
                       <MudIcon Icon="@row.Placeholder" Size="Size.Large" Class="coti-icon-ph" />
-                      <img src="@CotiItemIcon.Url(row.Id)" alt="" loading="lazy" referrerpolicy="no-referrer"
-                           onerror="this.style.display='none'" />
+                      <img src="@(IconStore.Url(row.Id) ?? CotiItemIcon.Url(row.Id))" alt="" loading="lazy" referrerpolicy="no-referrer"
+                           onload="this.previousElementSibling.style.display='none'" onerror="this.style.display='none'" />
                     </div>
 
                     <div style="flex: 1 1 160px; min-width: 0">
@@ -173,7 +175,13 @@
       </MudPaper>
     }
 
-    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-4">Item images: assets.tarkov.dev</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-4">
+      <MudText Typo="Typo.caption" Class="mud-text-secondary">
+        Item images: @IconStore.Count sent by the first game client to reach the menu, the rest from assets.tarkov.dev.
+      </MudText>
+      <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.DeleteSweep"
+                 OnClick="ClearIcons" Disabled="@(IconStore.Count == 0)">Clear icons</MudButton>
+    </MudStack>
 
   </MudContainer>
 </MudMainContent>
@@ -358,6 +366,13 @@
     {
       Snackbar.Add("The browser refused the clipboard. Select the id on the card instead.", Severity.Warning);
     }
+  }
+
+  // The next client to reach the menu sends them again.
+  private void ClearIcons()
+  {
+    IconStore.Clear();
+    Snackbar.Add("Icons cleared. The next game client to reach the menu sends them again.", Severity.Info);
   }
 
   private void Reload()

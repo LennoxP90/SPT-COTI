@@ -203,6 +203,10 @@ namespace Coti.Client
       // gets its own once-only log.
       ApplyPendingHostTable();
 
+#if SPT41
+      CotiIconUploader.TryStart( this );
+#endif
+
 #if SPT40
       // Ahead of the try/catch below: this restores game UI input, so an exception elsewhere in
       // the frame must not skip it.
