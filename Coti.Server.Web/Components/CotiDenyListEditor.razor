@@ -1,0 +1,397 @@
+@* The deny list editor shared by the Riser sights and Scope rings pages: the items a rule takes, grouped by mod, with a
+   switch that writes the id to the page's deny file. *@
+
+@using Microsoft.JSInterop
+@using SPTarkov.Server.Core.Helpers.Items
+@using SPTarkov.Server.Core.Loaders
+@using SPTarkov.Server.Core.Models.Common
+@using SPTarkov.Server.Core.Models.Enums
+@using SPTarkov.Server.Core.Models.Spt.Tables
+@using Coti.Server.Web
+@inject TemplateTable Templates
+@inject ItemHelper ItemHelper
+@inject BundleLoader Bundles
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<PageTitle>ECOTI @Title.ToLowerInvariant()</PageTitle>
+
+<style>
+  .coti-icon { position: relative; width: 64px; height: 64px; flex: none; display: grid; place-items: center;
+               border-radius: 4px; background: var(--mud-palette-background-gray, rgba(127, 127, 127, .12)); }
+  .coti-icon img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .coti-icon-ph { opacity: .45; }
+  .coti-card { border-left: 3px solid var(--mud-palette-success); height: 100%; }
+  .coti-card.coti-denied { border-left-color: var(--mud-palette-warning); }
+  .coti-card.coti-denied .coti-icon, .coti-card.coti-denied .coti-name { opacity: .55; }
+  .coti-id { font-family: monospace; }
+  .coti-group-title { cursor: pointer; user-select: none; }
+</style>
+
+<MudMainContent>
+  <MudContainer MaxWidth="MaxWidth.Large" Class="pa-6">
+
+    <CotiNav />
+
+    <MudPaper Class="pa-6 mb-4" Elevation="4">
+      <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
+        <div style="flex: 1 1 280px; min-width: 0">
+          <MudText Typo="Typo.overline" Color="Color.Warning">ECOTI · @Title.ToUpperInvariant()</MudText>
+          <MudText Typo="Typo.h4">@Title</MudText>
+          <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            @Explanation Saved to @DenyList.FileName, and applies after a server restart; relaunch the game client
+            after that.
+          </MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+          <MudButton StartIcon="@Icons.Material.Filled.Refresh" Variant="Variant.Outlined"
+                     Color="Color.Default" OnClick="Reload">Reload</MudButton>
+          <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled"
+                     Color="Color.Primary" OnClick="Save" Disabled="@(!dirty)">Save</MudButton>
+        </MudStack>
+      </MudStack>
+    </MudPaper>
+
+    @if (fileError is not null)
+    {
+      <MudAlert Severity="Severity.Warning" Class="mb-4">
+        @DenyList.FilePath: @fileError.TrimEnd('.'). Saving replaces the file and keeps the old one as @(DenyList.FileName).bak.
+      </MudAlert>
+    }
+
+    @if (message is not null)
+    {
+      <MudAlert Severity="@severity" Class="mb-4" ShowCloseIcon="true"
+                CloseIconClicked="@(() => message = null)">@message</MudAlert>
+    }
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+      <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Wrap="Wrap.Wrap">
+        <MudTextField T="string" @bind-Value="search" Placeholder="Filter by name, id, mod, category or note"
+                      Immediate="true" Clearable="true" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" Class="mt-0" Style="flex: 1; min-width: 240px" />
+        <MudText Typo="Typo.body2">@Shown.Count() of @Installed.Count() · @Installed.Count(IsAllowed) allowed</MudText>
+        <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.UnfoldLess"
+                   OnClick="@(() => collapsed = Installed.Select(r => r.Mod).ToHashSet())">Collapse</MudButton>
+        <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.UnfoldMore"
+                   OnClick="@(() => collapsed.Clear())">Expand</MudButton>
+      </MudStack>
+      @if (rows.Count(r => !r.InDatabase) is var absent && absent > 0)
+      {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-2">
+          @absent denied @(absent == 1 ? "id is" : "ids are") not installed in this database. Hidden here, and kept in
+          @DenyList.FileName on save.
+        </MudText>
+      }
+    </MudPaper>
+
+    @foreach (var group in Groups())
+    {
+      var open = !collapsed.Contains(group.Key);
+      <MudPaper Class="pa-3 mb-3" Elevation="2" @key="group.Key">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+          <MudIconButton Icon="@(open ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                         Size="Size.Small" OnClick="@(() => Toggle(group.Key))" aria-label="@(open ? "Collapse" : "Expand")" />
+          <MudText Typo="Typo.h6" Class="coti-group-title" @onclick="@(() => Toggle(group.Key))">@group.Key</MudText>
+          <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            @Items(group.Count()) · @group.Count(IsAllowed) allowed
+          </MudText>
+          <MudSpacer />
+          <MudButton Size="Size.Small" Color="Color.Success" OnClick="@(() => SetAll(group, true))">Allow all</MudButton>
+          <MudButton Size="Size.Small" Color="Color.Warning" OnClick="@(() => SetAll(group, false))">Deny all</MudButton>
+        </MudStack>
+
+        @if (open)
+        {
+          <MudGrid Spacing="2" Class="mt-1">
+            @foreach (var row in group)
+            {
+              <MudItem xs="12" md="6" @key="row.Id">
+                <MudPaper Outlined="true" Class="@($"coti-card pa-3 {(row.Denied ? "coti-denied" : "")}")">
+                  @* Wraps on a phone: the switch drops under the name instead of squeezing it. *@
+                  <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    @* The placeholder sits under the picture; a picture that fails hides itself and leaves it. *@
+                    <div class="coti-icon" title="@row.Name">
+                      <MudIcon Icon="@row.Placeholder" Size="Size.Large" Class="coti-icon-ph" />
+                      <img src="@CotiItemIcon.Url(row.Id)" alt="" loading="lazy" referrerpolicy="no-referrer"
+                           onerror="this.style.display='none'" />
+                    </div>
+
+                    <div style="flex: 1 1 160px; min-width: 0">
+                      <MudText Typo="Typo.subtitle1" Class="coti-name" Style="overflow-wrap: anywhere">@row.Name</MudText>
+                      <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@row.Category · @row.Size@(row.Takes is null ? "" : " · " + row.Takes)</MudText>
+                      <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mt-1">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="coti-id ma-0">@row.Id</MudChip>
+                        <MudTooltip Text="Copy id">
+                          <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                         OnClick="@(() => Copy(row.Id))" aria-label="Copy id" />
+                        </MudTooltip>
+                        @if (!row.Matched)
+                        {
+                          <MudChip T="string" Size="Size.Small" Class="ma-0">Refused by the rule</MudChip>
+                        }
+                      </MudStack>
+                    </div>
+
+                    <MudStack Spacing="0" AlignItems="AlignItems.End" Style="margin-left: auto">
+                      <MudSwitch T="bool" Color="Color.Success" UncheckedColor="Color.Warning"
+                                 Value="@(!row.Denied)" ValueChanged="@(v => Set(() => row.Denied = !v))"
+                                 Label="@(row.Denied ? "Denied" : "Allowed")" LabelPlacement="Placement.Start" />
+                      <MudIconButton Icon="@(row.NoteOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                     Size="Size.Small" OnClick="@(() => row.NoteOpen = !row.NoteOpen)"
+                                     Color="@(string.IsNullOrWhiteSpace(row.Note) ? Color.Default : Color.Warning)"
+                                     aria-label="Note" />
+                    </MudStack>
+                  </MudStack>
+
+                  @if (row.NoteOpen)
+                  {
+                    <MudTextField T="string" Value="@row.Note" ValueChanged="@(v => Set(() => row.Note = v))"
+                                  Placeholder="Why it is denied" Disabled="@(!row.Denied)" Lines="2" Class="mt-2"
+                                  HelperText="@(row.Denied ? null : "Saved only while it is denied")" />
+                  }
+                  else if (row.Denied && !string.IsNullOrWhiteSpace(row.Note))
+                  {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-2">@row.Note</MudText>
+                  }
+                </MudPaper>
+              </MudItem>
+            }
+          </MudGrid>
+        }
+      </MudPaper>
+    }
+
+    @if (!Shown.Any())
+    {
+      <MudPaper Class="pa-6 mb-3" Elevation="2">
+        <MudText>
+          @(Installed.Any()
+              ? "Nothing matches the filter."
+              : $"Nothing to show. The rule runs at server start; check the server log for the {Subject} lines.")
+        </MudText>
+      </MudPaper>
+    }
+
+    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-4">Item images: assets.tarkov.dev</MudText>
+
+  </MudContainer>
+</MudMainContent>
+
+@code {
+  /// <summary>The page title and overline.</summary>
+  [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+  /// <summary>One sentence before the "Saved to" one.</summary>
+  [Parameter, EditorRequired] public string Explanation { get; set; } = string.Empty;
+
+  /// <summary>Names the device in "check the server log for the ... lines".</summary>
+  [Parameter, EditorRequired] public string Subject { get; set; } = string.Empty;
+
+  [Parameter, EditorRequired] public CotiDenyListStore DenyList { get; set; } = null!;
+
+  /// <summary>What the rule took before the deny list, each id with an optional extra for its card line.</summary>
+  [Parameter, EditorRequired] public Func<IReadOnlyDictionary<string, string?>> RuleMatches { get; set; } = null!;
+  private sealed class Row
+  {
+    public string Id { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string Template { get; init; } = string.Empty;
+    public string Mod { get; init; } = string.Empty;
+    public string Category { get; init; } = string.Empty;
+    public string Placeholder { get; init; } = Icons.Material.Filled.GpsFixed;
+    public string Size { get; init; } = string.Empty;
+    public string? Takes { get; init; }
+    public bool InDatabase { get; init; }
+    public bool Matched { get; init; }
+    public bool Denied { get; set; }
+    public string? Note { get; set; }
+    public bool NoteOpen { get; set; }
+  }
+
+  private List<Row> rows = new();
+  private List<string> fileOrder = new();
+  private HashSet<string> collapsed = new();
+  private string? search;
+  private string? fileError;
+  private bool dirty;
+  private DateTime readAt;
+  private string? message;
+  private Severity severity = Severity.Success;
+
+  // A denied id this database does not have is never shown, but stays in rows so a save writes it back unchanged.
+  private IEnumerable<Row> Installed => rows.Where(r => r.InDatabase);
+  private IEnumerable<Row> Shown => Installed.Where(Matches);
+
+  // On the riser: the rule takes it and the file does not deny it.
+  private static bool IsAllowed(Row row) => row.Matched && !row.Denied;
+
+  private static string Items(int n) => n == 1 ? "1 item" : $"{n} items";
+
+  protected override void OnInitialized() => Load();
+
+  // Rows are what the rule matched plus every id in the file, so a denied id the rule no longer takes can still be
+  // switched on and dropped on save.
+  private void Load()
+  {
+    // Before the read: a save landing in between then refuses this page's save rather than being overwritten by it.
+    readAt = DenyList.LastWriteUtc;
+    var file = DenyList.Read(out var error);
+    fileError = error.Length > 0 ? error : null;
+
+    var notes = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+    foreach (var entry in file?.Deny ?? [])
+      notes.TryAdd(entry.Id, entry.Note);
+    fileOrder = notes.Keys.ToList();
+
+    var matches = RuleMatches();
+    var matched = matches.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    rows = matched.Union(notes.Keys, StringComparer.OrdinalIgnoreCase)
+        .Select(id => MakeRow(id, matched.Contains(id), notes.TryGetValue(id, out var note), note,
+            matches.TryGetValue(id, out var takes) ? takes : null))
+        .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    dirty = false;
+  }
+
+  private Row MakeRow(string id, bool matched, bool denied, string? note, string? takes)
+  {
+    var tpl = new MongoId(id);
+    Templates.Items.TryGetValue(tpl, out var item);
+    var (category, placeholder) = item is null ? ("", Icons.Material.Filled.GpsFixed) : Describe(tpl, item);
+    return new Row
+    {
+      Id = id,
+      Name = item is null ? id : ItemHelper.GetItemName(tpl),
+      Template = item?.Name ?? string.Empty,
+      Mod = item is null ? "Not installed" : ModOf(tpl, item),
+      Category = category,
+      Placeholder = placeholder,
+      Size = item is null ? "" : $"{item.Properties?.Width ?? 1}×{item.Properties?.Height ?? 1}",
+      InDatabase = item is not null,
+      Matched = matched,
+      Takes = takes,
+      Denied = denied,
+      Note = note,
+    };
+  }
+
+  // The card's category line and the placeholder drawn when tarkov.dev has no picture. The zoom is the item's own; a red
+  // dot that also holds a magnifier reads as a reflex sight.
+  private (string Category, string Icon) Describe(MongoId tpl, SPTarkov.Server.Core.Models.Eft.Common.Tables.TemplateItem item)
+  {
+    var zooms = item.Properties?.Zooms?.SelectMany(z => z).Where(z => z > 0).ToList() ?? [];
+    var zoom = zooms.Count == 0 || zooms.Max() <= 1 ? ""
+        : zooms.Min() == zooms.Max() ? $" {zooms.Max():0.##}x" : $" {zooms.Min():0.##}-{zooms.Max():0.##}x";
+
+    const string dot = Icons.Material.Filled.GpsFixed, scope = Icons.Material.Filled.ZoomIn;
+    if (ItemHelper.IsOfBaseclass(tpl, BaseClasses.COLLIMATOR)) return ("Reflex sight" + zoom, dot);
+    if (ItemHelper.IsOfBaseclass(tpl, BaseClasses.COMPACT_COLLIMATOR)) return ("Compact reflex sight" + zoom, dot);
+    if (ItemHelper.IsOfBaseclass(tpl, BaseClasses.ASSAULT_SCOPE)) return ("Assault scope" + zoom, scope);
+    if (ItemHelper.IsOfBaseclass(tpl, BaseClasses.OPTIC_SCOPE)) return ("Scope" + zoom, scope);
+    if (ItemHelper.IsOfBaseclass(tpl, BaseClasses.SPECIAL_SCOPE)) return ("Special scope" + zoom, scope);
+    if (ItemHelper.IsOfBaseclass(tpl, BaseClasses.MOUNT)) return ("Mount", Icons.Material.Filled.Hardware);
+    return ("Sight" + zoom, dot);
+  }
+
+  // Every vanilla id, from the running server's own ItemTpl. The bundle alone cannot tell: a mod can register a vanilla
+  // bundle key again (WTT-ContentBackport does, for most vanilla sights).
+  private static readonly HashSet<MongoId> VanillaIds =
+      typeof(ItemTpl).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+          .Where(f => f.FieldType == typeof(MongoId))
+          .Select(f => (MongoId)f.GetValue(null)!)
+          .ToHashSet();
+
+  // Otherwise the folder of the mod whose bundle carries the prefab.
+  private string ModOf(MongoId tpl, SPTarkov.Server.Core.Models.Eft.Common.Tables.TemplateItem item)
+  {
+    if (VanillaIds.Contains(tpl))
+      return "Vanilla";
+
+    var prefab = item.Properties?.Prefab?.Path;
+    var bundle = string.IsNullOrEmpty(prefab) ? null : Bundles.GetBundle(prefab);
+    return bundle is null ? "Unknown mod" : System.IO.Path.GetFileName(bundle.ModPath.TrimEnd('/', '\\'));
+  }
+
+  // Vanilla first, mods by name, the unknown last; each group's rows by name, as Load sorted them.
+  private IEnumerable<IGrouping<string, Row>> Groups() =>
+      Shown.GroupBy(r => r.Mod)
+          .OrderBy(g => g.Key == "Vanilla" ? 0 : g.Key == "Unknown mod" ? 2 : 1)
+          .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+
+  private bool Matches(Row row)
+  {
+    if (string.IsNullOrWhiteSpace(search))
+      return true;
+
+    return new[] { row.Name, row.Template, row.Id, row.Mod, row.Category, row.Note }
+        .Any(s => s?.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+  }
+
+  private void Toggle(string mod)
+  {
+    if (!collapsed.Remove(mod))
+      collapsed.Add(mod);
+  }
+
+  // The rows the group shows, so a filtered group changes only what is on screen.
+  private void SetAll(IEnumerable<Row> group, bool allowed)
+  {
+    foreach (var row in group)
+      Set(() => row.Denied = !allowed);
+  }
+
+  private void Set(Action assign)
+  {
+    assign();
+    dirty = true;
+  }
+
+  private async Task Copy(string id)
+  {
+    try
+    {
+      await JS.InvokeVoidAsync("navigator.clipboard.writeText", id);
+      Snackbar.Add($"Copied {id}", Severity.Success);
+    }
+    catch (JSException)
+    {
+      Snackbar.Add("The browser refused the clipboard. Select the id on the card instead.", Severity.Warning);
+    }
+  }
+
+  private void Reload()
+  {
+    Load();
+    message = $"Reloaded from {DenyList.FileName}. Unsaved changes discarded.";
+    severity = Severity.Info;
+  }
+
+  private void Save()
+  {
+    var file = new ThermalRiserSightsFile
+    {
+      // In the file's own order, new entries after, so a save diffs only by what changed. A row this database does not
+      // have keeps its note exactly as read.
+      Deny = rows.Where(r => r.Denied)
+          .OrderBy(r => fileOrder.FindIndex(id => id.Equals(r.Id, StringComparison.OrdinalIgnoreCase)) is var i && i >= 0 ? i : int.MaxValue)
+          .Select(r => new DeniedSight
+          {
+            Id = r.Id,
+            Note = !r.InDatabase ? r.Note : string.IsNullOrWhiteSpace(r.Note) ? null : r.Note.Trim(),
+          })
+          .ToList(),
+    };
+
+    if (!DenyList.TryWrite(file, readAt, out var error))
+    {
+      message = $"{DenyList.FileName} could not be written: {error}";
+      severity = Severity.Error;
+      return;
+    }
+
+    Load();
+    message = $"Saved {file.Deny.Count} denied. Restart the server, then relaunch the game client.";
+    severity = Severity.Success;
+  }
+}

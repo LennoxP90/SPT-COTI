@@ -108,4 +108,16 @@ public class CotiShippedAssetsTests
             file!.Deny.Select( d => d.Id ) );
         Assert.All( file.Deny, d => Assert.False( string.IsNullOrWhiteSpace( d.Note ) ) );
     }
+
+    // The scope rings ship with nothing denied; a missing or broken file only logs a warning, but the page would open
+    // on an error.
+    [Fact]
+    public void ScopeRingDenyListShipsEmptyAndReadable()
+    {
+        var json = File.ReadAllText( Path.Combine( RepoRoot(), "Coti.Server", "config", Coti.Server.ThermalRiserSightsFile.ScopeRingsFileName ) );
+        var file = Coti.Server.ThermalRiserSightsFile.Parse( json, out var error );
+
+        Assert.True( file != null, error );
+        Assert.Empty( file!.Deny );
+    }
 }

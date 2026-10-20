@@ -108,6 +108,7 @@
     </None>
     <Content Update="config\config.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="config\riser-sights.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="config\scope-rings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
@@ -144,8 +145,8 @@
           DestinationFolder="$(CotiDist)\config"
           SkipUnchangedFiles="true" />
 
-    <!-- The thermal riser is 4.1 only, so its deny list is too. -->
-    <Copy SourceFiles="config\riser-sights.json"
+    <!-- The thermal riser and scope rings are 4.1 only, so their deny lists are too. -->
+    <Copy SourceFiles="config\riser-sights.json;config\scope-rings.json"
           DestinationFolder="$(CotiDist)\config"
           SkipUnchangedFiles="true"
           Condition="'$(TargetFramework)' == 'net10.0'" />

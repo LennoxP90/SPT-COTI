@@ -17,6 +17,9 @@ public class ThermalRiserSightsFile
 {
   public const string FileName = "riser-sights.json";
 
+  /// <summary>The scope rings' deny list, same format.</summary>
+  public const string ScopeRingsFileName = "scope-rings.json";
+
   [JsonPropertyName( "deny" )]
   public List<DeniedSight> Deny { get; set; } = new();
 

@@ -148,7 +148,7 @@ public static class CotiAddonPackager
 
     sb.AppendLine("## Retuning a pose");
     sb.AppendLine();
-    sb.AppendLine("Use the mount editor in the server's web UI (SIC, **ECOTI -> Mount editor**): one");
+    sb.AppendLine("Use the mount editor in the server's web UI (SIC, **ECOTI -> NVG mount editor**): one");
     sb.AppendLine("tab per tube, each saved to the file in place. `ADDONS.md` in the COTI source has");
     sb.AppendLine("the full field reference.");
     sb.AppendLine();

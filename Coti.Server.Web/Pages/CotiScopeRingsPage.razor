@@ -1,0 +1,15 @@
+@page "/coti/rings"
+@attribute [Authorize(Policy = "Administrator")]
+@layout SPTarkov.Server.Web.Layout.BaseMudBlazorLayout
+
+@inject ThermalScopeRingCompatibility Compatibility
+@inject ThermalScopeRingDenyList DenyList
+
+<CotiDenyListEditor Title="Thermal Scope Ring Compatibility" Subject="scope rings" DenyList="DenyList" RuleMatches="Matches"
+                    Explanation="Switch a scope or mount off to keep it out of every TSR thermal scope ring. Only the TSR-1 (30 mm) and TSR-2 (34 mm) take a separate red dot on top; the TSR-3 (35 mm) holds its scope only." />
+
+@code {
+  // The card line names the rings that take each item: TSR-1 is 30 mm, TSR-2 34 mm, TSR-3 35 mm.
+  private IReadOnlyDictionary<string, string?> Matches() =>
+      Compatibility.RuleMatches.ToDictionary(p => p.Key.ToString(), p => (string?)p.Value, StringComparer.OrdinalIgnoreCase);
+}

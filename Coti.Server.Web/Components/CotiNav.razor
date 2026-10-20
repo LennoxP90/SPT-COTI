@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 
 <MudPaper Class="pa-1 mb-3" Elevation="1">
-  <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+  <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
     <MudIcon Icon="@Icons.Material.Filled.Visibility" Class="ml-2 mr-1" Color="Color.Warning" />
     <MudText Typo="Typo.subtitle2" Class="mr-3">ECOTI</MudText>
 
@@ -23,8 +23,9 @@
   private static readonly (string Href, string Label, string Icon)[] Pages =
   {
     ("/coti", "Settings", Icons.Material.Filled.Tune),
-    ("/coti/model", "Mount editor", Icons.Material.Filled.ViewInAr),
-    ("/coti/riser", "Riser sights", Icons.Material.Filled.CenterFocusStrong),
+    ("/coti/model", "NVG mount editor", Icons.Material.Filled.ViewInAr),
+    ("/coti/riser", "Thermal Riser Compatibility", Icons.Material.Filled.CenterFocusStrong),
+    ("/coti/rings", "Thermal Scope Ring Compatibility", Icons.Material.Filled.ZoomIn),
   };
 
   /// <summary>

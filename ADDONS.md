@@ -361,10 +361,10 @@ The mount editor rewrites both on every save. If you edit `tubes` by hand, updat
   extra tubes first.** Checked on SPT 4.1.6: a COTI left in ECOTI L when the file went back to v1 showed
   on no slot at login with no error logged, and was gone from the profile after the next raid.
 
-## The mount editor: pose, check, save, export
+## The NVG mount editor: pose, check, save, export
 
 Device files are written from the server's web UI on SPT 4.1: open SIC and pick
-**ECOTI -> Mount editor** (`/coti/model`). From 3.3.0 it is COTI's only editor. The 2.x line for
+**ECOTI -> NVG mount editor** (`/coti/model`). From 3.3.0 it is COTI's only editor. The 2.x line for
 SPT 4.0 has no mount editor; its own copy of this file describes its in-game editor. It always saves
 a file with `layout` and `tubes`; reading files without them, and writing the legacy pair, are there
 only so older COTI keeps working.

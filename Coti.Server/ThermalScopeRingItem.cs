@@ -90,11 +90,17 @@ public class ThermalScopeRingItemFactory( ISptLogger<ThermalScopeRingItemFactory
   }
 }
 
-/// <summary>After every mod has loaded: each scope ring goes into every slot filter that takes its base mount.</summary>
-[Injectable( TypePriority = CotiLoadOrder.PostLoad + 26 )]
+/// <summary>
+/// After every mod has loaded: each scope ring goes into every slot filter that takes its base mount, takes same-tube
+/// scopes, and drops what config/scope-rings.json denies. Singleton so the Scope rings page sees the same RuleMatches.
+/// </summary>
+[Injectable( InjectionType.Singleton, TypePriority = CotiLoadOrder.PostLoad + 26 )]
 public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibility> logger, CotiTemplateTable templateTable,
-    ItemHelper itemHelper ) : IOnLoad
+    ItemHelper itemHelper, ThermalScopeRingDenyList denyList ) : IOnLoad
 {
+  /// <summary>What the rings take before the deny list, each with the ring models taking it. Empty until PostLoad + 26.</summary>
+  public IReadOnlyDictionary<MongoId, string> RuleMatches { get; private set; } = new Dictionary<MongoId, string>();
+
   public Task OnLoadAsync( CancellationToken cancellationToken )
   {
     var ringIds = ThermalScopeRing.Variants.Select( v => new MongoId( v.TplId ) ).ToHashSet();
@@ -127,8 +133,9 @@ public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibi
           if( filter.Filter?.Remove( riser ) == true ) unfitted++;
     }
     var taken = TakeTubePeers( ringIds );
+    var denied = ApplyDenyList();
     logger.Success( $"[COTI] Scope rings ({ringIds.Count}): fit {hosts} slots that take their base mounts; " +
-                    $"the riser taken out of {unfitted} ring slot filters; {taken} scopes taken from same-tube mounts" );
+                    $"the riser taken out of {unfitted} ring slot filters; {taken} scopes taken from same-tube mounts; {denied} denied by {denyList.FileName}" );
     return Task.CompletedTask;
   }
 
@@ -164,6 +171,33 @@ public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibi
           if( filter.Add( id ) ) taken++;
     }
     return taken;
+  }
+
+  // Records what each ring model takes, then removes the file's ids from every ring. A missing or broken file denies
+  // nothing; the page shows the reason and its save replaces the file.
+  private int ApplyDenyList()
+  {
+    var items = templateTable.Items;
+    var rings = ThermalScopeRing.Variants.Where( v => items.ContainsKey( new MongoId( v.TplId ) ) )
+        .Select( v => (v.ShortName, Filters: ScopeFilters( items[new MongoId( v.TplId )] ).ToList()) ).ToList();
+    RuleMatches = rings.SelectMany( r => r.Filters.SelectMany( f => f ).Select( id => (id, r.ShortName) ) )
+        .Where( p => items.ContainsKey( p.id ) )
+        .GroupBy( p => p.id )
+        .ToDictionary( g => g.Key, g => string.Join( ", ", g.Select( p => p.ShortName ).Distinct().Order() ) );
+
+    var file = denyList.Read( out var error );
+    if( file is null )
+    {
+      logger.Warning( $"[COTI] Scope rings: {denyList.FilePath} not read ({error}), so no scope is denied" );
+      return 0;
+    }
+    if( error.Length > 0 )
+      logger.Warning( $"[COTI] Scope rings: {denyList.FilePath}: {error}" );
+
+    var ids = file.Deny.Select( d => new MongoId( d.Id ) ).ToHashSet();
+    foreach( var filter in rings.SelectMany( r => r.Filters ) )
+      filter.RemoveWhere( ids.Contains );
+    return ids.Count( RuleMatches.ContainsKey );
   }
 
   private static IEnumerable<HashSet<MongoId>> ScopeFilters( TemplateItem template ) =>

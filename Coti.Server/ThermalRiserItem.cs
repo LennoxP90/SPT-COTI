@@ -259,26 +259,40 @@ public class ThermalRiserCompatibility(
 }
 
 /// <summary>
-/// config/riser-sights.json, read by ThermalRiserCompatibility and written by the ECOTI Riser sights page. The server
-/// never rewrites the file itself, so a broken file stays as the owner left it.
+/// config/riser-sights.json, read by ThermalRiserCompatibility and written by the ECOTI Riser sights page.
 /// </summary>
 [Injectable( InjectionType.Singleton )]
-public class ThermalRiserDenyList
+public class ThermalRiserDenyList( ISptLogger<ThermalRiserDenyList> logger, ModHelper modHelper )
+    : CotiDenyListStore( ( m, e ) => logger.Error( m, e ), modHelper, ThermalRiserSightsFile.FileName, "the thermal riser" );
+
+/// <summary>config/scope-rings.json, read by ThermalScopeRingCompatibility and written by the ECOTI Scope rings page.</summary>
+[Injectable( InjectionType.Singleton )]
+public class ThermalScopeRingDenyList( ISptLogger<ThermalScopeRingDenyList> logger, ModHelper modHelper )
+    : CotiDenyListStore( ( m, e ) => logger.Error( m, e ), modHelper, ThermalRiserSightsFile.ScopeRingsFileName, "the scope rings" );
+
+/// <summary>
+/// A deny list file in the mod's config folder, in the riser-sights.json format. The server never rewrites the file
+/// itself, so a broken file stays as the owner left it.
+/// </summary>
+public abstract class CotiDenyListStore
 {
   /// <summary>Absolute. Empty when the mod folder could not be resolved.</summary>
   public string FilePath { get; } = string.Empty;
 
-  public ThermalRiserDenyList( ISptLogger<ThermalRiserDenyList> logger, ModHelper modHelper )
+  public string FileName { get; }
+
+  protected CotiDenyListStore( Action<string, Exception> logError, ModHelper modHelper, string fileName, string owner )
   {
+    FileName = fileName;
     try
     {
       // Explicit assembly, as in CotiServerConfig: the helper's GetCallingAssembly can change under JIT inlining.
-      FilePath = System.IO.Path.Combine( modHelper.GetAbsolutePathToModFolder( typeof( ThermalRiserDenyList ).Assembly ),
-          "config", ThermalRiserSightsFile.FileName );
+      FilePath = System.IO.Path.Combine( modHelper.GetAbsolutePathToModFolder( typeof( CotiDenyListStore ).Assembly ),
+          "config", fileName );
     }
     catch( Exception ex )
     {
-      logger.Error( "[COTI] Could not locate the mod folder - the thermal riser denies nothing.", ex );
+      logError( $"[COTI] Could not locate the mod folder - {owner} denies nothing.", ex );
     }
   }
 
@@ -311,7 +325,7 @@ public class ThermalRiserDenyList
   public DateTime LastWriteUtc => File.Exists( FilePath ) ? File.GetLastWriteTimeUtc( FilePath ) : DateTime.MinValue;
 
   /// <summary>
-  /// Writes to a temp file and moves it over the target, copying the old file to riser-sights.json.bak first, as
+  /// Writes to a temp file and moves it over the target, copying the old file to <file>.bak first, as
   /// CotiDeviceStore.TryWriteFile does. Takes effect on the next server start. Refused when the file changed since
   /// <paramref name="readAt"/> (another tab's save or a hand edit), so a stale page cannot overwrite it; the lock keeps
   /// two saves from sharing the temp file.
