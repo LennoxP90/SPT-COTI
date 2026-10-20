@@ -80,12 +80,15 @@ public class CotiTraderAssort : IOnLoad
     }
 
     Add( peacekeeper.Assort, CotiItemFactory.CotiTplId, config.Trader, "COTI", () => config.Trader.PriceUsd );
+    Report( "COTI", config.Trader, config.Trader.PriceUsd );
 #if !SPT40
     // The riser is 4.1 only, so the 4.0 build must not list a template it never registers.
     foreach( var colourway in ThermalRiser.Colourways )
       Add( peacekeeper.Assort, colourway.TplId, config.Riser.Trader, colourway.Name, () => config.Riser.Trader.PriceUsd );
+    Report( $"TR-1 thermal sight riser ({ThermalRiser.Colourways.Length} colourways)", config.Riser.Trader, config.Riser.Trader.PriceUsd );
     foreach( var ring in ThermalScopeRing.Variants )
       Add( peacekeeper.Assort, ring.TplId, config.Riser.Trader, ring.Name, () => config.Riser.Trader.RingPriceUsd );
+    Report( $"TSR thermal scope rings ({ThermalScopeRing.Variants.Length})", config.Riser.Trader, config.Riser.Trader.RingPriceUsd );
 #endif
 
     return Task.CompletedTask;
@@ -112,10 +115,12 @@ public class CotiTraderAssort : IOnLoad
     Write( assort, id, settings, price() );
     entries.Add( ( id, settings, price ) );
 
-    logger.Success(
-        $"[COTI] {name} added to Peacekeeper LL{settings.LoyaltyLevel} at ${price()}, " +
-        $"limit {settings.BuyLimit}" );
+    logger.Debug( $"[COTI] {name} added to Peacekeeper, assort {id}" );
   }
+
+  // One line per device type; each item's own line is at debug level.
+  private void Report( string what, CotiTraderSettings settings, int priceUsd ) =>
+      logger.Success( $"[COTI] {what} added to Peacekeeper LL{settings.LoyaltyLevel} at ${priceUsd}, limit {settings.BuyLimit}" );
 
   /// <summary>
   /// Loyalty level, price and purchase limit of one entry, from its settings as they are now.

@@ -151,7 +151,8 @@ public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibi
         .GroupBy( v => v.DonorTplId )
         .Select( g => g.Select( v => ScopeFilters( items[new MongoId( v.TplId )] ).ToList() ).ToList() )
         .ToList();
-    var held = ringFilters.Select( size => size[0].SelectMany( f => f ).ToHashSet() ).ToList();
+    // Riflescopes only: the top rails' red dots are shared by every ring size and say nothing about the tube.
+    var held = ringFilters.Select( size => size[0].SelectMany( f => f ).Where( IsRiflescope ).ToHashSet() ).ToList();
 
     var taken = 0;
     for( var s = 0; s < held.Count; s++ )
@@ -163,14 +164,16 @@ public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibi
         if( ringIds.Contains( template.Id ) ) continue;
         foreach( var filter in ScopeFilters( template ) )
           if( filter.Count( held[s].Contains ) >= 2 && !filter.Any( others.Contains ) )
-            add.UnionWith( filter.Where( id => !held[s].Contains( id ) && items.ContainsKey( id ) &&
-                itemHelper.IsOfBaseclass( id, BaseClasses.OPTIC_SCOPE ) ) );
+            add.UnionWith( filter.Where( id => !held[s].Contains( id ) && IsRiflescope( id ) ) );
       }
-      foreach( var filter in ringFilters[s].SelectMany( ring => ring ) )
+      // Only the slot that holds the ring's scope: the others are top rails, and a ring holds one scope.
+      foreach( var filter in ringFilters[s].SelectMany( ring => ring ).Where( f => f.Any( IsRiflescope ) ) )
         foreach( var id in add )
           if( filter.Add( id ) ) taken++;
     }
     return taken;
+
+    bool IsRiflescope( MongoId id ) => items.ContainsKey( id ) && itemHelper.IsOfBaseclass( id, BaseClasses.OPTIC_SCOPE );
   }
 
   // Records what each ring model takes, then removes the file's ids from every ring. A missing or broken file denies
