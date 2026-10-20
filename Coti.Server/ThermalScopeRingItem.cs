@@ -2,6 +2,8 @@
 using System.Linq;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
+using SPTarkov.Server.Core.Helpers.Items;
+using SPTarkov.Server.Core.Models.Enums;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Spt.Mod;
@@ -90,7 +92,8 @@ public class ThermalScopeRingItemFactory( ISptLogger<ThermalScopeRingItemFactory
 
 /// <summary>After every mod has loaded: each scope ring goes into every slot filter that takes its base mount.</summary>
 [Injectable( TypePriority = CotiLoadOrder.PostLoad + 26 )]
-public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibility> logger, CotiTemplateTable templateTable ) : IOnLoad
+public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibility> logger, CotiTemplateTable templateTable,
+    ItemHelper itemHelper ) : IOnLoad
 {
   public Task OnLoadAsync( CancellationToken cancellationToken )
   {
@@ -123,9 +126,51 @@ public class ThermalScopeRingCompatibility( ISptLogger<ThermalScopeRingCompatibi
         foreach( var riser in riserIds )
           if( filter.Filter?.Remove( riser ) == true ) unfitted++;
     }
+    var taken = TakeTubePeers( ringIds );
     logger.Success( $"[COTI] Scope rings ({ringIds.Count}): fit {hosts} slots that take their base mounts; " +
-                    $"the riser taken out of {unfitted} ring slot filters" );
+                    $"the riser taken out of {unfitted} ring slot filters; {taken} scopes taken from same-tube mounts" );
     return Task.CompletedTask;
   }
+
+  // Mods add scopes by exact slot name; ISB Aishi's modSlot ["mod_scope"] skips the mod_scope_000 slots the rings
+  // inherit from their base mounts. A scope that shares another mount's scope slot with at least two scopes a ring
+  // already takes, where that slot holds none another ring size takes, is the same tube: the ring takes it too.
+  // Only riflescopes: the same slots also hold red dot mounts, which a ring does not.
+  private int TakeTubePeers( HashSet<MongoId> ringIds )
+  {
+    var items = templateTable.Items;
+    var ringFilters = ThermalScopeRing.Variants
+        .Where( v => items.ContainsKey( new MongoId( v.TplId ) ) )
+        .GroupBy( v => v.DonorTplId )
+        .Select( g => g.Select( v => ScopeFilters( items[new MongoId( v.TplId )] ).ToList() ).ToList() )
+        .ToList();
+    var held = ringFilters.Select( size => size[0].SelectMany( f => f ).ToHashSet() ).ToList();
+
+    var taken = 0;
+    for( var s = 0; s < held.Count; s++ )
+    {
+      var others = held.Where( ( _, i ) => i != s ).SelectMany( h => h ).ToHashSet();
+      var add = new HashSet<MongoId>();
+      foreach( var template in items.Values )
+      {
+        if( ringIds.Contains( template.Id ) ) continue;
+        foreach( var filter in ScopeFilters( template ) )
+          if( filter.Count( held[s].Contains ) >= 2 && !filter.Any( others.Contains ) )
+            add.UnionWith( filter.Where( id => !held[s].Contains( id ) && items.ContainsKey( id ) &&
+                itemHelper.IsOfBaseclass( id, BaseClasses.OPTIC_SCOPE ) ) );
+      }
+      foreach( var filter in ringFilters[s].SelectMany( ring => ring ) )
+        foreach( var id in add )
+          if( filter.Add( id ) ) taken++;
+    }
+    return taken;
+  }
+
+  private static IEnumerable<HashSet<MongoId>> ScopeFilters( TemplateItem template ) =>
+      ( template.Properties?.Slots ?? [] )
+          .Where( s => s.Name?.StartsWith( "mod_scope" ) == true )
+          .SelectMany( s => s.Properties?.Filters ?? [] )
+          .Select( f => f.Filter )
+          .OfType<HashSet<MongoId>>();
 }
 #endif
