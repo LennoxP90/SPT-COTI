@@ -91,7 +91,7 @@ holographic sight and draws the heat inside that sight's own window. No goggles 
 - **Under your own sight.** Most red dots and holographic sights fit on it, the game's and other mods', and so do
   mounts that carry a micro dot. Magnified scopes do not. It is a rifle and carbine part, and it cannot share a gun
   with a flip-up rear sight, since it reaches back over where those sit. A server owner can take any sight that does
-  not sit right off it on the ECOTI **Riser sights** page.
+  not sit right off it on the ECOTI **Thermal Riser Compatibility** page.
 - **Its own power.** `Shift+N` switches the riser on the weapon in hand, and it is the only key that does: `Ctrl+N`
   is the goggle COTI's alone. Both can be on together; the goggle view stays full and the riser draws its own heat
   in the window. The sight shows `Initializing...`, then the mode, and `Power Off...` on the way down, at one letter
@@ -120,7 +120,9 @@ its thermal image into the scope it holds, magnified with it. One model per ring
 | TSR-3 | 35 mm | 35 mm scopes |
 
 - **Fits like the mount it is.** A TSR goes wherever a one-piece scope mount of its size goes and takes the same
-  scopes. Its top rails take red dots, and a red dot there draws the TSR's heat too. A TR-1 cannot go on a TSR.
+  scopes, other mods' riflescopes of its size included. Its top rails take red dots, and a red dot there draws the
+  TSR's heat too. A TR-1 cannot go on a TSR. A server owner can take any scope that does not sit right in it on the
+  ECOTI **Thermal Scope Ring Compatibility** page.
 - **The same controls.** `Shift+N` powers it, `Alt+N` switches the mode, and it shows the same boot and mode messages
   in the scope, with a green LED on the back that other players see. While it is off, the scope shows the plain
   picture; the goggle COTI never draws inside it.
