@@ -63,9 +63,9 @@ public class CotiApbsPoolPatch( ISptLogger<CotiApbsPoolPatch> logger, CotiTempla
     var force = Forced();
     foreach( var ( parentId, slots ) in __result )
     {
-      if( Filled.TryGetValue( slots, out _ ) || !_templates.Items.TryGetValue( parentId, out var parent ) )
+      // APBS generates bots in parallel, so the check and the mark must be one atomic step.
+      if( !_templates.Items.TryGetValue( parentId, out var parent ) || !Filled.TryAdd( slots, new object() ) )
         continue;
-      Filled.Add( slots, new object() );
       foreach( var ( slotName, pool ) in slots )
       {
         var takes = Accepted( parent, slotName );
