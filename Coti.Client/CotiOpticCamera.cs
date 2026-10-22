@@ -46,6 +46,12 @@ namespace Coti.Client
     internal static bool OpticOnRiser { get; private set; }
 
 
+    /// <summary>
+    /// The aimed scope whose picture is the zoomed main camera, with no optic camera of its own (PiP-Disabler). A riser or
+    /// ring under it draws its 1x heat through this lens, since the 1x camera already matches the zoom; else null.
+    /// </summary>
+    internal static OpticSight ScreenSight { get; private set; }
+
     /// <summary>The aimed optic's sight, while <see cref="MagnifiedOpticAimed"/> holds; else null.</summary>
     internal static OpticSight AimedSight { get; private set; }
 
@@ -71,6 +77,8 @@ namespace Coti.Client
 
     internal static void Tick()
     {
+      if( Plugin.PipDisabler )
+        CotiLensMeshes.Tick();
       var optic = Read();
       var present = optic.Present;
       var thermal = optic.IsThermal;
@@ -81,7 +89,14 @@ namespace Coti.Client
                              main.fieldOfView, optic.FieldOfView );
       MagnifiedOpticAimed = magnified;
       AimedSight = magnified ? optic.Sight : null;
-      CutSight = present && !thermal ? optic.Sight : null;
+      // PiP-Disabler leaves the optic camera switched off at the hip as well, so only an aimed sight counts.
+      var screen = Plugin.PipDisabler && Aiming() ? optic.ScreenSight : null;
+      if( screen != null && screen != ScreenSight && ( Plugin.Config?.VerboseLogging ?? false ) )
+        Plugin.Log.LogInfo( $"[COTI] Scope with no optic camera aimed: {screen.name}, lens " +
+                            $"{( CotiLensMeshes.Hidden( screen.LensRenderer ) != null ? "emptied, drawn from its remembered mesh" : "as drawn" )}" );
+      ScreenSight = screen;
+      // The goggle COTI never draws in a scope, whichever camera paints the scope's picture.
+      CutSight = present && !thermal ? optic.Sight : ScreenSight;
       OpticOnRiser = magnified && ThermalRiserState.Present && ThermalRiserState.IsOnRiser( optic.Sight.transform );
       MagnifiedSightAimed = magnified && MagnifyEnabled && !CotiOpticThermalCamera.Broken;
     }
@@ -115,6 +130,12 @@ namespace Coti.Client
       return EftCompat.TryGetOptic( out camera, out sight ) && AimedThroughOptic()
           ? new CotiOpticView( camera, sight )
           : default( CotiOpticView );
+    }
+
+    private static bool Aiming()
+    {
+      var world = Singleton<GameWorld>.Instantiated ? Singleton<GameWorld>.Instance : null;
+      return world?.MainPlayer?.ProceduralWeaponAnimation?.IsAiming ?? false;
     }
 
     private static bool AimedThroughOptic()
@@ -164,6 +185,22 @@ namespace Coti.Client
 
     /// <summary>The optic's sight, the root of its lens and modes.</summary>
     internal OpticSight Sight => Present ? _sight : null;
+
+    /// <summary>
+    /// The aimed sight while its optic camera is switched off, as PiP-Disabler does: the main camera zooms in its place,
+    /// so the scope's picture is the screen itself. A thermal sight is left out: it is its own picture either way.
+    /// </summary>
+    internal OpticSight ScreenSight
+    {
+      get
+      {
+        if( _sight == null || _camera == null || _camera.enabled )
+          return null;
+
+        var thermal = CotiOpticCamera.ThermalVisionOf( _camera );
+        return thermal != null && thermal.enabled && thermal.On ? null : _sight;
+      }
+    }
 
     /// <summary>
     /// A thermal sight renders its picture with the optic camera's ThermalVision on; on every other sight that

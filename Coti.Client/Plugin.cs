@@ -16,6 +16,10 @@ namespace Coti.Client
 {
   // Soft: only so its assembly is loaded before AmandsFlashlightHookPatch looks for it.
   [BepInDependency( "com.Amanda.Graphics", BepInDependency.DependencyFlags.SoftDependency )]
+  // Loaded first when present, so the Chainloader.PluginInfos checks in Awake see them.
+  [BepInDependency( "com.fika.core", BepInDependency.DependencyFlags.SoftDependency )]
+  [BepInDependency( "com.fika.headless", BepInDependency.DependencyFlags.SoftDependency )]
+  [BepInDependency( "com.fiodor.pipdisabler", BepInDependency.DependencyFlags.SoftDependency )]
   [BepInPlugin( "com.lennoxp90.coti", "ECOTI", CotiVersion.Current )]
   public class Plugin : BaseUnityPlugin
   {
@@ -23,6 +27,9 @@ namespace Coti.Client
 
     public static new CotiConfig Config = CotiConfig.Fallback;
     public static bool IsHeadless;
+
+    /// <summary>PiP-Disabler is loaded. Every scope workaround for it is skipped when it is not.</summary>
+    public static bool PipDisabler;
 
     /// <summary>Where the plugin and its loose files (sounds, textures, lamps.json) are.</summary>
     internal static string PluginDirectory = "";
@@ -37,6 +44,9 @@ namespace Coti.Client
 
       // Support for fika headless clients, will essentially no-op
       IsHeadless = Chainloader.PluginInfos.ContainsKey( "com.fika.headless" );
+
+      // Scopes draw through the zoomed main camera instead of an optic camera; see CotiOpticCamera.ScreenSight.
+      PipDisabler = Chainloader.PluginInfos.ContainsKey( "com.fiodor.pipdisabler" );
 
       // Before the headless returns: in co-op the headless host runs the bots' AI.
       TryEnable( nameof( BotRiserLightPatch ), () => new BotRiserLightPatch() );

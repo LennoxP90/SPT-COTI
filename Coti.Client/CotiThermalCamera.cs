@@ -58,8 +58,7 @@ namespace Coti.Client
     private static float _mirroredAspect = float.NaN;
 
     // What the cropped projection was last built from. Cleared with the camera in Teardown.
-    private static float _projectedFov = float.NaN;
-    private static float _projectedAspect = float.NaN;
+    private static Matrix4x4 _projected;
     private static CotiCropBox _projectedBox;
 
     /// <summary>Reused every frame by FilledBox.</summary>
@@ -236,6 +235,8 @@ namespace Coti.Client
 
       Camera.onPreCull -= MatchEyeBeforeCulling;
       Camera.onPreCull += MatchEyeBeforeCulling;
+      Camera.onPreRender -= MeasureViewChange;
+      Camera.onPreRender += MeasureViewChange;
 
       // No SetActive(true) here: until Configure binds targetTexture, a live camera renders to the backbuffer as a
       // full-screen thermal frame. ActivateIfReady activates it once a target is bound.
@@ -339,9 +340,39 @@ namespace Coti.Client
     /// The main camera's perspective, built from its own field of view and aspect (so no jitter it may carry), then
     /// scaled and shifted in clip space so the box fills the target. Culling follows the projection.
     /// </summary>
+    /// <summary>
+    /// Under PiP-Disabler the eye's view matrix changes between this camera's render and its own, by a few centimetres
+    /// and the same amount every frame: at 6x the heat sat beside near targets. Each frame both render, the change is
+    /// measured and applied to this camera's next view (<see cref="MatchEyeBeforeCulling"/>).
+    /// </summary>
+    private static void MeasureViewChange( Camera rendering )
+    {
+      if( !Plugin.PipDisabler || _broken || _main == null || rendering != _main || _viewAtCullFrame != Time.frameCount )
+        return;
+
+      var change = _main.worldToCameraMatrix * _viewAtCull.inverse;
+      // A teleport or a camera swap is not that; start again from none.
+      _viewChange = ( (Vector3)change.GetColumn( 3 ) ).sqrMagnitude < MaxViewChange * MaxViewChange ? change : Matrix4x4.identity;
+
+      if( ( Plugin.Config?.VerboseLogging ?? false ) && Time.realtimeSinceStartup >= _nextViewLog )
+      {
+        _nextViewLog = Time.realtimeSinceStartup + 2f;
+        var gap = (Vector3)( _main.worldToCameraMatrix.GetColumn( 3 ) - _cam.worldToCameraMatrix.GetColumn( 3 ) );
+        Plugin.Log.LogInfo( $"[COTI] Eye view moves {( (Vector3)change.GetColumn( 3 ) ).magnitude * 1000f:F1} mm after the " +
+                            $"thermal render under PiP-Disabler; thermal view left {gap.magnitude * 1000f:F1} mm from it" );
+      }
+    }
+
+    private const float MaxViewChange = 0.25f;
+    private static Matrix4x4 _viewAtCull;
+    private static Matrix4x4 _viewChange = Matrix4x4.identity;
+    private static int _viewAtCullFrame = -1;
+    private static float _nextViewLog;
+
     private static void ApplyCrop( Camera main, CotiCropBox box )
     {
-      if( _projectedFov == main.fieldOfView && _projectedAspect == main.aspect && _projectedBox.Equals( box ) )
+      var projection = main.projectionMatrix;
+      if( _projected == projection && _projectedBox.Equals( box ) )
         return;
 
       float sx, sy, tx, ty;
@@ -351,10 +382,11 @@ namespace Coti.Client
       crop.m03 = tx;
       crop.m11 = sy;
       crop.m13 = ty;
-      _cam.projectionMatrix = crop * Matrix4x4.Perspective( main.fieldOfView, main.aspect, main.nearClipPlane, main.farClipPlane );
+      // The eye's own matrix, not one rebuilt from its field of view: under PiP-Disabler's zoom the two differ across the
+      // screen, and the heat then spread outward from the centre, off every target but the middle one.
+      _cam.projectionMatrix = crop * projection;
 
-      _projectedFov = main.fieldOfView;
-      _projectedAspect = main.aspect;
+      _projected = projection;
       _projectedBox = box;
     }
 
@@ -391,6 +423,14 @@ namespace Coti.Client
 
       try
       {
+        // Under PiP-Disabler the eye's view changes after this camera renders; see MeasureViewChange.
+        if( Plugin.PipDisabler )
+        {
+          _viewAtCull = _main.worldToCameraMatrix;
+          _viewAtCullFrame = Time.frameCount;
+          _cam.worldToCameraMatrix = _viewChange * _viewAtCull;
+        }
+
         if( _mirroredFov != _main.fieldOfView )
         {
           _cam.fieldOfView = _main.fieldOfView;
@@ -686,6 +726,7 @@ namespace Coti.Client
     internal static void Teardown()
     {
       Camera.onPreCull -= MatchEyeBeforeCulling;
+      Camera.onPreRender -= MeasureViewChange;
 
       if( _go != null )
       {
@@ -705,8 +746,7 @@ namespace Coti.Client
       _mirroredFov = float.NaN;
       Cull.Reset();
       _mirroredAspect = float.NaN;
-      _projectedFov = float.NaN;
-      _projectedAspect = float.NaN;
+      _projected = default( Matrix4x4 );
       Box = CotiCropBox.Whole;
       _tuned = false;
       Pacer.Reset();

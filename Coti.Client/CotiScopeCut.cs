@@ -110,6 +110,14 @@ namespace Coti.Client
           if( renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy )
             continue;
 
+          // An emptied lens (PiP-Disabler) still covers its glass, from the mesh it had at the hip.
+          var hidden = CotiLensMeshes.Hidden( renderer );
+          if( hidden != null )
+          {
+            buffer.DrawMesh( hidden, renderer.localToWorldMatrix, _maskMaterial, 0, AddPass );
+            continue;
+          }
+
           for( var sub = 0; sub < part.Submeshes; sub++ )
             buffer.DrawRenderer( renderer, _maskMaterial, sub, AddPass );
         }

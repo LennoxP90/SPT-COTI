@@ -99,6 +99,13 @@ namespace Coti.Client
     /// </summary>
     internal static void DrawWindow( CommandBuffer buffer, Renderer lens, Material material, int pass )
     {
+      var hidden = CotiLensMeshes.Hidden( lens );
+      if( hidden != null )
+      {
+        buffer.DrawMesh( hidden, lens.localToWorldMatrix, material, 0, pass );
+        return;
+      }
+
       var window = WindowOf( lens );
       var mesh = window == lens ? null : lens.GetComponent<MeshFilter>()?.sharedMesh;
       if( mesh == null )
@@ -387,8 +394,10 @@ namespace Coti.Client
         // The mesh's own box through its transform, not the renderer's world box: that one is axis-aligned, so it is
         // loose around a tilted eyepiece and its centre drifts off the glass.
         var window = WindowOf( lens );
-        var local = window == lens ? lens.localBounds : lens.GetComponent<MeshFilter>().sharedMesh.bounds;
-        var toWorld = window == lens ? lens.localToWorldMatrix : WindowMatrix( lens, window );
+        var hidden = CotiLensMeshes.Hidden( lens );
+        var local = hidden != null ? hidden.bounds
+            : window == lens ? lens.localBounds : lens.GetComponent<MeshFilter>().sharedMesh.bounds;
+        var toWorld = hidden != null || window == lens ? lens.localToWorldMatrix : WindowMatrix( lens, window );
         for( var corner = 0; corner < 8; corner++ )
         {
           var point = new Vector3( ( corner & 1 ) == 0 ? local.min.x : local.max.x, ( corner & 2 ) == 0 ? local.min.y : local.max.y,
@@ -471,6 +480,13 @@ namespace Coti.Client
             && ThermalRiserState.IsOnRiser( sight.transform ) )
           Lenses.Add( lens );
       }
+
+      // A scope with no optic camera (PiP-Disabler) shows the zoomed main camera, which the 1x thermal already matches,
+      // so its lens is one more window. Its renderer may be hidden by that mod; the mask draws it all the same.
+      var screen = CotiOpticCamera.ScreenSight;
+      var glass = screen != null ? screen.LensRenderer : null;
+      if( glass != null && ThermalRiserState.IsOnRiser( screen.transform ) )
+        Lenses.Add( glass );
     }
 
     internal static void Detach()
