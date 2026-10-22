@@ -27,7 +27,11 @@ internal static class CotiBundleMeshReader
     }
 
     /// <param name="flatten">Take meshes in raw local space, ignoring the prefab's transforms.</param>
-    public static Result Read(string bundlePath, string? pivotName, bool flatten = false)
+    /// <param name="dependencies">
+    /// Bundles the prefab takes its meshes from, as a recolour does from its base model. Only their meshes are read.
+    /// </param>
+    public static Result Read(
+        string bundlePath, string? pivotName, bool flatten = false, IEnumerable<string>? dependencies = null)
     {
         var mgr = new AssetsManager();
         try
@@ -41,6 +45,18 @@ internal static class CotiBundleMeshReader
             var meshOfGameObject = new Dictionary<long, long>();
 
             CollectAssets(mgr, bundle, transforms, gameObjects, meshes, meshOfGameObject);
+
+            // A dependency's own prefab must not be walked, so its transforms and objects go to throwaway tables.
+            foreach (var path in dependencies ?? [])
+            {
+                var dependency = mgr.LoadBundleFile(path, true);
+                foreach (var (name, data) in ReadStreamFiles(dependency))
+                {
+                    streams.TryAdd(name, data);
+                }
+
+                CollectAssets(mgr, dependency, new(), new(), meshes, new());
+            }
 
             var walker = new Walker(transforms, gameObjects, meshes, meshOfGameObject, streams, pivotName, flatten);
             foreach (var (pathId, t) in transforms)

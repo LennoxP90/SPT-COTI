@@ -26,7 +26,7 @@ public sealed class CotiHostMeshSync(
 {
     // Bump whenever a converter change alters what a given bundle produces. The bundles
     // themselves never change, so without this the cache would serve the old output forever.
-    private const int ConverterVersion = 5;
+    private const int ConverterVersion = 6;
 
     private sealed class Source
     {
@@ -59,14 +59,16 @@ public sealed class CotiHostMeshSync(
 
         var sources = ReadSources(folder);
         var previous = ReadIndex(folder);
-        var shipped = ReadIndex(Path.Combine(CotiHostMeshes.MeshRootPath(), CotiHostMeshes.ShippedFolder));
+        var shippedFolder = Path.Combine(CotiHostMeshes.MeshRootPath(), CotiHostMeshes.ShippedFolder);
+        var shipped = ReadIndex(shippedFolder);
         var index = new Dictionary<string, CotiHostMeshes.MeshEntry>();
         var kept = new Dictionary<string, Source>();
         int converted = 0, unchanged = 0, failed = 0;
 
         foreach (var (hostId, anchorBone) in HostsNeedingMesh(shipped))
         {
-            var bundle = BundleFor(hostId);
+            var prefab = PrefabFor(hostId);
+            var bundle = prefab is null ? null : BundleAt(prefab);
             if (bundle is null)
             {
                 continue;
@@ -86,7 +88,7 @@ public sealed class CotiHostMeshSync(
                 && was.Path == source.Path && was.Size == source.Size && was.Ticks == source.Ticks
                 && was.Version == source.Version
                 && previous.TryGetValue(hostId, out var cached)
-                && FilesPresent(folder, cached))
+                && FilesPresent(cached, folder, shippedFolder))
             {
                 index[hostId] = cached;
                 kept[hostId] = was;
@@ -99,7 +101,10 @@ public sealed class CotiHostMeshSync(
 
             try
             {
-                var entry = CotiHostMeshBuilder.Build(bundle, anchorBone, folder);
+                var dependencies = bundleLoader.GetBundle(prefab!)?.Dependencies ?? [];
+                var found = dependencies.Select(BundleAt).OfType<string>().ToList();
+                var entry = CotiHostMeshBuilder.Build(bundle, found, anchorBone, folder)
+                            ?? ShippedModelOf(dependencies, shipped);
                 if (entry is null)
                 {
                     logger.Warning($"[COTI] mesh: no geometry in {Path.GetFileName(bundle)} for '{hostId}'");
@@ -145,8 +150,8 @@ public sealed class CotiHostMeshSync(
         }
     }
 
-    /// <summary>The item's own prefab path names its bundle, wherever the mod keeps it.</summary>
-    private string? BundleFor(string hostId)
+    /// <summary>The item's own prefab path, which names its bundle.</summary>
+    private string? PrefabFor(string hostId)
     {
         if (!templateTable.Items.TryGetValue(new MongoId(hostId), out var item))
         {
@@ -154,12 +159,24 @@ public sealed class CotiHostMeshSync(
         }
 
         var prefab = item.Properties?.Prefab?.Path;
-        if (string.IsNullOrWhiteSpace(prefab))
-        {
-            return null;
-        }
+        return string.IsNullOrWhiteSpace(prefab) ? null : prefab;
+    }
 
+    /// <summary>A bundle key's file, wherever the mod keeps it. Null for a game bundle, which the server lacks.</summary>
+    private string? BundleAt(string prefab)
+    {
         return FromManifest(prefab) ?? FromModFolders(prefab);
+    }
+
+    /// <summary>
+    /// A mod prefab drawn with a game model the server has no bundle for (ISB's GPNVG-18 uses the game's own) takes the
+    /// mesh shipped for that model, matched by the dependency's file name.
+    /// </summary>
+    private static CotiHostMeshes.MeshEntry? ShippedModelOf(
+        IEnumerable<string> dependencies, Dictionary<string, CotiHostMeshes.MeshEntry> shipped)
+    {
+        var slugs = dependencies.Select(CotiHostMeshBuilder.SlugFor).ToHashSet();
+        return shipped.Values.FirstOrDefault(e => slugs.Contains(e.Slug));
     }
 
     /// <summary>SPT's own registry, which names the owning mod outright. Populated before this runs.</summary>
@@ -198,9 +215,9 @@ public sealed class CotiHostMeshSync(
         return null;
     }
 
-    private static bool FilesPresent(string folder, CotiHostMeshes.MeshEntry entry)
+    private static bool FilesPresent(CotiHostMeshes.MeshEntry entry, params string[] folders)
     {
-        return CotiHostMeshBuilder.FilesFor(entry).All(f => File.Exists(Path.Combine(folder, f)));
+        return CotiHostMeshBuilder.FilesFor(entry).All(f => folders.Any(d => File.Exists(Path.Combine(d, f))));
     }
 
     private static Dictionary<string, CotiHostMeshes.MeshEntry> ReadIndex(string folder)

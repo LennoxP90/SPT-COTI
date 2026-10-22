@@ -5,7 +5,8 @@ namespace Coti.Server.Web.Meshes;
 /// <summary>Converts one host's bundle into the glb files and index entry the viewer needs.</summary>
 internal static partial class CotiHostMeshBuilder
 {
-    public static CotiHostMeshes.MeshEntry? Build(string bundlePath, string? anchorBone, string outputDir)
+    public static CotiHostMeshes.MeshEntry? Build(
+        string bundlePath, IReadOnlyList<string> dependencies, string? anchorBone, string outputDir)
     {
         // Device files write an unset anchor as "", not as an absent key, and an empty bone name
         // matches nothing - so without this the fallback never runs and the host cannot flip.
@@ -13,7 +14,7 @@ internal static partial class CotiHostMeshBuilder
 
         // with no tuned pose the flip bone is conventionally "axis"
         var candidate = anchor ?? "axis";
-        var read = CotiBundleMeshReader.Read(bundlePath, candidate);
+        var read = CotiBundleMeshReader.Read(bundlePath, candidate, dependencies: dependencies);
         if (read.Static is null && read.Pivot is null)
         {
             return null;
