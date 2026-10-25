@@ -70,6 +70,13 @@ namespace Coti.Shared
       return usedByParticles && !usedByMesh;
     }
 
+    /// <summary>
+    /// The RenderType of the aimed scope's own glass while PiP-Disabler makes its picture the zoomed screen: Coti/HeatOnly
+    /// has no sub-shader for it, so the 1x heat drawn through that lens is not stopped by the scope's glass. Named Coti...,
+    /// so <see cref="For"/> and the glass sweeps leave it alone.
+    /// </summary>
+    public const string SeenThrough = "CotiSeenThrough";
+
     /// <summary>The RenderType glass is given for each mode, one sub-shader of Coti/HeatOnly each.</summary>
     public static string GlassTag( CotiGlassMode mode )
     {

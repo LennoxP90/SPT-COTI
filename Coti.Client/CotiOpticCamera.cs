@@ -95,6 +95,9 @@ namespace Coti.Client
         Plugin.Log.LogInfo( $"[COTI] Scope with no optic camera aimed: {screen.name}, lens " +
                             $"{( CotiLensMeshes.Hidden( screen.LensRenderer ) != null ? "emptied, drawn from its remembered mesh" : "as drawn" )}" );
       ScreenSight = screen;
+      // Either way the scope's own glass sits in front of a COTI camera looking through it: the 1x under PiP-Disabler,
+      // the magnified thermal camera without it.
+      CotiScreenSightGlass.Sync( screen ?? AimedSight );
       // The goggle COTI never draws in a scope, whichever camera paints the scope's picture.
       CutSight = present && !thermal ? optic.Sight : ScreenSight;
       OpticOnRiser = magnified && ThermalRiserState.Present && ThermalRiserState.IsOnRiser( optic.Sight.transform );

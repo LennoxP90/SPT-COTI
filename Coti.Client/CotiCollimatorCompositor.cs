@@ -310,7 +310,7 @@ namespace Coti.Client
 
       main.AddCommandBuffer( InjectionPoint, _commandBuffer );
       _attachedTo = main;
-      Camera.onPreCull += RecordBeforeCulling;
+      Camera.onPreRender += RecordBeforeRendering;
 
       if( !_loggedAttached )
       {
@@ -319,7 +319,7 @@ namespace Coti.Client
       }
     }
 
-    private static void RecordBeforeCulling( Camera rendering )
+    private static void RecordBeforeRendering( Camera rendering )
     {
       // ==, not ReferenceEquals: see CotiOpticOverlayCompositor.RecordBeforeCulling.
       if( _broken || _commandBuffer == null || rendering != _attachedTo )
@@ -338,7 +338,9 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// Recorded at pre-cull, when the camera's matrices are final for the frame, so the mask lands on the lens as drawn.
+    /// Recorded at pre-render, when the camera's matrices are final for the frame, so the mask lands on the lens as drawn.
+    /// Not at pre-cull: PiP-Disabler moves the eye toward the scope's axis in its own pre-cull, for the scopes it gives a
+    /// visual recoil compensation, and a window recorded before that sat 2 to 3 mrad low (230 px at 0.6 degrees).
     /// The message is drawn here too, from the same matrices, so the text holds still on the lens while the weapon
     /// sways; drawn from Update it would trail the lens by a frame.
     /// </summary>
@@ -491,7 +493,7 @@ namespace Coti.Client
 
     internal static void Detach()
     {
-      Camera.onPreCull -= RecordBeforeCulling;
+      Camera.onPreRender -= RecordBeforeRendering;
 
       if( _attachedTo != null )
       {

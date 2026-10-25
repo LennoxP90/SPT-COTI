@@ -86,6 +86,15 @@ public class CotiGlassTests
         Assert.Equal( "CotiGlass", CotiRenderTypeTag.GlassTag( CotiGlassMode.Plain ) );
         Assert.Equal( "CotiGlassMirror", CotiRenderTypeTag.GlassTag( CotiGlassMode.Reflections ) );
     }
+
+    // The aimed scope's glass under PiP-Disabler: no glass sweep takes it back, and the opaque fix-up never replaces it.
+    [Fact]
+    public void GlassSeenThroughIsNeitherGlassNorReplaced()
+    {
+        Assert.False( CotiRenderTypeTag.IsGlassTag( CotiRenderTypeTag.SeenThrough ) );
+        Assert.Null( CotiRenderTypeTag.For( CotiRenderTypeTag.SeenThrough, 3000, onSolidCollider: true ) );
+        Assert.Null( CotiRenderTypeTag.For( CotiRenderTypeTag.SeenThrough, 2000, onSolidCollider: true ) );
+    }
 }
 
 public class CotiBodyHeatTests

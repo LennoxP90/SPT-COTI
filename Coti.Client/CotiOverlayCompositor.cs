@@ -214,9 +214,9 @@ namespace Coti.Client
 
       if( _cutting != _recordsPerFrame )
       {
-        Camera.onPreCull -= RecordCutBeforeCulling;
+        Camera.onPreRender -= RecordCutBeforeRendering;
         if( _cutting )
-          Camera.onPreCull += RecordCutBeforeCulling;
+          Camera.onPreRender += RecordCutBeforeRendering;
         _recordsPerFrame = _cutting;
       }
 
@@ -230,10 +230,11 @@ namespace Coti.Client
     }
 
     /// <summary>
-    /// The cut and the composite, at the main camera's pre-cull, when its matrices are final for the frame, so the mask
-    /// lands on the scope as drawn. A failure empties the buffer and latches like Sync's.
+    /// The cut and the composite, at the main camera's pre-render, when its matrices are final for the frame, so the mask
+    /// lands on the scope as drawn (PiP-Disabler moves the eye in its own pre-cull; see CotiCollimatorCompositor.Record).
+    /// A failure empties the buffer and latches like Sync's.
     /// </summary>
-    private static void RecordCutBeforeCulling( Camera rendering )
+    private static void RecordCutBeforeRendering( Camera rendering )
     {
       // ==, not ReferenceEquals: see CotiOpticOverlayCompositor.RecordBeforeCulling.
       if( _broken || !_cutting || _commandBuffer == null || _source == null || rendering != _attachedTo )
@@ -550,7 +551,7 @@ namespace Coti.Client
     // exit. Add a Release there if the plugin ever unloads mid-session.
     internal static void Detach()
     {
-      Camera.onPreCull -= RecordCutBeforeCulling;
+      Camera.onPreRender -= RecordCutBeforeRendering;
       _recordsPerFrame = false;
 
       // Unity's null: a destroyed camera has no buffer list left to remove from.
