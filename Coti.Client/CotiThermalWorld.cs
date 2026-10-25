@@ -54,6 +54,7 @@ namespace Coti.Client
     private static readonly int BodiesId = Shader.PropertyToID( "_CotiBodies" );
     private static readonly int BodyCountId = Shader.PropertyToID( "_CotiBodyCount" );
     private static readonly int AirId = Shader.PropertyToID( "_CotiAirCelsius" );
+    private static readonly int ReflectionBrightnessId = Shader.PropertyToID( "_CotiReflectionBrightness" );
 
     private static readonly List<Material> Glass = new List<Material>();
     private static readonly HashSet<Material> MeshMaterials = new HashSet<Material>();
@@ -142,6 +143,7 @@ namespace Coti.Client
 
       var air = AirCelsius();
       Shader.SetGlobalFloat( AirId, air );
+      Shader.SetGlobalFloat( ReflectionBrightnessId, Plugin.Config.Image.GlassReflectionBrightness );
 
       var glass = Plugin.Config.Image.Glass;
       var began = world != _world;

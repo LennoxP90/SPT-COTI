@@ -112,6 +112,11 @@ namespace Coti.Client
           "A magnified scope's front and rear glass mirror heat like other glass while Glass is Reflections. Off, scope " +
           "glass stays Plain. Red dots and holographic sights are never glass." ) );
 
+      var reflectionBrightness = _file.Bind( "Image", "Glass Reflection Brightness", image.GlassReflectionBrightness, new ConfigDescription(
+          "How bright glass reflections draw while Glass is Reflections, as a share of the reflected heat's own brightness. " +
+          "The same reflections show and outline at any value; lower only dims them.",
+          new AcceptableValueRange<float>( 0f, 1f ) ) );
+
       var heatBrightness = _file.Bind( "Image", "Heat Brightness", image.HeatBrightness, new ConfigDescription(
           "A multiplier on how bright heat signatures draw. 1 is the default; lower dims the image, higher brightens it.",
           new AcceptableValueRange<float>( 0.25f, 2f ) ) );
@@ -165,6 +170,7 @@ namespace Coti.Client
         Current.Image.OutlineThicknessCm = outlineThickness.Value;
         Current.Image.Glass = glass.Value;
         Current.Image.ScopeGlassReflections = scopeGlass.Value;
+        Current.Image.GlassReflectionBrightness = reflectionBrightness.Value;
         Current.Image.HeatBrightness = heatBrightness.Value;
         Current.Image.RenderFlashlightHeat = flashlightHeat.Value;
         Current.Image.RenderSearchlightHeat = searchlightHeat.Value;

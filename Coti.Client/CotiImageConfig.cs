@@ -31,6 +31,13 @@ namespace Coti.Client
     public bool ScopeGlassReflections { get; set; } = true;
 
     /// <summary>
+    /// How bright glass reflections draw, as a share of the reflected heat's own brightness. What reflects, where it crosses
+    /// the heat threshold and its outline do not change; only the drawn pixel dims.
+    /// </summary>
+    [JsonProperty( "glassReflectionBrightness" )]
+    public float GlassReflectionBrightness { get; set; } = 0.5f;
+
+    /// <summary>
     /// A multiplier on every heat signature's brightness, over the default the heat rule is tuned to. Below 1 dims the
     /// image, above brightens it.
     /// </summary>

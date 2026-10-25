@@ -218,6 +218,7 @@ The F12 page:
 | | Full Mode Fill (%) | How bright Full mode fills a hot shape inside its outline. Default 45; 100 is a solid shape; Outline mode ignores it. An install still holding the old default of 55 moves to 45 once. |
 | | Glass | Default `Reflections`. Glass blocks heat either way. `Plain` draws the pane blank; `Reflections` also mirrors the bodies in front of it, you included. Measured free, so pick by taste. |
 | | Scope Glass Reflections | On by default. A magnified scope's front and eyepiece glass reflect like a window while Glass is on Reflections; off, scope glass stays plain. Measured free. |
+| | Glass Reflection Brightness | Default 0.5, from 0 to 1. How bright glass reflections draw while Glass is on Reflections. The same reflections show and outline at any value; lower only dims them. At 0.5 none draws brighter than half a real body; 1 is the old look. Not measured on its own; a preference. |
 | | Heat Brightness | Default 1, from 0.25 to 2. Dims or brightens how heat draws without changing what is detected. |
 | | Render Flashlight Heat | On by default. A lit flashlight's head shows faintly warm, from its lens back; lasers and infrared illuminators stay cold. Off, every flashlight reads cold. Not measured on its own; a preference. |
 | | Render Searchlight Heat | On by default. A lit searchlight shows hot at its lens and warm around it; every other lamp stays cold. Off, searchlights read cold too. Measured free: with 1000 lit searchlights in view, turning it off moved the median frame from 3.51 ms to 3.50 ms. |
