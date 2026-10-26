@@ -127,7 +127,8 @@ its thermal image into the scope it holds, magnified with it. One model per ring
   in the scope, with a green LED on the back that other players see. While it is off, the scope shows the plain
   picture; the goggle COTI never draws inside it.
 - **Works with PiP-Disabler** (3.4.2 and later). With PiP-Disabler the scope's picture is the zoomed screen, and the TSR
-  draws its heat across the lens, aligned at every zoom.
+  draws its heat across the lens, aligned at every zoom. Since 3.4.3 the rifle, your hands and the TSR stay whole around
+  a scope on a TSR or the TR-1 instead of PiP-Disabler's cut, and the heat fades with PiP-Disabler's vignette.
 - **Where to get one.** Peacekeeper sells all six at loyalty level 3 for $1,750, three of each. They also turn up
   wherever night vision spawns, as often together as the TR-1, and now and then on a bot's rifle.
 
