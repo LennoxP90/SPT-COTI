@@ -98,6 +98,7 @@ namespace Coti.Client
       // Either way the scope's own glass sits in front of a COTI camera looking through it: the 1x under PiP-Disabler,
       // the magnified thermal camera without it.
       CotiScreenSightGlass.Sync( screen ?? AimedSight );
+      CotiScopeHole.Sync( screen );
       // The goggle COTI never draws in a scope, whichever camera paints the scope's picture.
       CutSight = present && !thermal ? optic.Sight : ScreenSight;
       OpticOnRiser = magnified && ThermalRiserState.Present && ThermalRiserState.IsOnRiser( optic.Sight.transform );

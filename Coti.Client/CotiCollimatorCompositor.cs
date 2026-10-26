@@ -292,7 +292,13 @@ namespace Coti.Client
       _material.SetFloat( ThresholdId, text ? 0f : Mathf.Clamp01( image.HeatThreshold ) );
       _material.SetFloat( OutlineMixId, text ? 0f : Mathf.Clamp01( image.OutlineMix ) );
       _material.SetFloat( HeatBrightnessId, text ? 1f : Mathf.Clamp( image.HeatBrightness, 0.25f, 2f ) );
-      _material.SetFloat( IntensityId, text ? 1f : Mathf.Max( 0f, image.OverlayIntensity ) );
+      // A scope's picture under PiP-Disabler is a magnified view, so its heat takes Magnified Intensity Scale as the game's
+      // own scope picture does (CotiOpticOverlayCompositor); red dot windows keep the full intensity.
+      var screen = CotiOpticCamera.ScreenSight;
+      var scale = screen != null && ThermalRiserState.IsOnRiser( screen.transform )
+          ? Mathf.Clamp( image.MagnifiedIntensityScale, 0.05f, 1f )
+          : 1f;
+      _material.SetFloat( IntensityId, text ? 1f : Mathf.Max( 0f, image.OverlayIntensity ) * scale );
       // The perspective outline needs the 1x compositor's scale; the screen-space outline is enough here.
       _material.SetFloat( OutlineWorldWidthId, 0f );
     }
@@ -361,6 +367,9 @@ namespace Coti.Client
       buffer.SetViewProjectionMatrices( main.worldToCameraMatrix, main.projectionMatrix );
       foreach( var lens in Lenses )
         DrawWindow( buffer, lens, _maskMaterial, AddPass );
+      var screen = CotiOpticCamera.ScreenSight;
+      if( screen != null && Lenses.Contains( screen.LensRenderer ) )
+        CotiPipVignette.Draw( buffer, main, screen.LensRenderer );
 
       buffer.Blit( _source, BuiltinRenderTextureType.CameraTarget, _material, CompositePass );
     }

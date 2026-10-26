@@ -26,6 +26,8 @@ namespace Coti.Client
     private const string HeatOnlyShaderName = "Coti/HeatOnly";
     private const string TerrainGridShaderName = "Coti/TerrainGrid";
     private const string GlowBakeShaderName = "Coti/GlowBake";
+    private const string ScopeHoleShaderName = "Coti/ScopeHole";
+    private const string ScopeVignetteShaderName = "Coti/ScopeVignette";
 
     private static AssetBundle _bundle;
     private static Shader _overlay;
@@ -33,6 +35,8 @@ namespace Coti.Client
     private static Shader _heatOnly;
     private static Shader _terrainGrid;
     private static Shader _glowBake;
+    private static Shader _scopeHole;
+    private static Shader _scopeVignette;
     private static Font _sightFont;
     private static bool _attempted;
 
@@ -83,6 +87,28 @@ namespace Coti.Client
         if( !_attempted )
           Load();
         return _glowBake;
+      }
+    }
+
+    /// <summary>The eyepiece disc drawn into depth around the player's rifle (CotiScopeHole), or null with a bundle that predates it.</summary>
+    internal static Shader ScopeHole
+    {
+      get
+      {
+        if( !_attempted )
+          Load();
+        return _scopeHole;
+      }
+    }
+
+    /// <summary>PiP-Disabler's vignette multiplied into the riser's heat window (CotiPipVignette), or null with a bundle that predates it.</summary>
+    internal static Shader ScopeVignette
+    {
+      get
+      {
+        if( !_attempted )
+          Load();
+        return _scopeVignette;
       }
     }
 
@@ -162,6 +188,22 @@ namespace Coti.Client
             _glowBake = shader;
             if( verbose )
               Plugin.Log.LogInfo( $"[COTI] Loaded glow bake shader '{shader.name}' (isSupported={shader.isSupported})" );
+            continue;
+          }
+
+          if( shader.name == ScopeHoleShaderName )
+          {
+            _scopeHole = shader;
+            if( verbose )
+              Plugin.Log.LogInfo( $"[COTI] Loaded scope hole shader '{shader.name}' (isSupported={shader.isSupported})" );
+            continue;
+          }
+
+          if( shader.name == ScopeVignetteShaderName )
+          {
+            _scopeVignette = shader;
+            if( verbose )
+              Plugin.Log.LogInfo( $"[COTI] Loaded scope vignette shader '{shader.name}' (isSupported={shader.isSupported})" );
             continue;
           }
 
