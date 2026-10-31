@@ -19,6 +19,9 @@ namespace Coti.Client
   /// sub-shader), so the riser's heat in the lens is the world's and the hands keep theirs around it. The scope's own glass
   /// renderers draw after the world, so no depth trick reaches them; they are switched off instead, as PiP-Disabler's cut
   /// removed them.
+  /// On the main camera the three draws run from a command buffer ahead of every other BeforeGBuffer buffer, with their
+  /// Deferred pass switched off in the queues: EFT's grass writes its depth in a pre-pass there (MotionVectorsPASS) and
+  /// then draws only where depth still matches, so a reset after it left the grass out of the lens.
   /// </summary>
   internal static class CotiScopeHole
   {
@@ -27,6 +30,8 @@ namespace Coti.Client
     private const int ResetQueue = 1003;
     private const int LastDeferredQueue = 2500;
     private static readonly int FarId = Shader.PropertyToID( "_Far" );
+    private const string DeferredPass = "Deferred";
+    private const CameraEvent CutEvent = CameraEvent.BeforeGBuffer;
 
     private static readonly List<Renderer> Bodies = new List<Renderer>();
     private static readonly List<Material[]> Originals = new List<Material[]>();
@@ -37,9 +42,15 @@ namespace Coti.Client
     // Every material made here, destroyed on restore even when the raid ended first and took the renderers with it.
     private static readonly List<Material> Made = new List<Material>();
     private static readonly List<Renderer> Leds = new List<Renderer>();
+    private static readonly HashSet<Renderer> FarLods = new HashSet<Renderer>();
     private static OpticSight _sight;
     private static Renderer _lens;
     private static Mesh _lensMesh;
+    private static CommandBuffer _buffer;
+    private static Camera _camera;
+    private static int _cameraBuffers = -1;
+    private static bool _logDraws;
+    private static Transform _weapon;
 
     /// <summary>A sight on a COTI device, while the bundle carries the shader that cuts its view.</summary>
     internal static bool Takes( Transform sight )
@@ -54,6 +65,7 @@ namespace Coti.Client
         sight = null;
       if( sight == _sight )
       {
+        KeepFirst();
         CullLeds();
         return;
       }
@@ -65,6 +77,7 @@ namespace Coti.Client
       if( mesh == null )
         return;
 
+      _weapon = sight.GetComponentInParent<WeaponPrefab>()?.transform;
       Collect( sight.transform.root, firstPersonOnly: false );
       var player = Singleton<GameWorld>.Instantiated ? Singleton<GameWorld>.Instance.MainPlayer : null;
       if( player != null )
@@ -76,6 +89,7 @@ namespace Coti.Client
       FindLeds( sight.transform.root );
       _lens = lens;
       _lensMesh = mesh;
+      Record();
       CullLeds();
 
       if( Plugin.Config?.VerboseLogging ?? false )
@@ -106,6 +120,11 @@ namespace Coti.Client
           if( originals[i] == null || originals[i].renderQueue > LastDeferredQueue )
             continue;
           copies[i] = new Material( originals[i] ) { renderQueue = BodyQueue };
+          // Only the rifle moves to the buffer. The body, helmet and arms stay on the camera's own draw in BodyQueue,
+          // which EFT hides first-person gear from and the block disc no longer reaches: drawn from the buffer, the
+          // helmet showed as huge black shapes in front of the eye.
+          if( _weapon != null && renderer.transform.IsChildOf( _weapon ) && !( renderer is SkinnedMeshRenderer ) )
+            copies[i].SetShaderPassEnabled( DeferredPass, false );
           Made.Add( copies[i] );
           moved = true;
         }
@@ -208,6 +227,7 @@ namespace Coti.Client
       var renderer = disc.AddComponent<MeshRenderer>();
       var material = new Material( CotiShaderBundle.ScopeHole ) { renderQueue = queue };
       material.SetFloat( FarId, far );
+      material.SetShaderPassEnabled( DeferredPass, false );
       Made.Add( material );
       renderer.sharedMaterial = material;
       renderer.shadowCastingMode = ShadowCastingMode.Off;
@@ -215,8 +235,115 @@ namespace Coti.Client
       return disc;
     }
 
+    /// <summary>The main camera's cut, filled each frame by <see cref="Fill"/>.</summary>
+    private static void Record()
+    {
+      _camera = CotiFrame.Main;
+      if( _camera == null || Discs.Count < 2 )
+        return;
+
+      // The rifle is at arm's length, where the camera always picks LOD 0; DrawRenderer would draw every level.
+      foreach( var group in _sight.transform.root.GetComponentsInChildren<LODGroup>( false ) )
+      {
+        var lods = group.GetLODs();
+        for( var i = 1; i < lods.Length; i++ )
+          foreach( var renderer in lods[i].renderers )
+            if( renderer != null )
+              FarLods.Add( renderer );
+      }
+
+      _buffer = new CommandBuffer { name = "COTI scope hole" };
+      _logDraws = true;
+      _cameraBuffers = -1;
+      KeepFirst();
+      Camera.onPreRender += Fill;
+    }
+
+    /// <summary>
+    /// The block disc, the rifle and arms with their own Deferred pass, then the reset disc. Recorded at the main camera's
+    /// pre-render, after EFT hides first-person gear for it, since DrawRenderer skips nothing the camera would: not the
+    /// culling mask, not a renderer switched off, not a shadow-only renderer (the third-person body and its helmet strap).
+    /// About 50 draws of CPU work.
+    /// </summary>
+    private static void Fill( Camera camera )
+    {
+      if( camera != _camera || _buffer == null )
+        return;
+
+      _buffer.Clear();
+      // Coti/ScopeHole's one pass has no name to find.
+      var block = Discs[0] != null ? Discs[0].GetComponent<Renderer>() : null;
+      var reset = Discs[1] != null ? Discs[1].GetComponent<Renderer>() : null;
+      if( block == null || reset == null )
+        return;
+      _buffer.DrawRenderer( block, block.sharedMaterial, 0, 0 );
+      var log = _logDraws && ( Plugin.Config?.VerboseLogging ?? false );
+      foreach( var body in Bodies )
+        if( body != null && body.enabled && !body.forceRenderingOff && body.gameObject.activeInHierarchy
+            && body.shadowCastingMode != ShadowCastingMode.ShadowsOnly
+            && ( camera.cullingMask & ( 1 << body.gameObject.layer ) ) != 0 && !FarLods.Contains( body ) )
+        {
+          if( Draw( body ) && log )
+            Plugin.Log.LogInfo( $"[COTI] Scope hole draws {body.GetType().Name} {body.transform.parent?.name}/{body.name} " +
+                                $"layer {LayerMask.LayerToName( body.gameObject.layer )}, size {body.bounds.size}" );
+        }
+      _logDraws = false;
+      _buffer.DrawRenderer( reset, reset.sharedMaterial, 0, 0 );
+    }
+
+    private static bool Draw( Renderer renderer )
+    {
+      renderer.GetSharedMaterials( Slots );
+      var submeshes = Submeshes( renderer );
+      var drawn = false;
+      for( var i = 0; i < Slots.Count; i++ )
+      {
+        var material = Slots[i];
+        var pass = material != null && !material.GetShaderPassEnabled( DeferredPass ) ? material.FindPass( DeferredPass ) : -1;
+        if( pass < 0 )
+          continue;
+        _buffer.DrawRenderer( renderer, material, Mathf.Min( i, submeshes - 1 ), pass );
+        drawn = true;
+      }
+      Slots.Clear();
+      return drawn;
+    }
+
+    private static int Submeshes( Renderer renderer )
+    {
+      var mesh = renderer is SkinnedMeshRenderer skinned ? skinned.sharedMesh : renderer.GetComponent<MeshFilter>()?.sharedMesh;
+      return mesh != null ? Mathf.Max( 1, mesh.subMeshCount ) : 1;
+    }
+
+    /// <summary>Puts the cut first among the camera's BeforeGBuffer buffers, again whenever the camera's buffers change.</summary>
+    private static void KeepFirst()
+    {
+      if( _buffer == null || _camera == null || _camera.commandBufferCount == _cameraBuffers )
+        return;
+
+      var others = _camera.GetCommandBuffers( CutEvent );
+      _camera.RemoveCommandBuffers( CutEvent );
+      _camera.AddCommandBuffer( CutEvent, _buffer );
+      foreach( var other in others )
+        if( other != _buffer )
+          _camera.AddCommandBuffer( CutEvent, other );
+      _cameraBuffers = _camera.commandBufferCount;
+    }
+
     private static void Restore()
     {
+      Camera.onPreRender -= Fill;
+      FarLods.Clear();
+      if( _buffer != null )
+      {
+        if( _camera != null )
+          _camera.RemoveCommandBuffer( CutEvent, _buffer );
+        _buffer.Release();
+        _buffer = null;
+      }
+      _camera = null;
+      _cameraBuffers = -1;
+
       for( var i = 0; i < Bodies.Count; i++ )
         if( Bodies[i] != null )
           Bodies[i].sharedMaterials = Originals[i];
