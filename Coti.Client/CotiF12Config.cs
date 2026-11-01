@@ -49,6 +49,7 @@ namespace Coti.Client
       }
 
       BindImage( defaults );
+      CotiHeatColour.Bind( _file );
       BindControls();
       BindPowerSequence( defaults );
       BindDebug( defaults );

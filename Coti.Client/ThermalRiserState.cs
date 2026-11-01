@@ -43,6 +43,9 @@ namespace Coti.Client
     /// <summary>A riser on the weapon in hand, with a sight fitted on it.</summary>
     internal static bool Present => _riser != null && SightFitted( _riser );
 
+    /// <summary>The device in hand is a scope ring rather than the riser.</summary>
+    internal static bool IsScopeRing => _riser != null && CotiIds.IsScopeRing( _riser.TemplateId.ToString() );
+
     /// <summary>The riser draws its heat: present and fully on. The goggle COTI may draw at the same time.</summary>
     internal static bool Active => Present && Frame.ThermalOn;
 

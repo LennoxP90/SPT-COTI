@@ -270,6 +270,7 @@ namespace Coti.Client
       SetCircles();
 
       ApplyPhosphorTint();
+      _material.SetVector( CotiHeatColour.OverrideId, CotiHeatColour.Goggle() );
 
       // The circle's faint glow is the display being lit. Behind a magnified sight it would light a disc over the scope,
       // so there a message is its text alone.

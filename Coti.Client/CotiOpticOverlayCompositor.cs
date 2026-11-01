@@ -347,6 +347,7 @@ namespace Coti.Client
       var riser = _owner == CotiMagnifiedOwner.Riser;
       SetColorIfChanged( HotColourId, riser ? Color.white : CotiOverlayCompositor.HotColour, ref _setHotColour );
       SetColorIfChanged( CoolColourId, riser ? RiserCool : CotiOverlayCompositor.CoolColour, ref _setCoolColour );
+      _material.SetVector( CotiHeatColour.OverrideId, riser ? CotiHeatColour.Riser() : CotiHeatColour.Goggle() );
 
       // Scaled down - see CotiImageConfig.MagnifiedIntensityScale. Without the circle glow beneath
       // it, the 1x value drives contours past full scale and they clip to a solid mass.

@@ -40,6 +40,7 @@ namespace Coti.Client
     private static readonly int HeatBrightnessId = Shader.PropertyToID( "_HeatBrightness" );
     private static readonly int IntensityId = Shader.PropertyToID( "_Intensity" );
     private static readonly int OutlineWorldWidthId = Shader.PropertyToID( "_OutlineWorldWidth" );
+    private static readonly int PixelsPerMetreId = Shader.PropertyToID( "_PixelsPerMetre" );
     private static readonly int CutTexId = Shader.PropertyToID( "_CutTex" );
 
     private static readonly List<CollimatorSight> Sights = new List<CollimatorSight>();
@@ -288,6 +289,8 @@ namespace Coti.Client
       _material.SetVector( ThermalRectId, new Vector4( box.X, box.Y, box.Width, box.Height ) );
       _material.SetColor( HotColourId, Color.white );
       _material.SetColor( CoolColourId, new Color( 0.55f, 0.55f, 0.55f, 1f ) );
+      // Messages keep the riser's white so the text reads the same whatever colour the heat is.
+      _material.SetVector( CotiHeatColour.OverrideId, text ? Vector4.zero : CotiHeatColour.Riser() );
       // The message is drawn screen-sized and shown as drawn, the way CotiOverlayCompositor shows the goggle's.
       _material.SetFloat( ThresholdId, text ? 0f : Mathf.Clamp01( image.HeatThreshold ) );
       _material.SetFloat( OutlineMixId, text ? 0f : Mathf.Clamp01( image.OutlineMix ) );
@@ -301,6 +304,9 @@ namespace Coti.Client
       _material.SetFloat( IntensityId, text ? 1f : Mathf.Max( 0f, image.OverlayIntensity ) * scale );
       // The perspective outline needs the 1x compositor's scale; the screen-space outline is enough here.
       _material.SetFloat( OutlineWorldWidthId, 0f );
+      // The rainbow's bands are a body's height, worked out per the full frame's rows as the 1x compositor does.
+      var fullRows = CotiThermalCamera.Output == null ? 0 : Mathf.RoundToInt( CotiThermalCamera.Output.height / box.Height );
+      _material.SetFloat( PixelsPerMetreId, CotiOverlayScale.PixelsPerMetre( fullRows, CotiThermalCamera.FieldOfView ) );
     }
 
     private static void Attach( Camera main )
