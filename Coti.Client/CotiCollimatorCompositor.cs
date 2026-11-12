@@ -251,6 +251,7 @@ namespace Coti.Client
       _maskMaterial = new Material( CotiShaderBundle.OverlayMaterial ) { name = "CotiRedDotMask" };
       _maskMaterial.SetTexture( MainTexId, Texture2D.whiteTexture );
       _maskMaterial.SetTexture( CutTexId, Texture2D.blackTexture );
+      _maskMaterial.SetFloat( CotiOverlayCompositor.EyeDepthTestId, 0f );
       CotiShaderBundle.KeepLoaded( _maskMaterial );
       return true;
     }
@@ -307,6 +308,9 @@ namespace Coti.Client
       // The rainbow's bands are a body's height, worked out per the full frame's rows as the 1x compositor does.
       var fullRows = CotiThermalCamera.Output == null ? 0 : Mathf.RoundToInt( CotiThermalCamera.Output.height / box.Height );
       _material.SetFloat( PixelsPerMetreId, CotiOverlayScale.PixelsPerMetre( fullRows, CotiThermalCamera.FieldOfView ) );
+      // The window shows the goggle's own thermal, the eye's view, so heat behind the eye's depth is hidden as on the
+      // goggle (CotiOverlayCompositor); the text has no depth.
+      _material.SetFloat( CotiOverlayCompositor.EyeDepthTestId, !text && CotiShaderBundle.HeatOnly != null ? 1f : 0f );
     }
 
     private static void Attach( Camera main )

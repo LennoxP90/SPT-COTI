@@ -26,6 +26,8 @@ namespace Coti.Client
     private static readonly int CircleCountId = Shader.PropertyToID( "_CircleCount" );
     private static readonly int AspectId = Shader.PropertyToID( "_Aspect" );
     private static readonly int CutTexId = Shader.PropertyToID( "_CutTex" );
+    /// <summary>The overlay's switch for hiding heat behind the eye's depth; copies of the shared material clear it.</summary>
+    internal static readonly int EyeDepthTestId = Shader.PropertyToID( "_EyeDepthTest" );
 
     /// <summary>
     /// The message's brightness. 1 renders the letters at exactly HotColour, the tube's own
@@ -63,6 +65,7 @@ namespace Coti.Client
     private static float _setOutlineMinTexels = float.NaN;
     private static float _setIntensity = float.NaN;
     private static float _setCircleGlow = float.NaN;
+    private static float _setEyeDepthTest = float.NaN;
     private static float _setHeatBrightness = float.NaN;
     private static float _defaultCircleGlow = float.NaN;
     private static Color? _setHotColour;
@@ -279,6 +282,11 @@ namespace Coti.Client
       var textOnly = CotiState.Showing == CotiShowing.Message && CotiOpticCamera.MagnifiedSightAimed;
       SetFloatIfChanged( CircleGlowId, textOnly ? 0f : _defaultCircleGlow, ref _setCircleGlow );
 
+      // Heat behind the eye's depth is hidden, so a wall the thermal camera skipped still hides what is behind it. Needs
+      // the heat-only thermal, whose alpha is each surface's eye depth; the display text has no depth and is never hidden.
+      var eyeDepthTest = CotiShaderBundle.HeatOnly != null && CotiState.Showing != CotiShowing.Message;
+      SetFloatIfChanged( EyeDepthTestId, eyeDepthTest ? 1f : 0f, ref _setEyeDepthTest );
+
       if( CotiState.Showing == CotiShowing.Message )
       {
         // The display text is drawn screen-sized, not in the thermal's box.
@@ -406,6 +414,7 @@ namespace Coti.Client
       _setOutlineMinTexels = float.NaN;
       _setIntensity = float.NaN;
       _setCircleGlow = float.NaN;
+      _setEyeDepthTest = float.NaN;
       _setHotColour = null;
       _setCoolColour = null;
     }
@@ -544,7 +553,11 @@ namespace Coti.Client
       GL.Clear( false, true, Color.black );
       RenderTexture.active = previous;
 
+      // No eye depth is bound outside the camera's own render.
+      var eyeDepthTest = _material.GetFloat( EyeDepthTestId );
+      _material.SetFloat( EyeDepthTestId, 0f );
       Graphics.Blit( CotiThermalCamera.Output, target, _material, 0 );
+      _material.SetFloat( EyeDepthTestId, eyeDepthTest );
       return target;
     }
 

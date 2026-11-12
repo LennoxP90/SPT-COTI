@@ -24,6 +24,14 @@ namespace Coti.Client
     private const int AddPass = 1;
     private const int LensDepthPass = 2;
     private const int AddVisiblePass = 3;
+    private const int EyeDepthCopyPass = 4;
+
+    /// <summary>
+    /// Where the scope camera's depth is copied: at its own AfterEverything, while _CameraDepthTexture is still its own
+    /// (it renders deferred, so the depth texture exists without asking).
+    /// </summary>
+    private const CameraEvent OpticDepthPoint = CameraEvent.AfterEverything;
+    private static readonly int EyeDepthTexId = Shader.PropertyToID( "_EyeDepthTex" );
 
     /// <summary>
     /// The pass of CW FX/OpticSight that draws <c>_CamTex</c> through the lens's eye-box mask. Its five passes are
@@ -55,6 +63,15 @@ namespace Coti.Client
 
     /// <summary>The magnified heat alone, composited on black: what <c>_CamTex</c> points at while the lens redraws.</summary>
     private static RenderTexture _heat;
+
+    /// <summary>
+    /// The scope camera's linear eye depth, the size of the magnified heat: pass 0 hides heat behind it, so a surface the
+    /// magnified thermal camera failed to draw still hides what is behind it. Filled by <see cref="_depthBuffer"/> on the
+    /// scope camera, which mirrors the magnified thermal camera's pose and field of view.
+    /// </summary>
+    private static RenderTexture _opticDepth;
+    private static CommandBuffer _depthBuffer;
+    private static Camera _depthAttachedTo;
 
     /// <summary>A copy of the lens's material with the reticle blanked, so the redraw does not add a second reticle.</summary>
     private static Material _lensMaterial;
@@ -206,6 +223,11 @@ namespace Coti.Client
         return;
       }
 
+      // Heat behind the scope camera's own depth is hidden, as the goggle's is behind the eye's. Only with the heat-only
+      // thermal, whose alpha is eye depth, and once the scope camera carries the copy.
+      var depthTest = CotiShaderBundle.HeatOnly != null && AttachOpticDepth( optic.Camera, thermal );
+      _material.SetFloat( CotiOverlayCompositor.EyeDepthTestId, depthTest ? 2f : 0f );
+
       buffer.SetRenderTarget( _heat );
       buffer.ClearRenderTarget( false, true, Color.clear );
       buffer.Blit( thermal, _heat, _material, CompositePass );
@@ -257,6 +279,9 @@ namespace Coti.Client
 
       // The 1x path's scope cut must not reach this copy: the lens is inside the cut.
       _material.SetTexture( Shader.PropertyToID( "_CutTex" ), Texture2D.blackTexture );
+      // The goggle's eye depth test must not reach this copy: the magnified heat is not the eye's view. Record sets the
+      // scope camera's own each frame.
+      _material.SetFloat( CotiOverlayCompositor.EyeDepthTestId, 0f );
 
       // The magnified heat is rendered full-frame; the copy may carry the 1x path's crop box from the shared material.
       _material.SetVector( Shader.PropertyToID( "_ThermalRect" ), new Vector4( 0f, 0f, 1f, 1f ) );
@@ -303,6 +328,78 @@ namespace Coti.Client
       };
       _heat.Create();
       return true;
+    }
+
+    /// <summary>
+    /// Puts the depth copy on the scope camera, sized to the magnified heat, moving it when the scope camera changes. False
+    /// when there is no scope camera to copy from.
+    /// </summary>
+    private static bool AttachOpticDepth( Camera optic, RenderTexture thermal )
+    {
+      if( optic == null )
+      {
+        DetachOpticDepth();
+        return false;
+      }
+
+      if( _opticDepth == null || _opticDepth.width != thermal.width || _opticDepth.height != thermal.height )
+      {
+        DestroyOpticDepth();
+        _opticDepth = new RenderTexture( thermal.width, thermal.height, 0, RenderTextureFormat.RHalf )
+        {
+          name = "CotiOpticEyeDepth",
+          useMipMap = false,
+          autoGenerateMips = false,
+          filterMode = FilterMode.Point,
+          wrapMode = TextureWrapMode.Clamp,
+          hideFlags = HideFlags.DontUnloadUnusedAsset,
+        };
+        _opticDepth.Create();
+        _material.SetTexture( EyeDepthTexId, _opticDepth );
+
+        if( _depthBuffer == null )
+          _depthBuffer = new CommandBuffer { name = "COTI scope depth" };
+        _depthBuffer.Clear();
+        _depthBuffer.Blit( Texture2D.blackTexture, _opticDepth, _material, EyeDepthCopyPass );
+      }
+
+      if( _depthAttachedTo != optic )
+      {
+        DetachOpticDepth();
+        optic.AddCommandBuffer( OpticDepthPoint, _depthBuffer );
+        _depthAttachedTo = optic;
+      }
+
+      return true;
+    }
+
+    private static void DetachOpticDepth()
+    {
+      // By reference, as Detach: a scope camera destroyed between raids is Unity-null and holds no buffers.
+      if( ReferenceEquals( _depthAttachedTo, null ) )
+        return;
+
+      if( _depthAttachedTo != null )
+      {
+        try
+        {
+          _depthAttachedTo.RemoveCommandBuffer( OpticDepthPoint, _depthBuffer );
+        }
+        catch( Exception ex )
+        {
+          Plugin.Log.LogWarning( $"[COTI] Removing scope depth command buffer failed: {ex.Message}" );
+        }
+      }
+      _depthAttachedTo = null;
+    }
+
+    private static void DestroyOpticDepth()
+    {
+      if( _opticDepth == null )
+        return;
+      _opticDepth.Release();
+      UnityEngine.Object.Destroy( _opticDepth );
+      _opticDepth = null;
     }
 
     /// <summary>
@@ -489,6 +586,7 @@ namespace Coti.Client
         return;
 
       Camera.onPreCull -= RecordBeforeCulling;
+      DetachOpticDepth();
       if( _attachedTo != null )
       {
         try
@@ -512,6 +610,9 @@ namespace Coti.Client
       Detach();
       _commandBuffer?.Release();
       _commandBuffer = null;
+      _depthBuffer?.Release();
+      _depthBuffer = null;
+      DestroyOpticDepth();
 
       if( _material != null )
       {
