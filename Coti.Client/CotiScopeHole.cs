@@ -324,8 +324,10 @@ namespace Coti.Client
       var others = _camera.GetCommandBuffers( CutEvent );
       _camera.RemoveCommandBuffers( CutEvent );
       _camera.AddCommandBuffer( CutEvent, _buffer );
+      // By name: GetCommandBuffers hands back new wrappers, so a reference test never matches the cut and it was added
+      // once more every time the camera's buffers changed (14 copies after a few aims).
       foreach( var other in others )
-        if( other != _buffer )
+        if( other.name != _buffer.name )
           _camera.AddCommandBuffer( CutEvent, other );
       _cameraBuffers = _camera.commandBufferCount;
     }
