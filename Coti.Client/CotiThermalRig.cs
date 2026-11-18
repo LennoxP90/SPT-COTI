@@ -23,7 +23,8 @@ namespace Coti.Client
     /// stripped" rather than "does not compile".
     ///
     /// Kept: ChromaticAberration and VolumetricLightRenderer, which ThermalVision.Awake
-    /// dereferences without a null check.
+    /// dereferences without a null check. The volumetric renderer is kept inert (CloneVolumetricPatches): its own
+    /// Awake, OnDestroy and render would reach the game's shared volumetric state.
     /// </summary>
     private static readonly string[] StripComponentNames =
     {
@@ -82,12 +83,9 @@ namespace Coti.Client
       {
         camera.SetReplacementShader( heatOnly, "RenderType" );
 
-        // ThermalVision's buffers and the volumetric pass it kept switched off: in a forward camera with no G-buffer
-        // either can draw over the finished frame, and this camera needs neither.
+        // ThermalVision's buffers: in a forward camera with no G-buffer they can draw over the finished frame. The
+        // volumetric renderer is already off from Clone.
         camera.RemoveAllCommandBuffers();
-        var volumetric = camera.GetComponent<VolumetricLightRenderer>();
-        if( volumetric != null )
-          volumetric.enabled = false;
 
         // Kept on the clone for ThermalVision.Awake (see StripComponentNames), but it resamples the finished image,
         // alpha included, and alpha is each surface's distance: at a scope's zoom it shortens distances and the
@@ -175,8 +173,18 @@ namespace Coti.Client
     /// </summary>
     internal static GameObject Clone( GameObject prefab, string name )
     {
-      var go = Object.Instantiate( prefab );
+      GameObject go;
+      Patches.CloneVolumetric.Building = true;
+      try
+      {
+        go = Object.Instantiate( prefab );
+      }
+      finally
+      {
+        Patches.CloneVolumetric.Building = false;
+      }
       go.SetActive( false );
+      DisableVolumetric( go );
       go.name = name;
 
       // The clone inherits BSG's "OpticCamera" tag, and PiP-Disabler disables cameras by it.
@@ -184,6 +192,17 @@ namespace Coti.Client
 
       Strip( go );
       return go;
+    }
+
+    /// <summary>
+    /// The clone's volumetric renderer never draws: its OnPreRender would rebuild the optic buffers it shares with the
+    /// game's scope camera. ThermalVision only flips its IsOn. See CloneVolumetricPatches.
+    /// </summary>
+    private static void DisableVolumetric( GameObject go )
+    {
+      var volumetric = go.GetComponent<VolumetricLightRenderer>();
+      if( volumetric != null )
+        volumetric.enabled = false;
     }
 
     private static void Strip( GameObject go )
@@ -220,8 +239,20 @@ namespace Coti.Client
       if( field.GetValue( thermal ) != null )
         return;
 
-      var renderer = go.GetComponent<VolumetricLightRenderer>()
-                     ?? go.AddComponent<VolumetricLightRenderer>();
+      var renderer = go.GetComponent<VolumetricLightRenderer>();
+      if( renderer == null )
+      {
+        Patches.CloneVolumetric.Building = true;
+        try
+        {
+          renderer = go.AddComponent<VolumetricLightRenderer>();
+        }
+        finally
+        {
+          Patches.CloneVolumetric.Building = false;
+        }
+        renderer.enabled = false;
+      }
 
       field.SetValue( thermal, renderer );
 
