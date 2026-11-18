@@ -19,6 +19,7 @@
   <ItemGroup>
     <Compile Include="..\Coti.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
     <Compile Include="..\Coti.Client\CotiActivation.cs" Link="Client\CotiActivation.cs" />
+    <Compile Include="..\Coti.Client\Api\CotiApiNotifier.cs" Link="Client\CotiApiNotifier.cs" />
     <Compile Include="..\Coti.Client\CotiOpticFusion.cs" Link="Client\CotiOpticFusion.cs" />
     <Compile Include="..\Coti.Client\CotiOverlayScale.cs" Link="Client\CotiOverlayScale.cs" />
     <Compile Include="..\Coti.Client\CotiSensorResolutions.cs" Link="Client\CotiSensorResolutions.cs" />

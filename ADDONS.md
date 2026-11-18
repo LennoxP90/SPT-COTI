@@ -233,10 +233,12 @@ worse, no warning at all) if something else in the database happens to share the
 
 ### Finding a host mod's template ids
 
-The easiest way is to let COTI find them for you. Install the host mod, start the server, and
-if its items sit under the vanilla NightVision node (true for essentially every real NVG,
-including a modded clone), COTI's auto-discovery writes a stub file for it automatically, with
-`id` and `prefab` already filled in from the live item table. Open that stub in
+The easiest way is to let COTI find them for you. Install the host mod and start the server: the log names every
+night vision item that has no device file, with its id. Then open the mount editor (ECOTI, NVG mount editor), pick the
+goggle under "Goggle with no device file" and press **Create device file**. COTI writes a starting file with `id` and
+`prefab` filled in from the live item table, posed from a goggle of the same family, and opens it for posing. The game
+sees the new COTI slot after a relaunch. (`"autoDiscover": true` under `hostEditor` in `config/config.json` still
+writes one for every such goggle at once.) Open that stub in
 `nvghostcompat/`, copy the values out, and either tune the stub in place or start your own file
 from them.
 
@@ -320,6 +322,65 @@ WTT-CAG's uses `nvg_actinblack_dtnvg.bundle` - different mesh, different pose).
 
 Keeping them out of the mod means a stock install carries no devices it can never use, and a
 wrong pose can be corrected without waiting for a COTI release.
+
+## Goggles with no device file (auto-discovery off by default)
+
+Up to 3.5.1, COTI wrote a rough, untuned stub for every night vision item it found without a device file, so every
+modded goggle took a COTI whether or not anyone had posed it. That now happens only with `"autoDiscover": true`
+under `hostEditor` in `config/config.json`, as a starting point for posing a new goggle. By default a goggle takes a
+COTI only with a device file: COTI's vanilla files, an addon's, or one made with **Create device file** in the mount
+editor.
+
+What that means when you update:
+
+- **Vanilla goggles and every official addon:** unchanged.
+- **Stubs auto-discovery already wrote** stay in `nvghostcompat/` and keep working. Delete one to drop that goggle.
+- **A goggle with no device file** gets no COTI slot, and the server log says so once per start:
+  `[COTI] <name> (<id>) has no device file, so it takes no COTI.`
+- **A goggle with no device file that a saved profile still has a COTI fitted to** keeps its COTI slot, so that
+  profile loads, and the log warns: `... has no device file, but a saved profile has a COTI fitted to one.` The
+  COTI draws nothing there. Install the goggle's addon, or take the COTI off and the slot goes at the next start.
+
+## Addons that ship code
+
+Most addons are device files and nothing else. When a host mod needs code too, for example to switch off something
+of its own while COTI draws, the addon can also carry a BepInEx plugin that calls COTI's public API,
+`Coti.Client.Api.CotiApi`.
+
+The plugin:
+
+- references the **installed** `BepInEx/plugins/LennoxP90-COTI/Coti.Client.dll` with `<Private>false</Private>`, so
+  the COTI it runs against is always the one installed, and never ships its own copy;
+- declares `[BepInDependency("com.lennoxp90.coti")]`, plus a hard dependency on the host mod's guid where it
+  references that mod, so BepInEx skips it cleanly when either is missing;
+- reads `CotiApi.ApiVersion` at start and stands down (with one log line) when it is lower than the version it was
+  built against. It is a property, not a const, so it returns the value of the COTI installed, not the one compiled
+  in.
+
+What the API offers, version 1:
+
+| Member | Meaning |
+|---|---|
+| `ApiVersion` | `1`. Goes up by one in each release that adds members. Members are never removed or changed. |
+| `Version` | COTI's own version string, for log lines. |
+| `Active` | COTI draws its thermal image this frame. Always false on a Fika headless. |
+| `Attached` | A COTI is fitted to the equipped night vision, whatever its power. |
+| `EquippedNightVision` | Template id of the equipped night vision, or null. |
+| `IsHost(templateId)` | That night vision is a COTI host in the device table now loaded. The table arrives from the server after plugins load and changes when a device is published, so a modded goggle reads false in your `Awake`: ask when you need the answer rather than keeping it. |
+| `Changed` | Event, raised on the main thread at the end of a frame in which `Active`, `Attached` or `EquippedNightVision` changed, and once on COTI's first frame. A handler that throws is logged once and does not stop the others. |
+
+Read everything from the main thread (a MonoBehaviour's `Update`, or the `Changed` handler).
+
+The plugin goes in its own folder beside COTI's, and the device files go where they always do. One archive carries
+both, laid out from the SPT install root:
+
+```
+BepInEx/plugins/LennoxP90-COTI-addon-<host>/<plugin>.dll
+SPT_Runtime/user/mods/LennoxP90-COTI/nvghostcompat/<guid>_<device>.json
+```
+
+The mount editor's export button packages device files only; an addon with a plugin is put together by hand. The
+DLL is a client plugin, so every player needs it, as they need COTI's own client.
 
 ## Schema 1 is permanent
 
@@ -408,6 +469,6 @@ addon**). The panel on the right shows only what is selected.
    `requires` into a 7z with a README, ready to extract over an SPT install.
 
 Saving marks the device `tuned: true`, which also makes it the seed for goggles discovered after
-it. Auto-discovery's rough guess means a new goggle can always take a COTI, but a guess is not a
+it. Auto-discovery's rough guess gives a new goggle a COTI to pose, but a guess is not a
 measured pose. Check every tube in a raid before shipping a file, and do not hand-flip `tuned` to
 `true` without having looked at it.

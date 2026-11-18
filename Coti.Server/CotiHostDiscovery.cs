@@ -4,6 +4,8 @@ using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
+using SPTarkov.Server.Core.Models.Eft.Profile;
+using SPTarkov.Server.Core.Servers;
 // SPTarkov.Server.Core.Models.Eft.Common.Tables also declares a type named "Path" (a lockpicking
 // path record), which collides with System.IO.Path once both usings are in scope.
 using Path = System.IO.Path;
@@ -11,8 +13,12 @@ using Path = System.IO.Path;
 namespace Coti.Server;
 
 /// <summary>
-/// Writes a seeded stub for every night vision item that has no device file, so a new goggle is
-/// visible-but-unposed rather than absent. Stubs are tuned: false and excluded from a release.
+/// With hostEditor.autoDiscover on (an authoring aid, off by default), writes a seeded stub for every
+/// night vision item that has no device file, so a new goggle is visible-but-unposed rather than absent. Stubs are
+/// tuned: false and excluded from a release.
+///
+/// With it off, a goggle with no device file gets no COTI slot and one log line saying so, unless a saved profile
+/// still holds something in one of its COTI slots: those slots are kept, in memory only, so the profile still loads.
 /// </summary>
 [Injectable( InjectionType.Singleton, TypePriority = CotiLoadOrder.PostLoad + 25 )]
 public class CotiHostDiscovery : IOnLoad
@@ -21,6 +27,7 @@ public class CotiHostDiscovery : IOnLoad
   private readonly CotiDeviceStore deviceStore;
   private readonly CotiSlotInjector slotInjector;
   private readonly CotiServerConfig config;
+  private readonly SaveServer saveServer;
 
 #if SPT40
   private readonly DatabaseServer databaseServer;
@@ -30,26 +37,28 @@ public class CotiHostDiscovery : IOnLoad
 
   public CotiHostDiscovery(
       ISptLogger<CotiHostDiscovery> logger, DatabaseServer databaseServer, CotiDeviceStore deviceStore,
-      CotiSlotInjector slotInjector, CotiServerConfig config )
+      CotiSlotInjector slotInjector, CotiServerConfig config, SaveServer saveServer )
   {
     this.logger = logger;
     this.databaseServer = databaseServer;
     this.deviceStore = deviceStore;
     this.slotInjector = slotInjector;
     this.config = config;
+    this.saveServer = saveServer;
   }
 #else
   private readonly CotiTemplateTable templateTable;
 
   public CotiHostDiscovery(
       ISptLogger<CotiHostDiscovery> logger, CotiTemplateTable templateTable, CotiDeviceStore deviceStore,
-      CotiSlotInjector slotInjector, CotiServerConfig config )
+      CotiSlotInjector slotInjector, CotiServerConfig config, SaveServer saveServer )
   {
     this.logger = logger;
     this.templateTable = templateTable;
     this.deviceStore = deviceStore;
     this.slotInjector = slotInjector;
     this.config = config;
+    this.saveServer = saveServer;
   }
 #endif
 
@@ -64,7 +73,7 @@ public class CotiHostDiscovery : IOnLoad
   {
     if( !config.HostEditor.AutoDiscover )
     {
-      logger.Debug( "[COTI] Auto-discovery disabled (hostEditor.autoDiscover = false) - skipped." );
+      ReportUndeclared();
       return Task.CompletedTask;
     }
 
@@ -85,29 +94,14 @@ public class CotiHostDiscovery : IOnLoad
         if( snapshot.ByHostId.ContainsKey( id ) || !CotiNvgClassifier.IsNightVision( items, id, classified ) )
           continue;
 
-        var family = hostItem.Properties?.Mask;
-        var deviceName = UniqueName( SlugFromName( hostItem.Name, id ), namesInUse );
-        var seed = CotiMaskFamilies.SeedFor( family, snapshot.Devices, FamilyOf );
-
-        var stub = NewStub( id, deviceName, hostItem, seed.Mask );
-
-        if( !deviceStore.TryWriteFile( stub, out var writeError ) )
+        if( !TryStub( id, hostItem, snapshot, namesInUse, out var deviceName, out var writeError ) )
         {
           logger.Warning( $"[COTI] Auto-discovery could not write a stub for {id}: {writeError}" );
           continue;
         }
 
-        namesInUse.Add( deviceName );
         discovered++;
-
-        // A stub is v1: discovery never writes tubes.
-        slotInjector.InjectInto( id, stub.DisplayName ?? deviceName, layout: null );
-
-        logger.Debug(
-            $"[COTI] Discovered {deviceName} ({id}), family {family ?? "(none declared)"} - " +
-            ( seed.SeededFrom != null
-                ? $"seeded from tuned device \"{seed.SeededFrom.Device}\""
-                : "no tuned device in this family - using the fallback circle" ) );
+        logger.Debug( $"[COTI] Discovered {deviceName} ({id})" );
       }
     }
     finally
@@ -123,6 +117,156 @@ public class CotiHostDiscovery : IOnLoad
       logger.Debug( "[COTI] Auto-discovery: no new night vision hosts found." );
 
     return Task.CompletedTask;
+  }
+
+  /// <summary>Night vision items with no device file, by name, for the mount editor's "Create device file".</summary>
+  public IReadOnlyList<( string Id, string Name )> Undeclared()
+  {
+    var items = new CotiTemplateItemView( templateTable );
+    var snapshot = deviceStore.Current;
+    var classified = new Dictionary<string, bool>();
+    var found = new List<( string Id, string Name )>();
+
+    foreach( var ( key, hostItem ) in templateTable.Items )
+    {
+      var id = (string) key;
+      if( !snapshot.ByHostId.ContainsKey( id ) && CotiNvgClassifier.IsNightVision( items, id, classified ) )
+        found.Add( ( id, hostItem.Name ?? id ) );
+    }
+
+    found.Sort( ( a, b ) => string.CompareOrdinal( a.Name, b.Name ) );
+    return found;
+  }
+
+  /// <summary>
+  /// Writes the starting device file for one night vision item that has none, as auto-discovery would, gives the item
+  /// its COTI slot in the live database and reloads the store. A game already running sees the slot after a relaunch.
+  /// </summary>
+  public bool TryCreateDevice( string id, out string deviceName, out string error )
+  {
+    deviceName = string.Empty;
+    var snapshot = deviceStore.Current;
+
+    if( !MongoId.IsValidMongoId( id ) || !templateTable.Items.TryGetValue( new MongoId( id ), out var hostItem ) )
+    {
+      error = $"{id} is not an item in this database";
+      return false;
+    }
+
+    if( snapshot.ByHostId.ContainsKey( id ) )
+    {
+      error = $"{hostItem.Name ?? id} already has a device file";
+      return false;
+    }
+
+    if( !CotiNvgClassifier.IsNightVision( new CotiTemplateItemView( templateTable ), id, new Dictionary<string, bool>() ) )
+    {
+      error = $"{hostItem.Name ?? id} is not a night vision item";
+      return false;
+    }
+
+    if( !TryStub( id, hostItem, snapshot, DeviceNamesInUse( snapshot ), out deviceName, out error ) )
+      return false;
+
+    deviceStore.Reload();
+    logger.Info( $"[COTI] Device file {deviceName} created for {hostItem.Name ?? id} ({id}) from the mount editor" );
+    return true;
+  }
+
+  /// <summary>
+  /// Writes an untuned stub for one host, seeded from a tuned device of the same mask family, and gives the host its
+  /// COTI slot. Discovery and the mount editor both come through here.
+  /// </summary>
+  private bool TryStub(
+      string id, TemplateItem hostItem, CotiDeviceSnapshot snapshot, HashSet<string> namesInUse,
+      out string deviceName, out string error )
+  {
+    var family = hostItem.Properties?.Mask;
+    deviceName = UniqueName( SlugFromName( hostItem.Name, id ), namesInUse );
+    var seed = CotiMaskFamilies.SeedFor( family, snapshot.Devices, FamilyOf );
+    var stub = NewStub( id, deviceName, hostItem, seed.Mask );
+
+    if( !deviceStore.TryWriteFile( stub, out error ) )
+      return false;
+
+    namesInUse.Add( deviceName );
+
+    // A stub is v1: it never carries tubes.
+    slotInjector.InjectInto( id, stub.DisplayName ?? deviceName, layout: null );
+    return true;
+  }
+
+  /// <summary>
+  /// Every night vision item with no device file: one line each, and its COTI slots kept only where a saved profile
+  /// still holds something in them.
+  /// </summary>
+  private void ReportUndeclared()
+  {
+    var items = new CotiTemplateItemView( templateTable );
+    var snapshot = deviceStore.Current;
+    var classified = new Dictionary<string, bool>();
+    HashSet<string>? occupied = null;
+
+    foreach( var ( key, hostItem ) in templateTable.Items )
+    {
+      var id = (string) key;
+
+      if( snapshot.ByHostId.ContainsKey( id ) || !CotiNvgClassifier.IsNightVision( items, id, classified ) )
+        continue;
+
+      occupied ??= HostsWithOccupiedCotiSlots();
+      var name = hostItem.Name ?? id;
+
+      if( occupied.Contains( id ) )
+      {
+        slotInjector.InjectInto( id, name, layout: null );
+        logger.Warning(
+            $"[COTI] {name} ({id}) has no device file, but a saved profile has a COTI fitted to one. Its COTI slot is " +
+            "kept so that profile loads, but the COTI draws nothing on it. Install the host's addon, or take the COTI off." );
+      }
+      else
+      {
+        logger.Info( $"[COTI] {name} ({id}) has no device file, so it takes no COTI. See ADDONS.md to add one." );
+      }
+    }
+  }
+
+  /// <summary>
+  /// Templates holding something in a COTI slot in any saved item list: both characters' inventories, mail,
+  /// insurance returns and equipment builds. Profiles are loaded at SaveCallbacks, well before PostLoad.
+  /// </summary>
+  private HashSet<string> HostsWithOccupiedCotiSlots()
+  {
+    var hosts = new HashSet<string>();
+
+    foreach( var profile in saveServer.GetProfiles().Values )
+    {
+      Collect( profile.CharacterData?.PmcData?.Inventory?.Items, hosts );
+      Collect( profile.CharacterData?.ScavData?.Inventory?.Items, hosts );
+
+      foreach( var insurance in profile.InsuranceList ?? Enumerable.Empty<Insurance>() )
+        Collect( insurance.Items, hosts );
+
+      foreach( var dialogue in profile.DialogueRecords?.Values ?? Enumerable.Empty<Dialogue>() )
+      {
+        foreach( var message in dialogue.Messages ?? Enumerable.Empty<Message>() )
+          Collect( message.Items?.Data, hosts );
+      }
+
+      foreach( var build in profile.UserBuildData?.EquipmentBuilds ?? Enumerable.Empty<EquipmentBuild>() )
+        Collect( build.Items, hosts );
+    }
+
+    return hosts;
+  }
+
+  private static void Collect( List<Item>? items, HashSet<string> hosts )
+  {
+    if( items == null || items.Count == 0 )
+      return;
+
+    var saved = items.ConvertAll( i => new CotiSavedItem( i.Id.ToString(), i.Template.ToString(), i.ParentId, i.SlotId ) );
+    CotiSlotUse.CollectHostsInUse( saved, hosts );
   }
 
   /// <summary>

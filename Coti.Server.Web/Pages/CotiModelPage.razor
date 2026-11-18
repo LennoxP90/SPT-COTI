@@ -8,6 +8,9 @@
 @inject IJSRuntime JS
 @inject CotiDeviceStore DeviceStore
 @inject CotiDevicePublisher Publisher
+@inject CotiHostDiscovery Discovery
+@inject Coti.Server.Web.Meshes.CotiHostMeshSync MeshSync
+@inject NavigationManager Navigation
 
 <PageTitle>ECOTI NVG mount editor</PageTitle>
 
@@ -53,6 +56,29 @@
         </MudStack>
       </MudStack>
     </MudPaper>
+
+    @if (undeclared.Count > 0)
+    {
+      @* Goggles take a COTI only through a device file. This writes the starting one, posed from a goggle of the same
+         family, for the editor to tune. *@
+      <MudPaper Class="pa-3 mb-3" Elevation="1">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+          <MudText Typo="Typo.body2">
+            @undeclared.Count night vision @(undeclared.Count == 1 ? "item has" : "items have") no device file and
+            @(undeclared.Count == 1 ? "takes" : "take") no COTI.
+          </MudText>
+          <MudSelect T="string" @bind-Value="newHostId" Dense="true" Variant="Variant.Outlined" Style="min-width:300px"
+                     Label="Goggle with no device file">
+            @foreach (var u in undeclared)
+            {
+              <MudSelectItem T="string" Value="@u.Id">@u.Name</MudSelectItem>
+            }
+          </MudSelect>
+          <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary"
+                     OnClick="CreateDevice" Disabled="@(newHostId is null || creating)">Create device file</MudButton>
+        </MudStack>
+      </MudPaper>
+    }
 
     @if (withoutMesh.Count > 0)
     {
@@ -166,8 +192,38 @@
   private string? message;
   private Severity severity = Severity.Success;
 
+  private IReadOnlyList<(string Id, string Name)> undeclared = Array.Empty<(string, string)>();
+  private string? newHostId;
+  private bool creating;
+
+  /// <summary>
+  /// Writes the starting device file for the picked goggle, builds its preview mesh and reloads the page on it. The game
+  /// sees the new COTI slot after a relaunch.
+  /// </summary>
+  private async Task CreateDevice()
+  {
+    if (newHostId is null)
+    {
+      return;
+    }
+
+    creating = true;
+    if (!Discovery.TryCreateDevice(newHostId, out var deviceName, out var error))
+    {
+      creating = false;
+      message = $"No device file was written: {error}";
+      severity = Severity.Error;
+      return;
+    }
+
+    await MeshSync.OnLoadAsync();
+    Navigation.NavigateTo($"/coti/model?host={newHostId}&created={Uri.EscapeDataString(deviceName)}", forceLoad: true);
+  }
+
   protected override void OnInitialized()
   {
+    undeclared = Discovery.Undeclared();
+
     // Only hosts with a shipped mesh. A device without one is named rather than dropped.
     foreach (var device in DeviceStore.Current.ResolvedDevices)
     {
@@ -205,6 +261,20 @@
     }
 
     hostId = deviceList.FirstOrDefault()?.Hosts.FirstOrDefault().Id;
+
+    // Back from Create device file: open on the new device and say what happens next.
+    var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
+    if (query.TryGetValue("host", out var created) && deviceList.Any(d => d.Hosts.Any(h => h.Id == created.ToString())))
+    {
+      hostId = created.ToString();
+    }
+
+    if (query.TryGetValue("created", out var name))
+    {
+      message = $"Device file {name} created. Pose its COTI here and Save and push; relaunch the game to get the slot.";
+      severity = Severity.Success;
+    }
+
     type = TypeOf(CurrentDeviceFile);
   }
 

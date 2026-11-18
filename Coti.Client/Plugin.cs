@@ -293,6 +293,8 @@ namespace Coti.Client
         CotiOpticOverlayCompositor.Sync();
         // After the 1x overlay, whose material values it copies.
         CotiCollimatorCompositor.Sync();
+        // Last, so an addon's handler sees the frame's settled state.
+        Api.CotiApi.Tick();
       }
     }
 

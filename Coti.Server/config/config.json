@@ -24,7 +24,7 @@
     "onBots": false
   },
   "hostEditor": {
-    "autoDiscover": true
+    "autoDiscover": false
   },
   "flea": {
     "playerSellable": false

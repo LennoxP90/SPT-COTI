@@ -223,12 +223,12 @@ public class CotiLootSettings
 public class CotiHostEditorSettings
 {
   /// <summary>
-  /// When true (the default), CotiHostDiscovery stubs a Tuned:false device for every night
-  /// vision host the item table declares that no device file already covers. False supports exactly
-  /// the shipped set.
+  /// When true, CotiHostDiscovery stubs a Tuned:false device for every night vision host the item table declares
+  /// that no device file already covers: a starting point for posing a new goggle in the mount editor. False (the
+  /// default) supports exactly the hosts with a device file, vanilla or from an addon.
   /// </summary>
   [JsonPropertyName( "autoDiscover" )]
-  public bool AutoDiscover { get; set; } = true;
+  public bool AutoDiscover { get; set; }
 }
 
 public class CotiFleaSettings
