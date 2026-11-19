@@ -87,7 +87,7 @@ namespace Coti.Client
       TryEnable( nameof( GoggleToggleSuppressPatch ), () => new GoggleToggleSuppressPatch() );
       EnableRiserLightFilter();
       EnableAmandsFlashlightHook();
-      EnablePipScopeHole();
+      EnablePipBypass();
 
       // Enabled unconditionally rather than only in raid: the device has to appear in the
       // inventory and on the character preview in the menu, which is where AttachMods runs most.
@@ -162,18 +162,15 @@ namespace Coti.Client
         Log.LogInfo( $"[COTI] AmandsGraphics is loaded without {AmandsFlashlightHookPatch.HookType}; nothing to contain" );
     }
 
-    private static void EnablePipScopeHole()
+    private static void EnablePipBypass()
     {
       if( !PipDisabler )
         return;
 
-      if( PipSkipMeshCutPatch.Target() != null && PipNoReticleOccludersPatch.Target() != null )
-      {
-        TryEnable( nameof( PipSkipMeshCutPatch ), () => new PipSkipMeshCutPatch() );
-        TryEnable( nameof( PipNoReticleOccludersPatch ), () => new PipNoReticleOccludersPatch() );
-      }
+      if( PipLeavesOurScopesPatch.Target() != null )
+        TryEnable( nameof( PipLeavesOurScopesPatch ), () => new PipLeavesOurScopesPatch() );
       else
-        Log.LogInfo( "[COTI] PiP-Disabler is loaded without its mesh cut or reticle occluders where 2.1.0 has them; its cut stays on our scopes" );
+        Log.LogWarning( "[COTI] PiP-Disabler is loaded without the bypass check 2.1.0 has; it takes scopes on our rings and risers, which may then show no heat" );
     }
 
     private static void TryEnable( string name, Func<ModulePatch> create )
