@@ -38,6 +38,7 @@ Modelled on the Safran DSI AN/PAS-29B.
 - **Around a scope, never in it.** The goggle sensor sits on your helmet and cannot see through a scope, so when you
   aim one the goggle view keeps its heat all around it, cut off exactly where the scope itself covers it, and the
   outer tubes of a quad keep theirs. Inside the scope it is the scope's own picture, or a TSR's thermal image (below).
+  A variable scope turned down to 1x is still a scope: no goggle heat shows inside it at any zoom.
   Red dots and other open sights keep the goggle heat through their window. Behind a thermal sight such as the
   REAP-IR or the RS-32, the imager stands down and the sight's own picture is left alone.
 - **Its own power.** `Ctrl+N` toggles the imager independently of the goggles, like the real device's
