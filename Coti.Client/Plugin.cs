@@ -171,6 +171,9 @@ namespace Coti.Client
         TryEnable( nameof( PipLeavesOurScopesPatch ), () => new PipLeavesOurScopesPatch() );
       else
         Log.LogWarning( "[COTI] PiP-Disabler is loaded without the bypass check 2.1.0 has; it takes scopes on our rings and risers, which may then show no heat" );
+
+      if( DerpLeavesOurScopesPatch.Target() != null )
+        TryEnable( nameof( DerpLeavesOurScopesPatch ), () => new DerpLeavesOurScopesPatch() );
     }
 
     private static void TryEnable( string name, Func<ModulePatch> create )

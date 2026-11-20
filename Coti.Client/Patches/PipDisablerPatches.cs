@@ -30,4 +30,31 @@ namespace Coti.Client.Patches
         __result = true;
     }
   }
+
+  /// <summary>
+  /// DynamicExternalResolution switches the game's upscaler to its own mode while a scope is aimed, and PiP-Disabler lets
+  /// it do so for every scope it leaves alone, which since <see cref="PipLeavesOurScopesPatch"/> includes ours. With
+  /// DLSS or FSR on, each switch restarts the upscaler and the whole picture goes black for a couple of frames, on the way
+  /// in and again on the way out, and the lower mode smears the heat outlines. A scope on a ring or riser keeps the
+  /// player's own setting, as PiP-Disabler's own scopes do.
+  /// </summary>
+  public class DerpLeavesOurScopesPatch : ModulePatch
+  {
+    internal static MethodBase Target()
+    {
+      var patches = AccessTools.TypeByName( "DynamicExternalResolution.DynamicExternalResolutionPatches" );
+      return patches != null ? AccessTools.Method( patches, "SetResolutionAim" ) : null;
+    }
+
+    protected override MethodBase GetTargetMethod()
+    {
+      return Target();
+    }
+
+    [PatchPrefix]
+    private static bool Prefix()
+    {
+      return !ThermalRiserState.AimedThrough;
+    }
+  }
 }
