@@ -16,7 +16,6 @@ public class CotiServerConfig
 
   public CotiTraderSettings Trader { get; } = new();
   public CotiLootSettings Loot { get; } = new();
-  public CotiHostEditorSettings HostEditor { get; } = new();
   public CotiFleaSettings Flea { get; } = new();
   public CotiRiserSettings Riser { get; } = new();
 
@@ -67,7 +66,6 @@ public class CotiServerConfig
       {
         Trader = file?.Trader ?? new CotiTraderSettings(),
         Loot = file?.Loot ?? new CotiLootSettings(),
-        HostEditor = file?.HostEditor ?? new CotiHostEditorSettings(),
         Flea = file?.Flea ?? new CotiFleaSettings(),
         Riser = new CotiRiserSettings
         {
@@ -105,9 +103,6 @@ public class CotiServerConfig
       Loot.WeightFraction = file.Loot.WeightFraction;
       Loot.OnBots = file.Loot.OnBots;
     }
-
-    if( file.HostEditor is not null )
-      HostEditor.AutoDiscover = file.HostEditor.AutoDiscover;
 
     if( file.Flea is not null )
       Flea.PlayerSellable = file.Flea.PlayerSellable;
@@ -154,7 +149,6 @@ public class CotiServerConfig
     {
       Trader = Trader,
       Loot = Loot,
-      HostEditor = HostEditor,
       Flea = Flea,
       Riser = Riser
     };
@@ -178,9 +172,6 @@ public class CotiConfigFile
 
   [JsonPropertyName( "loot" )]
   public CotiLootSettings Loot { get; set; } = new();
-
-  [JsonPropertyName( "hostEditor" )]
-  public CotiHostEditorSettings HostEditor { get; set; } = new();
 
   [JsonPropertyName( "flea" )]
   public CotiFleaSettings Flea { get; set; } = new();
@@ -218,17 +209,6 @@ public class CotiLootSettings
   /// </summary>
   [JsonPropertyName( "onBots" )]
   public bool OnBots { get; set; }
-}
-
-public class CotiHostEditorSettings
-{
-  /// <summary>
-  /// When true, CotiHostDiscovery stubs a Tuned:false device for every night vision host the item table declares
-  /// that no device file already covers: a starting point for posing a new goggle in the mount editor. False (the
-  /// default) supports exactly the hosts with a device file, vanilla or from an addon.
-  /// </summary>
-  [JsonPropertyName( "autoDiscover" )]
-  public bool AutoDiscover { get; set; }
 }
 
 public class CotiFleaSettings

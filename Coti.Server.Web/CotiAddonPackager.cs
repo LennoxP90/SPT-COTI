@@ -132,8 +132,8 @@ public static class CotiAddonPackager
     sb.AppendLine();
     sb.AppendLine("## If you already played without this addon");
     sb.AppendLine();
-    sb.AppendLine("COTI will have auto-discovered those devices and written a stub with a guessed");
-    sb.AppendLine("pose, so they worked but sat wrong. Installing this takes precedence: a measured");
+    sb.AppendLine("An older COTI may have auto-discovered those devices and written a stub with a");
+    sb.AppendLine("guessed pose, so they worked but sat wrong. Installing this takes precedence: a measured");
     sb.AppendLine("pose always beats a discovered guess, and the log names the superseded stub.");
     sb.AppendLine();
     if (devices.Any(d => d.IsMultiTube))

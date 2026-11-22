@@ -7,7 +7,7 @@ file you drop in **by hand** is live at the next server load, because nothing re
 on its own.
 
 This document is for anyone who wants to add a device COTI does not already support, or
-override the pose COTI's own auto-discovery guessed for one.
+override the pose of one it already supports.
 
 ## Where files live
 
@@ -178,7 +178,7 @@ device to that item's new id and logs the change so you can update the file. If 
 item shares that prefab path, the match is ambiguous and COTI skips it rather than guessing
 wrong.
 
-Fill in `prefab` for anything you did not get directly from COTI's own auto-discovered stub.
+Fill in `prefab` for anything you did not get directly from a file made with **Create device file**.
 It is what keeps your addon working across the host mod's future updates without you having to
 save it again.
 
@@ -237,12 +237,10 @@ The easiest way is to let COTI find them for you. Install the host mod and start
 night vision item that has no device file, with its id. Then open the mount editor (ECOTI, NVG mount editor), pick the
 goggle under "Goggle with no device file" and press **Create device file**. COTI writes a starting file with `id` and
 `prefab` filled in from the live item table, posed from a goggle of the same family, and opens it for posing. The game
-sees the new COTI slot after a relaunch. (`"autoDiscover": true` under `hostEditor` in `config/config.json` still
-writes one for every such goggle at once.) Open that stub in
-`nvghostcompat/`, copy the values out, and either tune the stub in place or start your own file
-from them.
+sees the new COTI slot after a relaunch. Open that file in `nvghostcompat/`, copy the values out,
+and either tune it in place or start your own file from them.
 
-If a device is not auto-discovered - most likely because it is not classified as an NVG - you
+If a device is not listed there - most likely because it is not classified as an NVG - you
 can still find its ids in the host mod's own database files (commonly a
 `db/CustomItems/*.json` or similar under the mod's own folder), or in the server's startup log
 where the item database is described.
@@ -323,13 +321,13 @@ WTT-CAG's uses `nvg_actinblack_dtnvg.bundle` - different mesh, different pose).
 Keeping them out of the mod means a stock install carries no devices it can never use, and a
 wrong pose can be corrected without waiting for a COTI release.
 
-## Goggles with no device file (auto-discovery off by default)
+## Goggles with no device file (no auto-discovery)
 
 Up to 3.5.1, COTI wrote a rough, untuned stub for every night vision item it found without a device file, so every
-modded goggle took a COTI whether or not anyone had posed it. That now happens only with `"autoDiscover": true`
-under `hostEditor` in `config/config.json`, as a starting point for posing a new goggle. By default a goggle takes a
-COTI only with a device file: COTI's vanilla files, an addon's, or one made with **Create device file** in the mount
-editor.
+modded goggle took a COTI whether or not anyone had posed it. 3.5.2 to 3.5.4 turned that off by default behind a
+`hostEditor.autoDiscover` setting; the setting is now gone too, so nothing turns it back on, and an old `hostEditor`
+block left in `config/config.json` is ignored. A goggle takes a COTI only with a device
+file: COTI's vanilla files, an addon's, or one made with **Create device file** in the mount editor.
 
 What that means when you update:
 
@@ -468,7 +466,7 @@ addon**). The panel on the right shows only what is selected.
 6. **Export addon.** For a goggle from another mod, this packages every device that names the same
    `requires` into a 7z with a README, ready to extract over an SPT install.
 
-Saving marks the device `tuned: true`, which also makes it the seed for goggles discovered after
-it. Auto-discovery's rough guess gives a new goggle a COTI to pose, but a guess is not a
+Saving marks the device `tuned: true`, which also makes it the seed for device files created after
+it. Create device file's rough guess gives a new goggle a COTI to pose, but a guess is not a
 measured pose. Check every tube in a raid before shipping a file, and do not hand-flip `tuned` to
 `true` without having looked at it.

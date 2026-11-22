@@ -13,12 +13,9 @@ using Path = System.IO.Path;
 namespace Coti.Server;
 
 /// <summary>
-/// With hostEditor.autoDiscover on (an authoring aid, off by default), writes a seeded stub for every
-/// night vision item that has no device file, so a new goggle is visible-but-unposed rather than absent. Stubs are
-/// tuned: false and excluded from a release.
-///
-/// With it off, a goggle with no device file gets no COTI slot and one log line saying so, unless a saved profile
-/// still holds something in one of its COTI slots: those slots are kept, in memory only, so the profile still loads.
+/// A goggle with no device file gets no COTI slot and one log line saying so, unless a saved profile still holds
+/// something in one of its COTI slots: those slots are kept, in memory only, so the profile still loads. A starting
+/// device file for a new goggle is written only on request, from the mount editor's "Create device file".
 /// </summary>
 [Injectable( InjectionType.Singleton, TypePriority = CotiLoadOrder.PostLoad + 25 )]
 public class CotiHostDiscovery : IOnLoad
@@ -26,7 +23,6 @@ public class CotiHostDiscovery : IOnLoad
   private readonly ISptLogger<CotiHostDiscovery> logger;
   private readonly CotiDeviceStore deviceStore;
   private readonly CotiSlotInjector slotInjector;
-  private readonly CotiServerConfig config;
   private readonly SaveServer saveServer;
 
 #if SPT40
@@ -37,13 +33,12 @@ public class CotiHostDiscovery : IOnLoad
 
   public CotiHostDiscovery(
       ISptLogger<CotiHostDiscovery> logger, DatabaseServer databaseServer, CotiDeviceStore deviceStore,
-      CotiSlotInjector slotInjector, CotiServerConfig config, SaveServer saveServer )
+      CotiSlotInjector slotInjector, SaveServer saveServer )
   {
     this.logger = logger;
     this.databaseServer = databaseServer;
     this.deviceStore = deviceStore;
     this.slotInjector = slotInjector;
-    this.config = config;
     this.saveServer = saveServer;
   }
 #else
@@ -51,13 +46,12 @@ public class CotiHostDiscovery : IOnLoad
 
   public CotiHostDiscovery(
       ISptLogger<CotiHostDiscovery> logger, CotiTemplateTable templateTable, CotiDeviceStore deviceStore,
-      CotiSlotInjector slotInjector, CotiServerConfig config, SaveServer saveServer )
+      CotiSlotInjector slotInjector, SaveServer saveServer )
   {
     this.logger = logger;
     this.templateTable = templateTable;
     this.deviceStore = deviceStore;
     this.slotInjector = slotInjector;
-    this.config = config;
     this.saveServer = saveServer;
   }
 #endif
@@ -71,51 +65,7 @@ public class CotiHostDiscovery : IOnLoad
 
   private Task LoadAsync( CancellationToken cancellationToken )
   {
-    if( !config.HostEditor.AutoDiscover )
-    {
-      ReportUndeclared();
-      return Task.CompletedTask;
-    }
-
-    var items = new CotiTemplateItemView( templateTable );
-    // Stubs are written without reloading, so this stays the pre-discovery table. Exact: each id is
-    // visited once, and stubs are untuned so they never seed another stub's mask.
-    var snapshot = deviceStore.Current;
-    var classified = new Dictionary<string, bool>();
-    var namesInUse = DeviceNamesInUse( snapshot );
-    var discovered = 0;
-
-    try
-    {
-      foreach( var ( key, hostItem ) in templateTable.Items )
-      {
-        var id = (string) key;
-
-        if( snapshot.ByHostId.ContainsKey( id ) || !CotiNvgClassifier.IsNightVision( items, id, classified ) )
-          continue;
-
-        if( !TryStub( id, hostItem, snapshot, namesInUse, out var deviceName, out var writeError ) )
-        {
-          logger.Warning( $"[COTI] Auto-discovery could not write a stub for {id}: {writeError}" );
-          continue;
-        }
-
-        discovered++;
-        logger.Debug( $"[COTI] Discovered {deviceName} ({id})" );
-      }
-    }
-    finally
-    {
-      // Even if a later host throws, the stubs already on disk must reach the store.
-      if( discovered > 0 )
-        deviceStore.Reload();
-    }
-
-    if( discovered > 0 )
-      logger.Success( $"[COTI] Auto-discovery: {discovered} new night vision host(s) stubbed." );
-    else
-      logger.Debug( "[COTI] Auto-discovery: no new night vision hosts found." );
-
+    ReportUndeclared();
     return Task.CompletedTask;
   }
 
@@ -139,7 +89,7 @@ public class CotiHostDiscovery : IOnLoad
   }
 
   /// <summary>
-  /// Writes the starting device file for one night vision item that has none, as auto-discovery would, gives the item
+  /// Writes the starting device file for one night vision item that has none, gives the item
   /// its COTI slot in the live database and reloads the store. A game already running sees the slot after a relaunch.
   /// </summary>
   public bool TryCreateDevice( string id, out string deviceName, out string error )
@@ -175,7 +125,7 @@ public class CotiHostDiscovery : IOnLoad
 
   /// <summary>
   /// Writes an untuned stub for one host, seeded from a tuned device of the same mask family, and gives the host its
-  /// COTI slot. Discovery and the mount editor both come through here.
+  /// COTI slot.
   /// </summary>
   private bool TryStub(
       string id, TemplateItem hostItem, CotiDeviceSnapshot snapshot, HashSet<string> namesInUse,
@@ -312,7 +262,7 @@ public class CotiHostDiscovery : IOnLoad
   /// <summary>
   /// The item's own _name is already a filesystem-safe slug for every real NVG in the database
   /// (nvg_alfa_pnv-10t, nvg_57em, nvg_l3_gpnvg-18_anvis, ...). This guards against a modded
-  /// item's name that is not, so a discovery never fails TryWriteFile's filename check.
+  /// item's name that is not, so a new device file never fails TryWriteFile's filename check.
   /// </summary>
   private static string SlugFromName( string? name, string fallbackId )
   {

@@ -46,8 +46,8 @@ rather than warning about items it cannot find.
 
 ## If you already played without this addon
 
-COTI will have auto-discovered those goggles and written itself a stub with a guessed pose, so they
-worked but sat wrong. Installing this takes precedence automatically - a measured pose always beats
+An older COTI may have auto-discovered those goggles and written itself a stub with a guessed pose,
+so they worked but sat wrong. Installing this takes precedence automatically - a measured pose always beats
 a discovered guess - and the log names the superseded stub so you can delete it.
 
 ## Before going back to an older COTI

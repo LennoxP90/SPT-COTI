@@ -7,8 +7,8 @@ using SPTarkov.Server.Web.Services;
 namespace Coti.Server;
 
 /// <summary>
-/// Puts config/config.json into the server's web Config Editor. 4.1 only. Three registrations
-/// over the one file, each naming what a change to its section needs and hiding the other two
+/// Puts config/config.json into the server's web Config Editor. 4.1 only. Two registrations
+/// over the one file, each naming what a change to its section needs and hiding the other
 /// sections from the Controls tab.
 /// </summary>
 [Injectable( InjectionType.Singleton )]
@@ -19,24 +19,18 @@ public class CotiWebConfigProvider(
 {
   private const string TraderAndFlea = "coti-trader-flea";
   private const string Loot = "coti-loot";
-  private const string HostEditor = "coti-host-editor";
 
   public IEnumerable<ConfigEditorConfigRegistration> GetConfigs()
   {
     yield return Build(
         TraderAndFlea,
         "ECOTI - trader and flea (relaunch the game client)",
-        [ "/loot", "/hostEditor", "/riser/loot" ] );
+        [ "/loot", "/riser/loot" ] );
 
     yield return Build(
         Loot,
         "ECOTI - loot (applies at the next raid)",
-        [ "/trader", "/flea", "/hostEditor", "/riser/trader" ] );
-
-    yield return Build(
-        HostEditor,
-        "ECOTI - host editor (needs a server restart)",
-        [ "/trader", "/flea", "/loot", "/riser" ] );
+        [ "/trader", "/flea", "/riser/trader" ] );
   }
 
   private ConfigEditorConfigRegistration Build( string id, string displayName, string[] hidden )

@@ -6,7 +6,7 @@ namespace Coti.Server;
 
 /// <summary>
 /// Pushes edited settings onto the live server. Shared by the web config editor entry and the
-/// ECOTI page. hostEditor is read once during load and is not re-applied here.
+/// ECOTI page.
 /// </summary>
 [Injectable( InjectionType.Singleton )]
 public class CotiConfigApplier
