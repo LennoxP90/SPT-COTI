@@ -56,6 +56,10 @@ namespace Coti.Client
     [JsonProperty( "renderSearchlightHeat" )]
     public bool RenderSearchlightHeat { get; set; } = true;
 
+    /// <summary>Whether dead bodies read cold, at the air's temperature, in every COTI thermal image.</summary>
+    [JsonProperty( "hideDeadBodies" )]
+    public bool HideDeadBodies { get; set; }
+
     /// <summary>
     /// Full mode's interior brightness under its full-brightness rim, in percent.
     /// </summary>

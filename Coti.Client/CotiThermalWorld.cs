@@ -1021,6 +1021,7 @@ namespace Coti.Client
         BodyCycle.Clear();
         BodyCycle.AddRange( world.AllAlivePlayersList );
         _bodyCursor = 0;
+        MarkCorpses( world, air );
       }
       var share = all ? BodyCycle.Count : ( BodyCycle.Count + BodyFrames - 1 ) / BodyFrames;
       var end = Mathf.Min( BodyCycle.Count, _bodyCursor + share );
@@ -1029,14 +1030,35 @@ namespace Coti.Client
         MarkBody( BodyCycle[_bodyCursor++], air );
     }
 
+    /// <summary>
+    /// Every dead body EFT has unregistered, once a sweep. Under Fika a dead bot stays registered, and so in
+    /// AllAlivePlayersList, where the living sweep reaches it; MarkBody treats both the same.
+    /// </summary>
+    private static void MarkCorpses( GameWorld world, float air )
+    {
+      foreach( var player in world.AllPlayersEverExisted )
+      {
+        var health = player != null ? player.HealthController : null;
+        if( health != null && !health.IsAlive )
+          MarkBody( player, air );
+      }
+    }
+
+    /// <summary>
+    /// A body's skin at its temperature (CotiBodyHeat.Celsius), or at the air's while it is dead and Hide Dead Bodies is
+    /// on, so it reads cold; off again, the living value comes back. EFT never rewrites a dead body's temperature
+    /// (ActiveHealthController.ChangeTemperature returns while dead), so a value written here stays.
+    /// </summary>
     private static void MarkBody( Player player, float air )
     {
       if( player == null )
         return;
+      var health = player.HealthController;
+      var cold = Plugin.Config.Image.HideDeadBodies && health != null && !health.IsAlive;
       var role = player.IsYourPlayer ? null : RoleOf( player );
       var skin = SkinOf( player );
       for( var i = 0; i < skin.HotObjects.Count; i++ )
-        SetCotiHeat( skin.Renderers[i], CotiBodyHeat.Celsius( role, skin.HotObjects[i].TemperatureCelsio, air ) );
+        SetCotiHeat( skin.Renderers[i], cold ? air : CotiBodyHeat.Celsius( role, skin.HotObjects[i].TemperatureCelsio, air ) );
     }
 
     private static Skin SkinOf( Player player )

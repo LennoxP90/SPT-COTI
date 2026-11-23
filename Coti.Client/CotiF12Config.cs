@@ -130,6 +130,10 @@ namespace Coti.Client
           "A lit searchlight shows hot at its lens and warm around it; every other lamp stays cold. Off, searchlights " +
           "read cold too." ) );
 
+      var hideDeadBodies = _file.Bind( "Image", "Hide Dead Bodies", image.HideDeadBodies, new ConfigDescription(
+          "Dead bodies read cold, at the air's temperature, in the goggle ECOTI, the thermal riser and the thermal scope " +
+          "rings alike. They still block what is behind them. Takes up to half a second to apply." ) );
+
       var outlineThickness = _file.Bind( "Image", "Outline Thickness (cm)", image.OutlineThicknessCm, new ConfigDescription(
           "The outline's thickness on the object itself. Projected through the view like the object, so it thins with " +
           "distance and thickens under magnification, never past Outline Width. 0 keeps a fixed width.",
@@ -175,6 +179,7 @@ namespace Coti.Client
         Current.Image.HeatBrightness = heatBrightness.Value;
         Current.Image.RenderFlashlightHeat = flashlightHeat.Value;
         Current.Image.RenderSearchlightHeat = searchlightHeat.Value;
+        Current.Image.HideDeadBodies = hideDeadBodies.Value;
 
         Current.ThermalCamera.Hz = hz.Value;
         Current.ThermalCamera.RangeMetres = range.Value;
